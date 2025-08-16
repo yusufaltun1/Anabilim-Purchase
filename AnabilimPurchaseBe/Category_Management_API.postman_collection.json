@@ -1,0 +1,249 @@
+{
+    "info": {
+        "name": "Category Management API",
+        "description": "API collection for Category Management operations",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Create Category",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Bilgisayar\",\n    \"code\": \"BIL\",\n    \"description\": \"Bilgisayar ve çevre birimleri\",\n    \"parentId\": null\n}"
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/categories",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories"]
+                },
+                "description": "Create a new category"
+            }
+        },
+        {
+            "name": "Create Sub Category",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Dizüstü Bilgisayar\",\n    \"code\": \"BIL_LAP\",\n    \"description\": \"Dizüstü bilgisayarlar\",\n    \"parentId\": 1\n}"
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/categories",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories"]
+                },
+                "description": "Create a new sub-category"
+            }
+        },
+        {
+            "name": "Update Category",
+            "request": {
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Güncellenmiş Bilgisayar\",\n    \"description\": \"Güncellenmiş bilgisayar kategorisi\",\n    \"parentId\": null,\n    \"isActive\": true\n}"
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/categories/1",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories", "1"]
+                },
+                "description": "Update an existing category"
+            }
+        },
+        {
+            "name": "Delete Category",
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/categories/1",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories", "1"]
+                },
+                "description": "Delete a category by ID"
+            }
+        },
+        {
+            "name": "Get Category by ID",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/categories/1",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories", "1"]
+                },
+                "description": "Get a category by ID"
+            }
+        },
+        {
+            "name": "Get Category by Code",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/categories/code/BIL",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories", "code", "BIL"]
+                },
+                "description": "Get a category by code"
+            }
+        },
+        {
+            "name": "Get All Categories",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/categories",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories"]
+                },
+                "description": "Get all categories"
+            }
+        },
+        {
+            "name": "Get Active Categories",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/categories/active",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories", "active"]
+                },
+                "description": "Get all active categories"
+            }
+        },
+        {
+            "name": "Get Root Categories",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/categories/root",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories", "root"]
+                },
+                "description": "Get all root categories (categories without parent)"
+            }
+        },
+        {
+            "name": "Get Sub Categories",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/categories/sub/1",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories", "sub", "1"]
+                },
+                "description": "Get all sub-categories of a parent category"
+            }
+        },
+        {
+            "name": "Search Categories",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/categories/search?name=bilgisayar",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "categories", "search"],
+                    "query": [
+                        {
+                            "key": "name",
+                            "value": "bilgisayar"
+                        }
+                    ]
+                },
+                "description": "Search categories by name"
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8080",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "your_jwt_token_here",
+            "type": "string"
+        }
+    ]
+} 

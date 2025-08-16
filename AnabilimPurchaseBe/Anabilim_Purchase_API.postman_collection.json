@@ -1,0 +1,880 @@
+{
+	"info": {
+		"_postman_id": "anabilim-purchase-api",
+		"name": "Anabilim Purchase API",
+		"description": "Anabilim Satın Alma Sistemi API'leri",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@anabilim.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login"]
+						},
+						"description": "Microsoft 365 ile login işlemi"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"admin@anabilim.com\"\n}"
+								},
+								"url": "{{base_url}}/api/auth/login"
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Login successful\",\n    \"data\": {\n        \"token\": \"eyJhbGciOiJIUzI1NiJ9...\",\n        \"user\": {\n            \"id\": 1,\n            \"email\": \"admin@anabilim.com\",\n            \"firstName\": \"Admin\",\n            \"lastName\": \"User\",\n            \"roles\": [\"SYSTEM_ADMIN\"]\n        }\n    }\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "User Management",
+			"item": [
+				{
+					"name": "Get All Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users"]
+						},
+						"description": "Tüm kullanıcıları listeler"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": "{{base_url}}/api/users"
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Kullanıcılar başarıyla getirildi\",\n    \"data\": [\n        {\n            \"id\": 1,\n            \"email\": \"john.doe@anabilim.com\",\n            \"firstName\": \"John\",\n            \"lastName\": \"Doe\",\n            \"displayName\": \"John Doe\",\n            \"department\": \"IT\",\n            \"position\": \"Developer\",\n            \"phone\": \"+90555123456\",\n            \"manager\": {\n                \"id\": 2,\n                \"email\": \"jane.smith@anabilim.com\",\n                \"firstName\": \"Jane\",\n                \"lastName\": \"Smith\",\n                \"displayName\": \"Jane Smith\",\n                \"position\": \"IT Manager\"\n            },\n            \"subordinates\": [],\n            \"roles\": [\"DEVELOPER\"],\n            \"isActive\": true,\n            \"createdAt\": \"2024-01-01T10:00:00\",\n            \"updatedAt\": \"2024-01-01T10:00:00\"\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Active Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/active",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "active"]
+						},
+						"description": "Aktif kullanıcıları listeler"
+					}
+				},
+				{
+					"name": "Get User by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "1"]
+						},
+						"description": "ID'ye göre kullanıcı getirir"
+					}
+				},
+				{
+					"name": "Get User by Email",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/email/john.doe@anabilim.com",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "email", "john.doe@anabilim.com"]
+						},
+						"description": "Email'e göre kullanıcı getirir"
+					}
+				},
+				{
+					"name": "Get Users by Department",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/department/IT",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "department", "IT"]
+						},
+						"description": "Departmana göre kullanıcıları listeler"
+					}
+				},
+				{
+					"name": "Get Users by Role",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/role/DEVELOPER",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "role", "DEVELOPER"]
+						},
+						"description": "Role göre kullanıcıları listeler"
+					}
+				},
+				{
+					"name": "Get Users by Manager",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/manager/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "manager", "1"]
+						},
+						"description": "Yöneticiye göre kullanıcıları (alt çalışanları) listeler"
+					}
+				},
+				{
+					"name": "Create User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john.doe@anabilim.com\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"department\": \"IT\",\n    \"position\": \"Developer\",\n    \"phone\": \"+90555123456\",\n    \"manager\": {\n        \"id\": 2\n    },\n    \"roles\": [\"DEVELOPER\"],\n    \"microsoft365Id\": \"m365_id_123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users"]
+						},
+						"description": "Yeni kullanıcı oluşturur"
+					}
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john.doe@anabilim.com\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"department\": \"IT\",\n    \"position\": \"Senior Developer\",\n    \"phone\": \"+90555123456\",\n    \"manager\": {\n        \"id\": 2\n    },\n    \"roles\": [\"DEVELOPER\", \"TEAM_LEAD\"],\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "1"]
+						},
+						"description": "Kullanıcı bilgilerini günceller"
+					}
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "1"]
+						},
+						"description": "Kullanıcıyı pasife alır (soft delete)"
+					}
+				},
+				{
+					"name": "Add Role to User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/1/roles/TEAM_LEAD",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "1", "roles", "TEAM_LEAD"]
+						},
+						"description": "Kullanıcıya rol ekler"
+					}
+				},
+				{
+					"name": "Remove Role from User",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/1/roles/TEAM_LEAD",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "1", "roles", "TEAM_LEAD"]
+						},
+						"description": "Kullanıcıdan rol kaldırır"
+					}
+				}
+			]
+		},
+		{
+			"name": "Approval Workflows",
+			"item": [
+				{
+					"name": "Get All Workflows",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/approval-workflows",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"approval-workflows"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Workflow by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/approval-workflows/{{workflow_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"approval-workflows",
+								"{{workflow_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Workflow",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"IT Ekipman Satınalma\",\n    \"description\": \"IT ekipmanları için onay süreci\",\n    \"minAmount\": 1000,\n    \"maxAmount\": 50000,\n    \"category\": \"IT_EQUIPMENT\",\n    \"steps\": [\n        {\n            \"stepOrder\": 1,\n            \"roleName\": \"MANAGER\",\n            \"approvalType\": \"APPROVE\",\n            \"isRequired\": true\n        },\n        {\n            \"stepOrder\": 2,\n            \"roleName\": \"PURCHASE_MANAGER\",\n            \"approvalType\": \"APPROVE\",\n            \"isRequired\": true\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/approval-workflows",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"approval-workflows"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Workflow",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"IT Ekipman Satınalma (Güncellenmiş)\",\n    \"description\": \"IT ekipmanları için güncellenmiş onay süreci\",\n    \"minAmount\": 1000,\n    \"maxAmount\": 75000,\n    \"category\": \"IT_EQUIPMENT\",\n    \"steps\": [\n        {\n            \"stepOrder\": 1,\n            \"roleName\": \"MANAGER\",\n            \"approvalType\": \"APPROVE\",\n            \"isRequired\": true\n        },\n        {\n            \"stepOrder\": 2,\n            \"roleName\": \"PURCHASE_MANAGER\",\n            \"approvalType\": \"APPROVE\",\n            \"isRequired\": true\n        },\n        {\n            \"stepOrder\": 3,\n            \"roleName\": \"SYSTEM_ADMIN\",\n            \"approvalType\": \"APPROVE\",\n            \"isRequired\": false\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/approval-workflows/{{workflow_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"approval-workflows",
+								"{{workflow_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Workflow",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/approval-workflows/{{workflow_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"approval-workflows",
+								"{{workflow_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Workflows by Category",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/approval-workflows/category/IT_EQUIPMENT",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"approval-workflows",
+								"category",
+								"IT_EQUIPMENT"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Workflows",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/approval-workflows/active",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"approval-workflows",
+								"active"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Application Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/actuator/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Roles",
+			"item": [
+				{
+					"name": "Get All Roles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/roles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"roles"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Role by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/roles/{{role_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"roles",
+								"{{role_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Role by Name",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/roles/name/SYSTEM_ADMIN",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"roles",
+								"name",
+								"SYSTEM_ADMIN"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Roles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/roles/active",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"roles",
+								"active"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get System Roles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/roles/system",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"roles",
+								"system"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Role",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"TEST_ROLE\",\n    \"displayName\": \"Test Rolü\",\n    \"description\": \"Test amaçlı oluşturulan rol\",\n    \"isActive\": true,\n    \"isSystemRole\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/roles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"roles"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Role",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"TEST_ROLE_UPDATED\",\n    \"displayName\": \"Test Rolü (Güncellenmiş)\",\n    \"description\": \"Test amaçlı güncellenmiş rol\",\n    \"isActive\": true,\n    \"isSystemRole\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/roles/{{role_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"roles",
+								"{{role_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Role",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/roles/{{role_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"roles",
+								"{{role_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Permission to Role",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/roles/{{role_id}}/permissions?permissionName=REQUEST_CREATE",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"roles",
+								"{{role_id}}",
+								"permissions"
+							],
+							"query": [
+								{
+									"key": "permissionName",
+									"value": "REQUEST_CREATE"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Permission from Role",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/roles/{{role_id}}/permissions?permissionName=REQUEST_CREATE",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"roles",
+								"{{role_id}}",
+								"permissions"
+							],
+							"query": [
+								{
+									"key": "permissionName",
+									"value": "REQUEST_CREATE"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Login response'undan token'ları al",
+					"if (pm.response.code === 200 && pm.request.url.path.includes('/api/auth/login')) {",
+					"    const response = pm.response.json();",
+					"    pm.environment.set('access_token', response.token);",
+					"    pm.environment.set('refresh_token', response.refreshToken);",
+					"    console.log('Tokenlar kaydedildi');",
+					"}",
+					"",
+					"// Workflow oluşturma response'undan ID'yi al",
+					"if (pm.response.code === 201 && pm.request.url.path.includes('/api/approval-workflows') && pm.request.method === 'POST') {",
+					"    const response = pm.response.json();",
+					"    pm.environment.set('workflow_id', response.id);",
+					"    console.log('Workflow ID kaydedildi:', response.id);",
+					"}",
+					"",
+					"// Role oluşturma response'undan ID'yi al",
+					"if (pm.response.code === 201 && pm.request.url.path.includes('/api/roles') && pm.request.method === 'POST') {",
+					"    const response = pm.response.json();",
+					"    pm.environment.set('role_id', response.id);",
+					"    console.log('Role ID kaydedildi:', response.id);",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "workflow_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "role_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "your_jwt_token_here",
+			"type": "string"
+		}
+	]
+} 

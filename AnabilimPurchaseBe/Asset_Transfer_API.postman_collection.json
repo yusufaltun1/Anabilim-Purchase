@@ -1,0 +1,537 @@
+{
+    "info": {
+        "name": "Asset Transfer Management API",
+        "description": "API collection for Asset Transfer Management operations",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Create Asset Transfer",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"sourceWarehouseId\": 1,\n    \"targetSchoolId\": 1,\n    \"transferDate\": \"2024-12-15T10:00:00\",\n    \"notes\": \"Okul açılışı için gerekli eşyalar\",\n    \"items\": [\n        {\n            \"productId\": 1,\n            \"requestedQuantity\": 10,\n            \"notes\": \"Sınıf masaları\",\n            \"serialNumbers\": \"MASA001-MASA010\",\n            \"conditionNotes\": \"Yeni, hasarsız\"\n        },\n        {\n            \"productId\": 2,\n            \"requestedQuantity\": 20,\n            \"notes\": \"Öğrenci sandalyeleri\",\n            \"serialNumbers\": \"SAND001-SAND020\",\n            \"conditionNotes\": \"İyi durumda\"\n        }\n    ]\n}"
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers"]
+                },
+                "description": "Create a new asset transfer from warehouse to school"
+            }
+        },
+        {
+            "name": "Update Transfer Status",
+            "request": {
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/1/status?status=PREPARING",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "1", "status"],
+                    "query": [
+                        {
+                            "key": "status",
+                            "value": "PREPARING"
+                        }
+                    ]
+                },
+                "description": "Update transfer status (PENDING, APPROVED, PREPARING, IN_TRANSIT, DELIVERED, COMPLETED, CANCELLED, REJECTED, PARTIALLY_COMPLETED)"
+            }
+        },
+        {
+            "name": "Approve Transfer",
+            "request": {
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/1/approve?approvedByUserId=2",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "1", "approve"],
+                    "query": [
+                        {
+                            "key": "approvedByUserId",
+                            "value": "2"
+                        }
+                    ]
+                },
+                "description": "Approve a transfer request"
+            }
+        },
+        {
+            "name": "Start Transfer",
+            "request": {
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/1/start?deliveredByUserId=3",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "1", "start"],
+                    "query": [
+                        {
+                            "key": "deliveredByUserId",
+                            "value": "3"
+                        }
+                    ]
+                },
+                "description": "Start the transfer process (set status to IN_TRANSIT)"
+            }
+        },
+        {
+            "name": "Complete Transfer",
+            "request": {
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/1/complete?receivedByUserId=4",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "1", "complete"],
+                    "query": [
+                        {
+                            "key": "receivedByUserId",
+                            "value": "4"
+                        }
+                    ]
+                },
+                "description": "Complete the transfer (school receives the assets)"
+            }
+        },
+        {
+            "name": "Cancel Transfer",
+            "request": {
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/1/cancel?reason=Okul ihtiyaç değişikliği",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "1", "cancel"],
+                    "query": [
+                        {
+                            "key": "reason",
+                            "value": "Okul ihtiyaç değişikliği"
+                        }
+                    ]
+                },
+                "description": "Cancel a transfer with reason"
+            }
+        },
+        {
+            "name": "Delete Transfer",
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/1",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "1"]
+                },
+                "description": "Delete a transfer by ID"
+            }
+        },
+        {
+            "name": "Get Transfer by ID",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/1",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "1"]
+                },
+                "description": "Get a transfer by ID"
+            }
+        },
+        {
+            "name": "Get Transfer by Code",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/code/TR-2024-123456",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "code", "TR-2024-123456"]
+                },
+                "description": "Get a transfer by transfer code"
+            }
+        },
+        {
+            "name": "Get All Transfers (Paginated)",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers?page=0&size=10&sort=createdAt,desc",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers"],
+                    "query": [
+                        {
+                            "key": "page",
+                            "value": "0"
+                        },
+                        {
+                            "key": "size",
+                            "value": "10"
+                        },
+                        {
+                            "key": "sort",
+                            "value": "createdAt,desc"
+                        }
+                    ]
+                },
+                "description": "Get all transfers with pagination"
+            }
+        },
+        {
+            "name": "Get Transfers by Status",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/status/PENDING?page=0&size=10",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "status", "PENDING"],
+                    "query": [
+                        {
+                            "key": "page",
+                            "value": "0"
+                        },
+                        {
+                            "key": "size",
+                            "value": "10"
+                        }
+                    ]
+                },
+                "description": "Get transfers by status"
+            }
+        },
+        {
+            "name": "Get Transfers by Warehouse",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/warehouse/1?page=0&size=10",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "warehouse", "1"],
+                    "query": [
+                        {
+                            "key": "page",
+                            "value": "0"
+                        },
+                        {
+                            "key": "size",
+                            "value": "10"
+                        }
+                    ]
+                },
+                "description": "Get transfers from a specific warehouse"
+            }
+        },
+        {
+            "name": "Get Transfers by School",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/school/1?page=0&size=10",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "school", "1"],
+                    "query": [
+                        {
+                            "key": "page",
+                            "value": "0"
+                        },
+                        {
+                            "key": "size",
+                            "value": "10"
+                        }
+                    ]
+                },
+                "description": "Get transfers to a specific school"
+            }
+        },
+        {
+            "name": "Search Transfers",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/search?query=TR-2024&page=0&size=10",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "search"],
+                    "query": [
+                        {
+                            "key": "query",
+                            "value": "TR-2024"
+                        },
+                        {
+                            "key": "page",
+                            "value": "0"
+                        },
+                        {
+                            "key": "size",
+                            "value": "10"
+                        }
+                    ]
+                },
+                "description": "Search transfers by transfer code, warehouse name, school name or notes"
+            }
+        },
+        {
+            "name": "Get Transfers with Filters",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/filter?status=PENDING&warehouseId=1&schoolId=1&startDate=2024-12-01T00:00:00&endDate=2024-12-31T23:59:59&page=0&size=10",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "filter"],
+                    "query": [
+                        {
+                            "key": "status",
+                            "value": "PENDING"
+                        },
+                        {
+                            "key": "warehouseId",
+                            "value": "1"
+                        },
+                        {
+                            "key": "schoolId",
+                            "value": "1"
+                        },
+                        {
+                            "key": "startDate",
+                            "value": "2024-12-01T00:00:00"
+                        },
+                        {
+                            "key": "endDate",
+                            "value": "2024-12-31T23:59:59"
+                        },
+                        {
+                            "key": "page",
+                            "value": "0"
+                        },
+                        {
+                            "key": "size",
+                            "value": "10"
+                        }
+                    ]
+                },
+                "description": "Get transfers with multiple filters"
+            }
+        },
+        {
+            "name": "Get Pending Transfers",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/pending",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "pending"]
+                },
+                "description": "Get all pending transfers (PENDING, APPROVED, PREPARING)"
+            }
+        },
+        {
+            "name": "Get Overdue Transfers",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/overdue",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "overdue"]
+                },
+                "description": "Get all overdue transfers (past transfer date)"
+            }
+        },
+        {
+            "name": "Update Transfer Item",
+            "request": {
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/1/items/1?transferredQuantity=8",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "1", "items", "1"],
+                    "query": [
+                        {
+                            "key": "transferredQuantity",
+                            "value": "8"
+                        }
+                    ]
+                },
+                "description": "Update the transferred quantity for a specific item"
+            }
+        },
+        {
+            "name": "Get Transfer Count by Status",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/statistics/count/PENDING",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "statistics", "count", "PENDING"]
+                },
+                "description": "Get count of transfers by specific status"
+            }
+        },
+        {
+            "name": "Get Transfer Counts by All Statuses",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/statistics/count-by-status",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "statistics", "count-by-status"]
+                },
+                "description": "Get transfer counts grouped by status"
+            }
+        },
+        {
+            "name": "Get Top Schools by Transfer Count",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/asset-transfers/statistics/top-schools?startDate=2024-01-01T00:00:00",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "asset-transfers", "statistics", "top-schools"],
+                    "query": [
+                        {
+                            "key": "startDate",
+                            "value": "2024-01-01T00:00:00"
+                        }
+                    ]
+                },
+                "description": "Get schools with most transfers since given date"
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8080",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "your_jwt_token_here",
+            "type": "string"
+        }
+    ]
+} 

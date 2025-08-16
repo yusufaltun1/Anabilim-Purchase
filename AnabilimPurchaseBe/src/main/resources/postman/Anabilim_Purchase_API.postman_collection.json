@@ -1,0 +1,487 @@
+{
+    "info": {
+        "_postman_id": "anabilim-purchase-api",
+        "name": "Anabilim Purchase API",
+        "description": "Anabilim Satın Alma Sistemi API'leri",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Categories",
+            "item": [
+                {
+                    "name": "Create Category",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"IT Ekipmanları\",\n    \"code\": \"IT_EQUIPMENT\",\n    \"description\": \"Bilgisayar, yazıcı vb. IT ekipmanları\",\n    \"parentId\": null\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/categories",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "categories"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Category",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"IT Ekipmanları (Güncellenmiş)\",\n    \"description\": \"Bilgisayar, yazıcı vb. IT ekipmanları (Güncellenmiş)\",\n    \"parentId\": null,\n    \"isActive\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/categories/{{category_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "categories", "{{category_id}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Category",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/categories/{{category_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "categories", "{{category_id}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Category by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/categories/{{category_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "categories", "{{category_id}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Category by Code",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/categories/code/IT_EQUIPMENT",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "categories", "code", "IT_EQUIPMENT"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get All Categories",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/categories",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "categories"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Active Categories",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/categories/active",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "categories", "active"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Root Categories",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/categories/root",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "categories", "root"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Sub Categories",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/categories/sub/{{parent_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "categories", "sub", "{{parent_id}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Search Categories",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/categories/search?name=IT",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "categories", "search"],
+                            "query": [
+                                {
+                                    "key": "name",
+                                    "value": "IT"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Products",
+            "item": [
+                {
+                    "name": "Create Product",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Dizüstü Bilgisayar\",\n    \"code\": \"LAPTOP_001\",\n    \"description\": \"İş bilgisayarı\",\n    \"categoryId\": 1,\n    \"unit\": \"ADET\",\n    \"minQuantity\": 1,\n    \"maxQuantity\": 10,\n    \"estimatedUnitPrice\": 15000.00,\n    \"supplierIds\": [1, 2]\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/products",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Product",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Dizüstü Bilgisayar (Güncellenmiş)\",\n    \"description\": \"İş bilgisayarı (Güncellenmiş)\",\n    \"categoryId\": 1,\n    \"unit\": \"ADET\",\n    \"minQuantity\": 2,\n    \"maxQuantity\": 15,\n    \"estimatedUnitPrice\": 17500.00,\n    \"supplierIds\": [1, 2, 3],\n    \"isActive\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/products/{{product_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products", "{{product_id}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Product",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/products/{{product_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products", "{{product_id}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Product by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/products/{{product_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products", "{{product_id}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Product by Code",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/products/code/LAPTOP_001",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products", "code", "LAPTOP_001"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get All Products",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/products",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Active Products",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/products/active",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products", "active"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Products by Category",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/products/category/{{category_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products", "category", "{{category_id}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Products by Supplier",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/products/supplier/{{supplier_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products", "supplier", "{{supplier_id}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Search Products",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/products/search?name=Laptop",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products", "search"],
+                            "query": [
+                                {
+                                    "key": "name",
+                                    "value": "Laptop"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Add Supplier to Product",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/products/{{product_id}}/suppliers/{{supplier_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products", "{{product_id}}", "suppliers", "{{supplier_id}}"]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Remove Supplier from Product",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/products/{{product_id}}/suppliers/{{supplier_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "products", "{{product_id}}", "suppliers", "{{supplier_id}}"]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8080",
+            "type": "string"
+        },
+        {
+            "key": "access_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "category_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "product_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "supplier_id",
+            "value": "",
+            "type": "string"
+        }
+    ]
+} 
