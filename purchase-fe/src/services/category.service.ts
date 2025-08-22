@@ -167,7 +167,7 @@ class CategoryService {
 
   async getAllCategories(): Promise<Category[]> {
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/categories`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/categories/all`, {
         method: 'GET',
         headers: this.getHeaders(),
       });

@@ -116,7 +116,10 @@ export const ProductDetail = () => {
                 Geri
               </button>
               <button
-                onClick={() => navigate(`/products/edit/${product.id}`)}
+                onClick={() => {
+                  console.log('Düzenle butonuna tıklandı, product.id:', product.id);
+                  navigate(`/products/edit/${product.id}`);
+                }}
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 Düzenle

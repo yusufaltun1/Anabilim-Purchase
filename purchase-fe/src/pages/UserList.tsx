@@ -28,26 +28,28 @@ export const UserList = () => {
       navigate(location.pathname, { replace: true });
       setTimeout(() => setSuccessMessage(null), 5000);
     }
-  }, [filter, departmentFilter, roleFilter]);
+  }, []); // Sadece component mount olduğunda çalışsın
 
   const loadUsers = async () => {
     try {
       setLoading(true);
-      let data: User[];
+      setError(null);
       
-      if (filter === 'active') {
-        data = await userService.getActiveUsers();
-      } else if (departmentFilter) {
-        data = await userService.getUsersByDepartment(departmentFilter);
-      } else if (roleFilter) {
-        data = await userService.getUsersByRole(roleFilter);
-      } else {
-        data = await userService.getAllUsers();
-      }
+      console.log('Loading all users...');
+      const data = await userService.getAllUsers();
       
       console.log('Loaded users:', data);
-      setUsers(data);
-      setCurrentPage(1); // Reset to first page when loading new data
+      console.log('Users array length:', data?.length);
+      console.log('Users array type:', Array.isArray(data));
+      
+      if (Array.isArray(data)) {
+        setUsers(data);
+        setCurrentPage(1); // Reset to first page when loading new data
+      } else {
+        console.error('Data is not an array:', data);
+        setUsers([]);
+        setError('Beklenmeyen veri formatı');
+      }
     } catch (err) {
       setError('Kullanıcılar yüklenirken hata oluştu');
       console.error('Error loading users:', err);
@@ -88,6 +90,7 @@ export const UserList = () => {
   };
 
   const filteredUsers = users.filter(user => {
+    // Arama filtresi
     const matchesSearch = 
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,7 +98,16 @@ export const UserList = () => {
       user.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.position.toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesSearch;
+    // Durum filtresi
+    const matchesStatus = filter === 'all' || (filter === 'active' && user.isActive);
+    
+    // Departman filtresi
+    const matchesDepartment = !departmentFilter || user.department === departmentFilter;
+    
+    // Rol filtresi
+    const matchesRole = !roleFilter || user.roles.includes(roleFilter);
+    
+    return matchesSearch && matchesStatus && matchesDepartment && matchesRole;
   }).sort((a, b) => {
     if (sortField === 'roles') {
       const aValue = a[sortField].join(', ');
@@ -185,7 +197,10 @@ export const UserList = () => {
                   type="text"
                   id="search"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   placeholder="Ad, soyad, email veya pozisyon ara..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 />
@@ -197,7 +212,10 @@ export const UserList = () => {
                 <select
                   id="filter"
                   value={filter}
-                  onChange={(e) => setFilter(e.target.value as 'all' | 'active')}
+                  onChange={(e) => {
+                    setFilter(e.target.value as 'all' | 'active');
+                    setCurrentPage(1);
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="all">Tümü</option>
@@ -211,7 +229,10 @@ export const UserList = () => {
                 <select
                   id="department"
                   value={departmentFilter}
-                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  onChange={(e) => {
+                    setDepartmentFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="">Tümü</option>
@@ -227,7 +248,10 @@ export const UserList = () => {
                 <select
                   id="role"
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
+                  onChange={(e) => {
+                    setRoleFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="">Tümü</option>

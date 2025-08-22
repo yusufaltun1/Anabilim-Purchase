@@ -124,7 +124,7 @@ export const StockManagement = () => {
                                 {getStockStatusBadge(stock)}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {formatDate(stock.lastMovementDate)}
+                                {stock.lastMovementDate ? formatDate(stock.lastMovementDate) : '-'}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button

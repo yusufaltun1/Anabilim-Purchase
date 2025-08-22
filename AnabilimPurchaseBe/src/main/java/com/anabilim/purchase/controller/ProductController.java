@@ -8,11 +8,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+@Slf4j
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
@@ -22,6 +24,7 @@ public class ProductController {
 
     @PostMapping
     public ResponseEntity<ProductDto> createProduct(@Valid @RequestBody CreateProductDto createDto) {
+        log.info("Ürün oluşturma isteği alındı: {}", createDto);
         return new ResponseEntity<>(productService.createProduct(createDto), HttpStatus.CREATED);
     }
 

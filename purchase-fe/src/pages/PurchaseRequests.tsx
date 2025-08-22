@@ -22,28 +22,57 @@ export const PurchaseRequests = () => {
       setError(null);
       let response;
 
+      console.log('Loading requests with filter:', filter);
+
       switch (filter) {
         case 'my-requests':
+          console.log('Fetching my requests...');
           response = await purchaseRequestService.getMyRequests();
+          console.log('My requests response:', response);
           break;
         case 'pending':
-          response = await purchaseRequestService.getPendingApprovals();
+          console.log('Fetching all requests for pending filter...');
+          // Tüm talepleri al ve frontend'de onay bekleyenleri filtrele
+          const allRequestsResponse = await purchaseRequestService.getAllRequests();
+          if (allRequestsResponse.success) {
+            const allRequests = Array.isArray(allRequestsResponse.data) ? allRequestsResponse.data : [allRequestsResponse.data];
+            const pendingRequests = allRequests.filter((req: PurchaseRequest) => req.status === 'IN_APPROVAL');
+            console.log('Filtered pending requests:', pendingRequests);
+            response = {
+              success: true,
+              message: 'Onay bekleyen talepler başarıyla alındı',
+              data: pendingRequests,
+              timestamp: new Date().toISOString(),
+              errorCode: null
+            };
+          } else {
+            response = allRequestsResponse;
+          }
+          console.log('Pending approvals response:', response);
           break;
         default:
+          console.log('Fetching all requests...');
           response = await purchaseRequestService.getAllRequests();
+          console.log('All requests response:', response);
       }
 
       if (response.success) {
         // Backend directly returns the array of requests
         const requestsData = response.data;
+        console.log('Requests data:', requestsData);
+        
         if (Array.isArray(requestsData)) {
+          console.log('Setting requests array:', requestsData);
           setRequests(requestsData);
         } else if (requestsData && typeof requestsData === 'object') {
+          console.log('Setting single request:', [requestsData]);
           setRequests([requestsData]);
         } else {
+          console.log('Setting empty requests array');
           setRequests([]);
         }
       } else {
+        console.log('Response not successful:', response.message);
         setError(response.message);
       }
     } catch (err) {
@@ -136,7 +165,10 @@ export const PurchaseRequests = () => {
                 Tüm Talepler
               </button>
               <button
-                onClick={() => setFilter('my-requests')}
+                onClick={() => {
+                  console.log('Taleplerim button clicked, setting filter to my-requests');
+                  setFilter('my-requests');
+                }}
                 className={`px-4 py-2 rounded-md text-sm font-medium ${
                   filter === 'my-requests'
                     ? 'bg-indigo-100 text-indigo-700'
@@ -146,7 +178,10 @@ export const PurchaseRequests = () => {
                 Taleplerim
               </button>
               <button
-                onClick={() => setFilter('pending')}
+                onClick={() => {
+                  console.log('Onay Bekleyenler button clicked, setting filter to pending');
+                  setFilter('pending');
+                }}
                 className={`px-4 py-2 rounded-md text-sm font-medium ${
                   filter === 'pending'
                     ? 'bg-indigo-100 text-indigo-700'
@@ -180,7 +215,11 @@ export const PurchaseRequests = () => {
               </div>
             ) : requests.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-gray-500">Henüz talep bulunmuyor</p>
+                <p className="text-gray-500">
+                  {filter === 'my-requests' && 'Henüz talep oluşturmadınız'}
+                  {filter === 'pending' && 'Onay bekleyen talep bulunmuyor'}
+                  {filter === 'all' && 'Henüz talep bulunmuyor'}
+                </p>
               </div>
             ) : (
               <ul className="divide-y divide-gray-200">
@@ -203,6 +242,12 @@ export const PurchaseRequests = () => {
                               className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
                             >
                               Detay
+                            </button>
+                            <button
+                              onClick={() => navigate(`/purchase-requests/edit/${request.id}`)}
+                              className="text-green-600 hover:text-green-900 text-sm font-medium"
+                            >
+                              Düzenle
                             </button>
                           </div>
                         </div>

@@ -11,9 +11,9 @@ spring:
     name: anabilim-purchase-be
 
   datasource:
-    url: jdbc:postgresql://localhost:5430/purchase
-    username: oteller
-    password: otellerpassword
+    url: jdbc:postgresql://localhost:5433/purchase
+    username: postgres
+    password: 1234
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10

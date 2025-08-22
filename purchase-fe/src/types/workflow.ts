@@ -2,7 +2,7 @@ export interface WorkflowStep {
   stepOrder: number;
   stepName: string;
   roleName: string;
-  approverType: 'ROLE';
+  approverType: 'ROLE'|"USER";
   approvalType: 'APPROVE' | 'REJECT' | 'COMMENT';
   isRequired: boolean;
 }
@@ -35,6 +35,7 @@ export interface CreateWorkflowRequest {
   maxAmount: number;
   category: string;
   steps: WorkflowStep[];
+  isActive?: boolean;
 }
 
 export interface UpdateWorkflowRequest extends CreateWorkflowRequest {

@@ -11,8 +11,16 @@ import {
 class SchoolService {
   // Create school
   async createSchool(data: CreateSchoolRequest): Promise<School> {
-    const response = await axiosInstance.post('/api/schools', data);
-    return response.data;
+    console.log('School service: Creating school with data:', data);
+    try {
+      const response = await axiosInstance.post('/api/schools', data);
+      console.log('School service: Success response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('School service: Error creating school:', error);
+      console.error('School service: Error response:', error.response?.data);
+      throw error;
+    }
   }
 
   // Update school

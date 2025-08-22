@@ -37,6 +37,8 @@ export interface Product {
   name: string;
   description: string;
   code: string;
+  serialNumber?: string;
+  imageUrl?: string;
   unitOfMeasure: string;
   productType?: ProductType;
   category?: Category;
@@ -54,6 +56,8 @@ export interface CreateProductRequest {
   name: string;
   description: string;
   code: string;
+  serialNumber?: string;
+  imageUrl?: string;
   unitOfMeasure: string;
   productType: ProductType;
   categoryId: number | null;
@@ -67,6 +71,8 @@ export interface UpdateProductRequest {
   name: string;
   description: string;
   code: string;
+  serialNumber?: string;
+  imageUrl?: string;
   unitOfMeasure: string;
   productType: ProductType;
   categoryId: number | null;

@@ -39,10 +39,13 @@ export const Navigation = () => {
       '/schools',
       '/schools/create',
       '/personnel',
-      '/personnel/create'
+      '/personnel/create',
+      '/locations',
+      '/locations/create'
     ].includes(location.pathname) || 
     location.pathname.startsWith('/schools/') ||
-    location.pathname.startsWith('/personnel/');
+    location.pathname.startsWith('/personnel/') ||
+    location.pathname.startsWith('/locations/');
   };
 
   const isTransferRoute = () => {
@@ -403,6 +406,33 @@ export const Navigation = () => {
                       >
                         Yeni Personel
                       </button>
+                      <div className="border-t border-gray-100 my-1"></div>
+                      <button
+                        onClick={() => {
+                          navigate('/locations');
+                          setIsSystemMenuOpen(false);
+                        }}
+                        className={`block px-4 py-2 text-sm w-full text-left ${
+                          isActive('/locations') || location.pathname.startsWith('/locations')
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Konumlar
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate('/locations/create');
+                          setIsSystemMenuOpen(false);
+                        }}
+                        className={`block px-4 py-2 text-sm w-full text-left ${
+                          isActive('/locations/create')
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Yeni Konum
+                      </button>
                     </div>
                   </div>
                 )}
@@ -712,6 +742,33 @@ export const Navigation = () => {
                   }`}
                 >
                   Yeni Personel
+                </button>
+                <div className="border-t border-gray-100 my-1"></div>
+                <button
+                  onClick={() => {
+                    navigate('/locations');
+                    setIsSystemMenuOpen(false);
+                  }}
+                  className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    isActive('/locations') || location.pathname.startsWith('/locations')
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'
+                  }`}
+                >
+                  Konumlar
+                </button>
+                <button
+                  onClick={() => {
+                    navigate('/locations/create');
+                    setIsSystemMenuOpen(false);
+                  }}
+                  className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    isActive('/locations/create')
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'
+                  }`}
+                >
+                  Yeni Konum
                 </button>
               </div>
             )}

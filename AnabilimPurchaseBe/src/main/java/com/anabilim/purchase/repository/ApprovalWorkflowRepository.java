@@ -17,7 +17,12 @@ import java.util.Optional;
 public interface ApprovalWorkflowRepository extends JpaRepository<ApprovalWorkflow, Long> {
     
     List<ApprovalWorkflow> findByIsActiveTrue();
-    
+
+    List<ApprovalWorkflow> findByIsActiveFalse();
+    List<ApprovalWorkflow> findAll();
+
+
+
     List<ApprovalWorkflow> findByCategoryAndIsActiveTrue(String category);
     
     @Query("SELECT w FROM ApprovalWorkflow w WHERE w.isActive = true AND " +

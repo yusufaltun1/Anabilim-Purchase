@@ -18,7 +18,14 @@ public class UpdateProductDto {
     @NotBlank(message = "Ürün adı boş olamaz")
     @Size(min = 2, max = 100, message = "Ürün adı 2-100 karakter arasında olmalıdır")
     private String name;
-    
+
+    @Size(min = 2, max = 100, message = "Ürün adı 2-100 karakter arasında olmalıdır")
+    private String serialnumber;
+
+
+    private String imageUrl;
+
+
     @Size(max = 500, message = "Açıklama en fazla 500 karakter olabilir")
     private String description;
     

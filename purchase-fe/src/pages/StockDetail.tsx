@@ -222,9 +222,9 @@ export const StockDetail = () => {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(warehouseStock.lastMovementDate)}
-                      </td>
+                                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {warehouseStock.lastMovementDate ? formatDate(warehouseStock.lastMovementDate) : '-'}
+                                </td>
                     </tr>
                   ))}
                 </tbody>
@@ -291,9 +291,9 @@ export const StockDetail = () => {
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {movement.notes}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(movement.createdAt)}
-                      </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {movement.createdAt ? formatDate(movement.createdAt) : '-'}
+                                  </td>
                     </tr>
                   ))}
                 </tbody>

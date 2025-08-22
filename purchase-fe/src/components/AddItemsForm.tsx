@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { purchaseRequestService } from '../services/purchase-request.service';
-import { PurchaseRequestItem } from '../types/purchase-request';
+
+// Basit form için kullanılacak tip
+interface SimpleItem {
+  itemName: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  supplier: string;
+  estimatedDeliveryDate: string;
+}
 
 interface AddItemsFormProps {
   requestId: number;
@@ -11,7 +20,7 @@ interface AddItemsFormProps {
 export const AddItemsForm = ({ requestId, onSuccess, onCancel }: AddItemsFormProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [items, setItems] = useState<PurchaseRequestItem[]>([{
+  const [items, setItems] = useState<SimpleItem[]>([{
     itemName: '',
     description: '',
     quantity: 1,
@@ -20,7 +29,7 @@ export const AddItemsForm = ({ requestId, onSuccess, onCancel }: AddItemsFormPro
     estimatedDeliveryDate: new Date().toISOString().split('T')[0]
   }]);
 
-  const handleInputChange = (index: number, field: keyof PurchaseRequestItem, value: string | number) => {
+  const handleInputChange = (index: number, field: keyof SimpleItem, value: string | number) => {
     const newItems = [...items];
     newItems[index] = {
       ...newItems[index],
@@ -53,7 +62,28 @@ export const AddItemsForm = ({ requestId, onSuccess, onCancel }: AddItemsFormPro
     setError(null);
 
     try {
-      await purchaseRequestService.addItems(requestId, { items });
+      // SimpleItem'ları PurchaseRequestItem formatına çevir
+      const purchaseRequestItems = items.map(item => ({
+        id: 0, // Yeni item olduğu için 0
+        product: {
+          id: 0,
+          name: item.itemName,
+          code: '',
+          description: item.description,
+          category: '',
+          unit: 'adet'
+        },
+        potentialSuppliers: [],
+        supplierQuotes: [],
+        selectedSupplierId: null,
+        quantity: item.quantity,
+        estimatedDeliveryDate: item.estimatedDeliveryDate,
+        notes: `Birim fiyat: ${item.unitPrice} TL, Tedarikçi: ${item.supplier}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      await purchaseRequestService.addItems(requestId, { items: purchaseRequestItems });
       onSuccess();
     } catch (err) {
       console.error('Error adding items:', err);

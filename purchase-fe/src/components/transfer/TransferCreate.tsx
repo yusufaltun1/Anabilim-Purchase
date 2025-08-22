@@ -38,14 +38,21 @@ const TransferCreate: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
+        console.log('Loading initial data...');
         const [warehouseData, schoolData, productData] = await Promise.all([
           warehouseService.getActiveWarehouses(),
           schoolService.getActiveSchools(),
           productService.getActiveProducts()
         ]);
+        console.log('Warehouse data:', warehouseData);
+        console.log('School data:', schoolData);
+        console.log('Product data:', productData);
+        
         setWarehouses(warehouseData);
         setSchools(schoolData);
-        setProducts(Array.isArray(productData.data) ? productData.data : []);
+        
+        // Product data artık direkt array olarak geliyor
+        setProducts(productData);
       } catch (error) {
         console.error('Error loading data:', error);
         // TODO: Show error notification
@@ -281,11 +288,15 @@ const TransferCreate: React.FC = () => {
                             onChange={(e) => handleItemChange(index, 'productId', Number(e.target.value))}
                           >
                             <option value="0">Ürün Seçin</option>
-                            {warehouseStocks.map((stock) => (
-                              <option key={stock.product.id} value={stock.product.id}>
-                                {stock.product.name} (Stok: {stock.currentStock} {stock.product.unit})
-                              </option>
-                            ))}
+                            {products.map((product) => {
+                              const stock = warehouseStocks.find(s => s.product.id === product.id);
+                              const stockInfo = stock ? ` (Stok: ${stock.currentStock} ${product.unit})` : ' (Stok yok)';
+                              return (
+                                <option key={product.id} value={product.id}>
+                                  {product.name}{stockInfo}
+                                </option>
+                              );
+                            })}
                           </select>
                         </div>
 
@@ -296,7 +307,7 @@ const TransferCreate: React.FC = () => {
                           <input
                             type="number"
                             min="1"
-                            max={warehouseStocks.find(s => s.product.id === item.productId)?.currentStock || 1}
+                            max={warehouseStocks.find(s => s.product.id === item.productId)?.currentStock || 999999}
                             className="w-full border border-gray-300 rounded-lg p-2"
                             value={item.requestedQuantity}
                             onChange={(e) => handleItemChange(index, 'requestedQuantity', Number(e.target.value))}

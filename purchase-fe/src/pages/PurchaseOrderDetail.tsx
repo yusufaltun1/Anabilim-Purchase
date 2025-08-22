@@ -257,21 +257,21 @@ export const PurchaseOrderDetail = () => {
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Beklenen Teslimat Tarihi</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{formatDate(order.expectedDeliveryDate)}</dd>
+                  <dd className="mt-1 text-sm text-gray-900">{order.expectedDeliveryDate ? formatDate(order.expectedDeliveryDate) : '-'}</dd>
                 </div>
                 {order.actualDeliveryDate && (
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Gerçekleşen Teslimat Tarihi</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{formatDate(order.actualDeliveryDate)}</dd>
+                    <dd className="mt-1 text-sm text-gray-900">{order.actualDeliveryDate ? formatDate(order.actualDeliveryDate) : '-'}</dd>
                   </div>
                 )}
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Oluşturulma Tarihi</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{formatDate(order.createdAt)}</dd>
+                  <dd className="mt-1 text-sm text-gray-900">{order.createdAt ? formatDate(order.createdAt) : '-'}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Son Güncelleme</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{formatDate(order.updatedAt)}</dd>
+                  <dd className="mt-1 text-sm text-gray-900">{order.updatedAt ? formatDate(order.updatedAt) : '-'}</dd>
                 </div>
                 {order.notes && (
                   <div className="sm:col-span-2">

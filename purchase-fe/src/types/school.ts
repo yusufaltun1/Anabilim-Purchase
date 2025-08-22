@@ -1,12 +1,12 @@
 export enum SchoolType {
-  ILKOKUL = 'İlkokul',
-  ORTAOKUL = 'Ortaokul',
-  LISE = 'Lise',
-  ANAOKULU = 'Anaokulu',
-  UNIVERSITE = 'Üniversite',
-  MESLEK_LISESI = 'Meslek Lisesi',
-  ANADOLU_LISESI = 'Anadolu Lisesi',
-  FEN_LISESI = 'Fen Lisesi'
+  ILKOKUL = 'PRIMARY_SCHOOL',
+  ORTAOKUL = 'MIDDLE_SCHOOL',
+  LISE = 'HIGH_SCHOOL',
+  ANAOKULU = 'KINDERGARTEN',
+  UNIVERSITE = 'UNIVERSITY',
+  MESLEK_LISESI = 'VOCATIONAL_HIGH_SCHOOL',
+  ANADOLU_LISESI = 'ANATOLIAN_HIGH_SCHOOL',
+  FEN_LISESI = 'SCIENCE_HIGH_SCHOOL'
 }
 
 export interface School {
@@ -37,6 +37,7 @@ export interface CreateSchoolRequest {
   city: string;
   schoolType: string;
   studentCapacity: number;
+  isActive?: boolean;
 }
 
 export interface UpdateSchoolRequest {

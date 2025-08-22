@@ -27,15 +27,29 @@ export const UserCreate = () => {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        const [roles, users] = await Promise.all([
+        const [roles, usersResponse] = await Promise.all([
           roleService.getActiveRoles(),
           userService.getActiveUsers()
         ]);
+        
         setAvailableRoles(roles.map(role => role.name));
-        setManagers(users);
+        
+        if (usersResponse.success) {
+          const usersData = usersResponse.data;
+          if (Array.isArray(usersData)) {
+            setManagers(usersData);
+          } else {
+            setManagers([]);
+          }
+        } else {
+          console.error('Failed to load users:', usersResponse.message);
+          setManagers([]);
+        }
       } catch (err) {
         console.error('Error loading initial data:', err);
         setError('Veriler yüklenirken hata oluştu');
+        setAvailableRoles([]);
+        setManagers([]);
       }
     };
     loadInitialData();

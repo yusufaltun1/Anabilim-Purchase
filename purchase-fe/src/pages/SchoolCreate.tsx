@@ -19,7 +19,8 @@ export const SchoolCreate = () => {
     district: '',
     city: '',
     schoolType: SchoolType.ILKOKUL,
-    studentCapacity: 100
+    studentCapacity: 100,
+    isActive: true
   });
 
   const generateCode = (name: string) => {
@@ -121,7 +122,9 @@ export const SchoolCreate = () => {
       navigate('/schools');
     } catch (err: any) {
       console.error('Error creating school:', err);
-      showNotification('error', err.response?.data?.message || 'Okul oluşturulurken bir hata oluştu');
+      console.error('Error response data:', err.response?.data);
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Okul oluşturulurken bir hata oluştu';
+      showNotification('error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -271,8 +274,17 @@ export const SchoolCreate = () => {
                   disabled={loading}
                   className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >
-                  {Object.values(SchoolType).map(type => (
-                    <option key={type} value={type}>{type}</option>
+                  {Object.entries(SchoolType).map(([key, value]) => (
+                    <option key={value} value={value}>
+                      {key === 'ILKOKUL' ? 'İlkokul' :
+                       key === 'ORTAOKUL' ? 'Ortaokul' :
+                       key === 'LISE' ? 'Lise' :
+                       key === 'ANAOKULU' ? 'Anaokulu' :
+                       key === 'UNIVERSITE' ? 'Üniversite' :
+                       key === 'MESLEK_LISESI' ? 'Meslek Lisesi' :
+                       key === 'ANADOLU_LISESI' ? 'Anadolu Lisesi' :
+                       key === 'FEN_LISESI' ? 'Fen Lisesi' : value}
+                    </option>
                   ))}
                 </select>
               </div>

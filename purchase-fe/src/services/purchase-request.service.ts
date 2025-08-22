@@ -7,8 +7,6 @@ import {
   AddItemsRequest,
   ApprovalAction,
   PurchaseRequestHistory,
-  CreatePurchaseRequestRequest,
-  UpdatePurchaseRequestRequest,
   UpdatePurchaseRequestItemsRequest,
   PurchaseRequestItemsResponse
 } from '../types/purchase-request';
@@ -23,18 +21,35 @@ class PurchaseRequestService {
   }
 
   async createRequest(request: CreatePurchaseRequest): Promise<PurchaseRequestResponse> {
-    const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(request),
-    });
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(request),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to create purchase request');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Satın alma talebi oluşturulurken bir hata oluştu');
+      }
+
+      return {
+        success: true,
+        message: 'Satın alma talebi başarıyla oluşturuldu',
+        data: data.data || data,
+        timestamp: new Date().toISOString(),
+        errorCode: null
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Satın alma talebi oluşturulurken bir hata oluştu',
+        data: null,
+        timestamp: new Date().toISOString(),
+        errorCode: 'CREATE_ERROR'
+      };
     }
-
-    return await response.json();
   }
 
   async getAllRequests(): Promise<PurchaseRequestResponse> {
@@ -52,7 +67,8 @@ class PurchaseRequestService {
       success: true,
       message: 'Success',
       data: data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      errorCode: null
     };
   }
 
@@ -71,34 +87,89 @@ class PurchaseRequestService {
       success: true,
       message: 'Success',
       data: data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      errorCode: null
     };
   }
 
   async getMyRequests(): Promise<PurchaseRequestResponse> {
-    const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/my-requests`, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/my-requests`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch my purchase requests');
+      const data = await response.json();
+      console.log('getMyRequests raw response:', data);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: data.message || 'Taleplerim alınamadı',
+          data: [],
+          timestamp: new Date().toISOString(),
+          errorCode: 'FETCH_ERROR'
+        };
+      }
+
+      // Backend'den gelen veriyi doğru formata çevir
+      return {
+        success: true,
+        message: 'Taleplerim başarıyla alındı',
+        data: Array.isArray(data) ? data : (data.data || []),
+        timestamp: new Date().toISOString(),
+        errorCode: null
+      };
+    } catch (error: any) {
+      console.error('Error in getMyRequests:', error);
+      return {
+        success: false,
+        message: error.message || 'Taleplerim alınamadı',
+        data: [],
+        timestamp: new Date().toISOString(),
+        errorCode: 'FETCH_ERROR'
+      };
     }
-
-    return await response.json();
   }
 
   async getPendingApprovals(): Promise<PurchaseRequestResponse> {
-    const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/pending-approvals`, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/pending-approvals`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch pending approvals');
+      const data = await response.json();
+      console.log('getPendingApprovals raw response:', data);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: data.message || 'Onay bekleyen talepler alınamadı',
+          data: [],
+          timestamp: new Date().toISOString(),
+          errorCode: 'FETCH_ERROR'
+        };
+      }
+
+      // Backend'den gelen veriyi doğru formata çevir
+      return {
+        success: true,
+        message: 'Onay bekleyen talepler başarıyla alındı',
+        data: Array.isArray(data) ? data : (data.data || []),
+        timestamp: new Date().toISOString(),
+        errorCode: null
+      };
+    } catch (error: any) {
+      console.error('Error in getPendingApprovals:', error);
+      return {
+        success: false,
+        message: error.message || 'Onay bekleyen talepler alınamadı',
+        data: [],
+        timestamp: new Date().toISOString(),
+        errorCode: 'FETCH_ERROR'
+      };
     }
-
-    return await response.json();
   }
 
   async approveRequest(id: number, action: ApprovalAction): Promise<void> {

@@ -46,7 +46,7 @@ public class CategoryController {
         return ResponseEntity.ok(categoryService.getCategoryByCode(code));
     }
     
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<List<CategoryDto>> getAllCategories() {
         return ResponseEntity.ok(categoryService.getAllCategories());
     }

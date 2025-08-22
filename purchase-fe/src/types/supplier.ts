@@ -40,6 +40,7 @@ export interface CreateSupplierRequest {
   iban: string;
   categoryIds: number[];
   isPreferred: boolean;
+  isActive?: boolean;
 }
 
 export interface UpdateSupplierRequest {

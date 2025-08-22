@@ -41,8 +41,12 @@ export const SupplierEdit = () => {
 
   const loadCategories = async () => {
     try {
-      const categories = await categoryService.getActiveCategories();
-      setCategories(categories);
+      const response = await categoryService.getActiveCategories();
+      if (response.success && response.data) {
+        setCategories(Array.isArray(response.data) ? response.data : [response.data]);
+      } else {
+        setError(response.message || 'Kategoriler yüklenirken bir hata oluştu');
+      }
     } catch (err: any) {
       setError(err.message || 'Kategoriler yüklenirken bir hata oluştu');
     }
@@ -86,10 +90,10 @@ export const SupplierEdit = () => {
     }));
   };
 
-  const categoryOptions = categories.map(category => ({
+  const categoryOptions = Array.isArray(categories) ? categories.map(category => ({
     value: category.id,
     label: category.name
-  }));
+  })) : [];
 
   const selectedCategories = categoryOptions.filter(option => 
     formData.categoryIds.includes(option.value)

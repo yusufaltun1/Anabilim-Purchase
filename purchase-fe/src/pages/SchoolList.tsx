@@ -266,8 +266,17 @@ export const SchoolList = () => {
                   className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >
                   <option value="">Tüm Türler</option>
-                  {Object.values(SchoolType).map(type => (
-                    <option key={type} value={type}>{type}</option>
+                  {Object.entries(SchoolType).map(([key, value]) => (
+                    <option key={value} value={value}>
+                      {key === 'ILKOKUL' ? 'İlkokul' :
+                       key === 'ORTAOKUL' ? 'Ortaokul' :
+                       key === 'LISE' ? 'Lise' :
+                       key === 'ANAOKULU' ? 'Anaokulu' :
+                       key === 'UNIVERSITE' ? 'Üniversite' :
+                       key === 'MESLEK_LISESI' ? 'Meslek Lisesi' :
+                       key === 'ANADOLU_LISESI' ? 'Anadolu Lisesi' :
+                       key === 'FEN_LISESI' ? 'Fen Lisesi' : value}
+                    </option>
                   ))}
                 </select>
               </div>

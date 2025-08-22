@@ -32,8 +32,19 @@ export const PurchaseRequestDetail = () => {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching request data for ID:', id);
-      const requestResponse = await purchaseRequestService.getRequestById(parseInt(id!));
+      if (!id) {
+        setError('Talep ID\'si bulunamadı');
+        return;
+      }
+
+      const requestId = parseInt(id);
+      if (isNaN(requestId)) {
+        setError('Geçersiz talep ID\'si');
+        return;
+      }
+
+      console.log('Fetching request data for ID:', requestId);
+      const requestResponse = await purchaseRequestService.getRequestById(requestId);
       console.log('Response from server:', requestResponse);
 
       if (requestResponse.success) {
@@ -55,7 +66,19 @@ export const PurchaseRequestDetail = () => {
     try {
       setLoading(true);
       setError(null);
-      await purchaseRequestService.approveRequest(parseInt(id!), { comment: actionComment });
+      
+      if (!id) {
+        setError('Talep ID\'si bulunamadı');
+        return;
+      }
+
+      const requestId = parseInt(id);
+      if (isNaN(requestId)) {
+        setError('Geçersiz talep ID\'si');
+        return;
+      }
+
+      await purchaseRequestService.approveRequest(requestId, { comment: actionComment });
       await loadRequestData();
     } catch (err) {
       console.error('Error approving request:', err);
@@ -69,7 +92,19 @@ export const PurchaseRequestDetail = () => {
     try {
       setLoading(true);
       setError(null);
-      await purchaseRequestService.rejectRequest(parseInt(id!), { comment: actionComment });
+      
+      if (!id) {
+        setError('Talep ID\'si bulunamadı');
+        return;
+      }
+
+      const requestId = parseInt(id);
+      if (isNaN(requestId)) {
+        setError('Geçersiz talep ID\'si');
+        return;
+      }
+
+      await purchaseRequestService.rejectRequest(requestId, { comment: actionComment });
       await loadRequestData();
     } catch (err) {
       console.error('Error rejecting request:', err);
@@ -83,7 +118,19 @@ export const PurchaseRequestDetail = () => {
     try {
       setLoading(true);
       setError(null);
-      await purchaseRequestService.cancelRequest(parseInt(id!), { comment: actionComment });
+      
+      if (!id) {
+        setError('Talep ID\'si bulunamadı');
+        return;
+      }
+
+      const requestId = parseInt(id);
+      if (isNaN(requestId)) {
+        setError('Geçersiz talep ID\'si');
+        return;
+      }
+
+      await purchaseRequestService.cancelRequest(requestId, { comment: actionComment });
       await loadRequestData();
     } catch (err) {
       console.error('Error canceling request:', err);

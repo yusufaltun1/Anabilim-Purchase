@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 @Component
 public class ProductMapper {
-    
+
     public Product toEntity(CreateProductDto createDto) {
         Product product = new Product();
         product.setName(createDto.getName());
@@ -23,11 +23,13 @@ public class ProductMapper {
         product.setUnitOfMeasure(createDto.getUnitOfMeasure());
         product.setMinQuantity(createDto.getMinQuantity());
         product.setMaxQuantity(createDto.getMaxQuantity());
+        product.setSerialNumber(createDto.getSerialNumber());
+        product.setImageUrl(createDto.getImageUrl());
         product.setEstimatedUnitPrice(createDto.getEstimatedUnitPrice());
         product.setCurrency(createDto.getCurrency());
         return product;
     }
-    
+
     public void updateEntity(Product product, UpdateProductDto updateDto) {
         product.setName(updateDto.getName());
         product.setDescription(updateDto.getDescription());
@@ -36,21 +38,27 @@ public class ProductMapper {
         product.setMinQuantity(updateDto.getMinQuantity());
         product.setMaxQuantity(updateDto.getMaxQuantity());
         product.setEstimatedUnitPrice(updateDto.getEstimatedUnitPrice());
+        product.setSerialNumber(updateDto.getSerialnumber());
+        product.setImageUrl(updateDto.getImageUrl());
         product.setCurrency(updateDto.getCurrency());
         product.setActive(updateDto.isActive());
     }
-    
+
     public ProductDto toDto(Product product) {
         if (product == null) {
             return null;
         }
-        
+
+
         ProductDto dto = new ProductDto();
         dto.setId(product.getId());
         dto.setName(product.getName());
         dto.setCode(product.getCode());
         dto.setDescription(product.getDescription());
-        
+        dto.setSerialNumber(product.getSerialNumber());
+        dto.setImageUrl(product.getImageUrl());
+
+
         if (product.getCategory() != null) {
             dto.setCategory(new CategoryDto.CategoryBasicDto(
                     product.getCategory().getId(),
@@ -58,32 +66,32 @@ public class ProductMapper {
                     product.getCategory().getCode()
             ));
         }
-        
+
         dto.setProductType(product.getProductType() != null ? product.getProductType().getDisplayName() : null);
         dto.setUnit(product.getUnitOfMeasure().getDisplayName());
         dto.setMinQuantity(product.getMinQuantity());
         dto.setMaxQuantity(product.getMaxQuantity());
         dto.setEstimatedUnitPrice(product.getEstimatedUnitPrice());
-        
+
         if (product.getSuppliers() != null) {
             dto.setSuppliers(product.getSuppliers().stream()
                     .map(this::toSupplierBasicDto)
                     .collect(Collectors.toSet()));
         }
-        
+
         dto.setActive(product.isActive());
         dto.setCreatedAt(product.getCreatedAt());
         dto.setUpdatedAt(product.getUpdatedAt());
-        
+
         return dto;
     }
-    
+
     public List<ProductDto> toDtoList(List<Product> products) {
         return products.stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
-    
+
     private ProductDto.SupplierBasicDto toSupplierBasicDto(Supplier supplier) {
         return new ProductDto.SupplierBasicDto(
                 supplier.getId(),
@@ -91,4 +99,4 @@ public class ProductMapper {
                 supplier.getTaxNumber()
         );
     }
-} 
+}
