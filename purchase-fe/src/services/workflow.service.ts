@@ -115,6 +115,19 @@ class WorkflowService {
     const data: WorkflowResponse = await response.json();
     return Array.isArray(data.data) ? data.data : [];
   }
+  async getInActiveWorkflows(): Promise<ApprovalWorkflow[]> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/approval-workflows/inactive`, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch inactive workflows');
+    }
+
+    const data: WorkflowResponse = await response.json();
+    return Array.isArray(data.data) ? data.data : [];
+  }
 }
 
 export const workflowService = new WorkflowService(); 

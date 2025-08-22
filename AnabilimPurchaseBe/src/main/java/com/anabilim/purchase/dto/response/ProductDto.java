@@ -19,6 +19,8 @@ public class ProductDto {
     private CategoryDto.CategoryBasicDto category;
     private String productType;
     private String unit;
+    private String serialNumber;
+    private String imageUrl;
     private Integer minQuantity;
     private Integer maxQuantity;
     private BigDecimal estimatedUnitPrice;

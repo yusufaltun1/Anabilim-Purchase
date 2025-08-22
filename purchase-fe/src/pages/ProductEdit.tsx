@@ -15,9 +15,11 @@ export const ProductEdit = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState<UpdateProductRequest>({
     name: '',
-    description: '',
-    code: '',
-    unitOfMeasure: '',
+          description: '',
+      code: '',
+      serialNumber: '',
+      imageUrl: '',
+      unitOfMeasure: '',
     productType: ProductType.OTHER,
     categoryId: null,
     minQuantity: 1,
@@ -71,10 +73,11 @@ export const ProductEdit = () => {
       console.log('Loading product with ID:', id);
       const product = await productService.getProductById(parseInt(id!));
       console.log('Product API Response:', JSON.stringify(product, null, 2));
-      console.log('API unit value:', product.unitOfMeasure);
-      console.log('API productType value:', product.productType);
-      
-      // API'den gelen Adet -> PIECE dönüşümüm
+              console.log('API unit value:', product.unitOfMeasure);
+        console.log('API productType value:', product.productType);
+        console.log('API serialNumber value:', product.serialNumber);
+        
+        // API'den gelen Adet -> PIECE dönüşümüm
       const unitValue = getLabelToUnit(product.unitOfMeasure);
       console.log('Mapped unit value:', unitValue);
       
@@ -84,22 +87,25 @@ export const ProductEdit = () => {
         : product.productType || ProductType.OTHER;
       console.log('Mapped productType key:', productTypeKey);
       
-      const newFormData: UpdateProductRequest = {
-        name: product.name || '',
-        description: product.description || '',
-        code: product.code || '',
-        unitOfMeasure: unitValue,
-        productType: productTypeKey,
-        categoryId: product.category?.id || null,
-        minQuantity: product.minQuantity || 1,
-        maxQuantity: product.maxQuantity || 1,
-        estimatedUnitPrice: product.estimatedUnitPrice || 0,
-        currency: 'TRY',
-        isActive: product.isActive !== undefined ? product.isActive : true
-      };
+              const newFormData: UpdateProductRequest = {
+          name: product.name || '',
+          description: product.description || '',
+          code: product.code || '',
+          serialNumber: product.serialNumber || '',
+          imageUrl: product.imageUrl || '',
+          unitOfMeasure: unitValue,
+          productType: productTypeKey,
+          categoryId: product.category?.id || null,
+          minQuantity: product.minQuantity || 1,
+          maxQuantity: product.maxQuantity || 1,
+          estimatedUnitPrice: product.estimatedUnitPrice || 0,
+          currency: 'TRY',
+          isActive: product.isActive !== undefined ? product.isActive : true
+        };
       
-      console.log('Setting form data to:', newFormData);
-      setFormData(newFormData);
+              console.log('Setting form data to:', newFormData);
+        console.log('Form serialNumber value:', newFormData.serialNumber);
+        setFormData(newFormData);
     } catch (err: any) {
       console.error('Error loading product:', err);
       setError(err.message || 'Ürün bilgileri yüklenirken bir hata oluştu');
@@ -122,10 +128,40 @@ export const ProductEdit = () => {
           : name === 'categoryId'
             ? (value ? parseInt(value) : null)
             : value
-    }));
+        }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Dosya boyutu kontrolü (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Resim dosyası 5MB\'dan küçük olmalıdır');
+        return;
+      }
+
+      // Dosya tipi kontrolü
+      if (!file.type.startsWith('image/')) {
+        setError('Lütfen geçerli bir resim dosyası seçin');
+        return;
+      }
+
+      // Dosyayı base64'e çevir
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64String = event.target?.result as string;
+        setFormData(prev => ({
+          ...prev,
+          imageUrl: base64String
+        }));
+        setError(null);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Basic validation
@@ -151,7 +187,7 @@ export const ProductEdit = () => {
 
     try {
       setLoading(true);
-      setError(null);
+       setError(null);
 
       // API'ye gönderirken formData zaten enum key içeriyor
       const updateData = {
@@ -272,6 +308,54 @@ export const ProductEdit = () => {
                   disabled={loading}
                   className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                 />
+              </div>
+
+              <div>
+                <label htmlFor="serialNumber" className="block text-sm font-medium text-gray-700">
+                  Seri Numarası
+                </label>
+                <input
+                  type="text"
+                  name="serialNumber"
+                  id="serialNumber"
+                  value={formData.serialNumber}
+                  onChange={handleChange}
+                  disabled={loading}
+                  className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                  placeholder="Örn: SN123456789"
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  Ürünün seri numarası (opsiyonel)
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="image" className="block text-sm font-medium text-gray-700">
+                  Ürün Resmi
+                </label>
+                <div className="mt-1 flex items-center space-x-4">
+                  <input
+                    type="file"
+                    name="image"
+                    id="image"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={loading}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                  />
+                </div>
+                {formData.imageUrl && (
+                  <div className="mt-2">
+                    <img
+                      src={formData.imageUrl}
+                      alt="Ürün önizleme"
+                      className="h-20 w-20 object-cover rounded-md border border-gray-300"
+                    />
+                  </div>
+                )}
+                <p className="mt-1 text-sm text-gray-500">
+                  Ürün resmi (opsiyonel, maksimum 5MB)
+                </p>
               </div>
 
               <div>

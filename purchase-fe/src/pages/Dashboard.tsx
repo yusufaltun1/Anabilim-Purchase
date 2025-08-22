@@ -1,59 +1,88 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
-import { workflowService } from '../services/workflow.service';
-import { ApprovalWorkflow } from '../types/workflow';
+import { purchaseRequestService } from '../services/purchase-request.service';
+import { PurchaseRequest } from '../types/purchase-request';
 import { authService } from '../services/auth.service';
 
 export const Dashboard = () => {
-  const [workflows, setWorkflows] = useState<ApprovalWorkflow[]>([]);
+  const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const userInfo = authService.getUserInfo();
 
   useEffect(() => {
-    loadWorkflows();
+    loadPurchaseRequests();
   }, []);
 
-  const loadWorkflows = async () => {
+  const loadPurchaseRequests = async () => {
     try {
       setLoading(true);
-      const data = await workflowService.getAllWorkflows();
-      setWorkflows(data);
+      const purchaseRequestsResponse = await purchaseRequestService.getAllRequests();
+      
+      if (purchaseRequestsResponse.success && purchaseRequestsResponse.data) {
+        const requests = Array.isArray(purchaseRequestsResponse.data) 
+          ? purchaseRequestsResponse.data 
+          : [purchaseRequestsResponse.data];
+        setPurchaseRequests(requests);
+      }
     } catch (err) {
-      setError('Workflow\'lar yüklenirken hata oluştu');
-      console.error('Error loading workflows:', err);
+      setError('Veriler yüklenirken hata oluştu');
+      console.error('Error loading data:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateWorkflow = () => {
-    navigate('/workflows/create');
-  };
 
-  const handleEditWorkflow = (id: number) => {
-    navigate(`/workflows/edit/${id}`);
-  };
 
-  const handleDeleteWorkflow = async (id: number) => {
-    if (window.confirm('Bu workflow\'u silmek istediğinizden emin misiniz?')) {
-      try {
-        await workflowService.deleteWorkflow(id);
-        setWorkflows(workflows.filter(w => w.id !== id));
-      } catch (err) {
-        setError('Workflow silinirken hata oluştu');
-        console.error('Error deleting workflow:', err);
-      }
-    }
-  };
+
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
       currency: 'TRY'
     }).format(amount);
+  };
+
+  // Bu ay içinde oluşturulan satın alma taleplerini hesapla
+  const getThisMonthRequests = () => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    return purchaseRequests.filter(request => {
+      const requestDate = new Date(request.createdAt || '');
+      return requestDate >= startOfMonth;
+    }).length;
+  };
+
+  // Bugün oluşturulan satın alma taleplerini hesapla
+  const getTodayRequests = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    return purchaseRequests.filter(request => {
+      const requestDate = new Date(request.createdAt || '');
+      return requestDate >= today && requestDate < tomorrow;
+    }).length;
+  };
+
+  // Onay bekleyen satın alma taleplerini hesapla
+  const getPendingApprovalRequests = () => {
+    return purchaseRequests.filter(request => 
+      request.status === 'IN_APPROVAL'
+    ).length;
+  };
+
+  // İşlemde olan satın alma taleplerini hesapla
+  const getInProgressRequests = () => {
+    return purchaseRequests.filter(request => 
+      request.status === 'IN_PROGRESS' || request.status === 'APPROVED' || request.status === 'PARTIALLY_APPROVED'
+    ).length;
   };
 
   return (
@@ -70,34 +99,28 @@ export const Dashboard = () => {
                 Hoş geldiniz, {userInfo?.displayName || userInfo?.firstName || 'Kullanıcı'}!
               </p>
             </div>
-            <button
-              onClick={handleCreateWorkflow}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              <span>Yeni Workflow</span>
-            </button>
+
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 px-4 sm:px-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 px-4 sm:px-0">
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="bg-indigo-500 rounded-md p-3">
+                  <div className="bg-blue-500 rounded-md p-3">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Toplam Workflow</dt>
-                    <dd className="text-lg font-medium text-gray-900">{workflows.length}</dd>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Bu Ay Talepler</dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {getThisMonthRequests()}
+                    </dd>
                   </dl>
                 </div>
               </div>
@@ -108,17 +131,17 @@ export const Dashboard = () => {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="bg-green-500 rounded-md p-3">
+                  <div className="bg-purple-500 rounded-md p-3">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Aktif Workflow</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Bugün Talepler</dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      {workflows.filter(w => w.isActive).length}
+                      {getTodayRequests()}
                     </dd>
                   </dl>
                 </div>
@@ -132,15 +155,37 @@ export const Dashboard = () => {
                 <div className="flex-shrink-0">
                   <div className="bg-yellow-500 rounded-md p-3">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Kategoriler</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Onay Bekleyen</dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      {new Set(workflows.map(w => w.category)).size}
+                      {getPendingApprovalRequests()}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="bg-green-500 rounded-md p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">İşlemde</dt>
+                    <dd className="text-lg font-medium text-gray-900">
+                      {getInProgressRequests()}
                     </dd>
                   </dl>
                 </div>
@@ -149,120 +194,193 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* Workflows List */}
-        <div className="px-4 sm:px-0">
-          <div className="bg-white shadow overflow-hidden sm:rounded-md">
-            <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">Son Workflow'lar</h3>
-              <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                Sistemdeki tüm onay süreçleri
+        {/* Requests Lists */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 sm:px-0 mb-8">
+          {/* Active Requests List */}
+          <div className="bg-white shadow rounded-lg">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">İşlemde Olan Talepler</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Onaylanmış ve işlemde olan satın alma talepleri
               </p>
             </div>
-
+            
             {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+              <div className="p-6 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                <p className="mt-2 text-sm text-gray-500">Yükleniyor...</p>
               </div>
             ) : error ? (
-              <div className="px-4 py-5 sm:px-6">
-                <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : workflows.length === 0 ? (
-              <div className="px-4 py-5 sm:px-6">
-                <div className="text-center py-12">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">Workflow bulunamadı</h3>
-                  <p className="mt-1 text-sm text-gray-500">Henüz hiç workflow oluşturulmamış.</p>
-                  <div className="mt-6">
-                    <button
-                      onClick={handleCreateWorkflow}
-                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      İlk Workflow'u Oluştur
-                    </button>
-                  </div>
-                </div>
+              <div className="p-6 text-center">
+                <p className="text-sm text-red-500">{error}</p>
               </div>
             ) : (
-              <ul className="divide-y divide-gray-200">
-                {workflows.slice(0, 5).map((workflow) => (
-                  <li key={workflow.id} className="px-4 py-4 sm:px-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            workflow.isActive ? 'bg-green-100' : 'bg-gray-100'
-                          }`}>
-                            <svg className={`w-4 h-4 ${workflow.isActive ? 'text-green-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+              <div className="divide-y divide-gray-200">
+                {purchaseRequests
+                  .filter(request => 
+                    request.status === 'IN_PROGRESS' || 
+                    request.status === 'APPROVED' || 
+                    request.status === 'PARTIALLY_APPROVED'
+                  )
+                  .sort((a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime())
+                  .slice(0, 5)
+                  .map((request) => (
+                    <div key={request.id} className="p-6 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-3">
+                            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              İşlemde
+                            </div>
+                            <h4 className="text-sm font-medium text-gray-900 truncate">
+                              {request.title || `Talep #${request.id}`}
+                            </h4>
+                          </div>
+                          <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                            <span>{request.requester?.firstName} {request.requester?.lastName}</span>
+                            <span>•</span>
+                            <span>{request.items?.length || 0} ürün</span>
+                            <span>•</span>
+                            <span>{new Date(request.createdAt || '').toLocaleDateString('tr-TR')}</span>
                           </div>
                         </div>
-                        <div className="ml-4">
-                          <div className="flex items-center">
-                            <p className="text-sm font-medium text-gray-900">{workflow.name}</p>
-                            {workflow.isActive && (
-                              <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                Aktif
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-500">{workflow.description}</p>
-                          <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500">
-                            <span>Kategori: {workflow.category}</span>
-                            <span>Tutar: {formatAmount(workflow.minAmount)} - {formatAmount(workflow.maxAmount)}</span>
-                            <span>Adım: {workflow.steps.length}</span>
-                          </div>
+                        <div className="ml-4 flex-shrink-0">
+                          <button
+                            onClick={() => navigate(`/purchase-requests/${request.id}`)}
+                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            Detay
+                          </button>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleEditWorkflow(workflow.id!)}
-                          className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                        >
-                          Düzenle
-                        </button>
-                        <button
-                          onClick={() => handleDeleteWorkflow(workflow.id!)}
-                          className="text-red-600 hover:text-red-900 text-sm font-medium"
-                        >
-                          Sil
-                        </button>
                       </div>
                     </div>
-                  </li>
-                ))}
-              </ul>
+                  ))}
+                
+                {purchaseRequests.filter(request => 
+                  request.status === 'IN_PROGRESS' || 
+                  request.status === 'APPROVED' || 
+                  request.status === 'PARTIALLY_APPROVED'
+                ).length === 0 && (
+                  <div className="p-6 text-center">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">İşlemde talep bulunamadı</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Onaylanmış veya işlemde olan satın alma talebi yok.
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
-
-            {workflows.length > 5 && (
-              <div className="px-4 py-3 bg-gray-50 text-right sm:px-6">
+            
+            {purchaseRequests.filter(request => 
+              request.status === 'IN_PROGRESS' || 
+              request.status === 'APPROVED' || 
+              request.status === 'PARTIALLY_APPROVED'
+            ).length > 5 && (
+              <div className="px-6 py-4 border-t border-gray-200">
                 <button
-                  onClick={() => navigate('/workflows')}
-                  className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                  onClick={() => navigate('/purchase-requests')}
+                  className="w-full text-center text-sm font-medium text-indigo-600 hover:text-indigo-500"
                 >
-                  Tümünü Görüntüle →
+                  Tüm işlemdeki talepleri görüntüle →
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Pending Approval Requests List */}
+          <div className="bg-white shadow rounded-lg">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Onay Bekleyen Talepler</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Onay sürecinde bekleyen satın alma talepleri
+              </p>
+            </div>
+            
+            {loading ? (
+              <div className="p-6 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                <p className="mt-2 text-sm text-gray-500">Yükleniyor...</p>
+              </div>
+            ) : error ? (
+              <div className="p-6 text-center">
+                <p className="text-sm text-red-500">{error}</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {purchaseRequests
+                  .filter(request => 
+                    request.status === 'IN_APPROVAL'
+                  )
+                  .sort((a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime())
+                  .slice(0, 5)
+                  .map((request) => (
+                    <div key={request.id} className="p-6 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-3">
+                            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              Onay Bekliyor
+                            </div>
+                            <h4 className="text-sm font-medium text-gray-900 truncate">
+                              {request.title || `Talep #${request.id}`}
+                            </h4>
+                          </div>
+                          <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                            <span>{request.requester?.firstName} {request.requester?.lastName}</span>
+                            <span>•</span>
+                            <span>{request.items?.length || 0} ürün</span>
+                            <span>•</span>
+                            <span>{new Date(request.createdAt || '').toLocaleDateString('tr-TR')}</span>
+                          </div>
+                        </div>
+                        <div className="ml-4 flex-shrink-0">
+                          <button
+                            onClick={() => navigate(`/purchase-requests/${request.id}`)}
+                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            Detay
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                
+                {purchaseRequests.filter(request => 
+                  request.status === 'IN_APPROVAL'
+                ).length === 0 && (
+                  <div className="p-6 text-center">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">Onay bekleyen talep bulunamadı</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Onay sürecinde bekleyen satın alma talebi yok.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {purchaseRequests.filter(request => 
+              request.status === 'IN_APPROVAL'
+            ).length > 5 && (
+              <div className="px-6 py-4 border-t border-gray-200">
+                <button
+                  onClick={() => navigate('/purchase-requests?status=pending')}
+                  className="w-full text-center text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                >
+                  Tüm onay bekleyen talepleri görüntüle →
                 </button>
               </div>
             )}
           </div>
         </div>
+
+
+
       </div>
     </div>
   );

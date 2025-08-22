@@ -32,18 +32,47 @@ class UserService {
   }
 
   async getActiveUsers(): Promise<UserResponse> {
-    const response = await fetch(`${API_CONFIG.BASE_URL}/api/users/active`, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/users/active`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch active users');
+      if (!response.ok) {
+        throw new Error('Failed to fetch active users');
+      }
+
+      const data = await response.json();
+      console.log('Active Users Response:', data);
+      
+      // Backend'den gelen response formatını kontrol et
+      if (data && typeof data === 'object') {
+        return {
+          success: true,
+          message: 'Success',
+          data: Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [],
+          timestamp: new Date().toISOString(),
+          errorCode: null
+        };
+      }
+      
+      return {
+        success: true,
+        message: 'Success',
+        data: [],
+        timestamp: new Date().toISOString(),
+        errorCode: null
+      };
+    } catch (error) {
+      console.error('Error fetching active users:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to fetch active users',
+        data: [],
+        timestamp: new Date().toISOString(),
+        errorCode: 'FETCH_ERROR'
+      };
     }
-
-    const data: UserResponse = await response.json();
-    console.log('Active Users Response:', data);
-    return data;
   }
 
   async getUserById(id: number): Promise<UserResponse> {

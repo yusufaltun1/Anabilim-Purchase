@@ -104,6 +104,16 @@ class WarehouseService {
     return response.data;
   }
 
+  async updateStock(stockId: number, request: UpdateWarehouseStockRequest): Promise<WarehouseResponse> {
+    const response = await axiosInstance.put<WarehouseStock>(`${this.baseUrl}/warehouse-stocks/${stockId}`, request);
+    return {
+      success: true,
+      message: 'Stok bilgileri başarıyla güncellendi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
   // New methods for stock listing and detail pages
   async getProductStocksList(page = 0, size = 20): Promise<ProductStockListResponse> {
     const response = await axiosInstance.get<ProductStockListResponse>(

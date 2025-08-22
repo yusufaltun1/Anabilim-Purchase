@@ -13,6 +13,34 @@ export const CategoryList = () => {
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
 
+  // Tüm kategori ID'lerini recursive olarak topla
+  const getAllCategoryIds = (categories: Category[]): number[] => {
+    const ids: number[] = [];
+    
+    const collectIds = (cats: Category[]) => {
+      cats.forEach(cat => {
+        ids.push(cat.id);
+        if (cat.subCategories && cat.subCategories.length > 0) {
+          collectIds(cat.subCategories);
+        }
+      });
+    };
+    
+    collectIds(categories);
+    return ids;
+  };
+
+  // Kategorileri aktif/pasif olarak işaretle
+  const markCategoriesAsActive = (categories: Category[], activeIds: number[]): Category[] => {
+    return categories.map(cat => ({
+      ...cat,
+      isActive: activeIds.includes(cat.id),
+      subCategories: cat.subCategories ? markCategoriesAsActive(cat.subCategories, activeIds) : []
+    }));
+  };
+
+
+
   useEffect(() => {
     loadCategories();
   }, [showActiveOnly]);
@@ -21,17 +49,48 @@ export const CategoryList = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = showActiveOnly
-        ? await categoryService.getActiveCategories()
-        : await categoryService.getAllCategories();
       
-      if (response.success) {
-        const categoriesData = Array.isArray(response.data) ? response.data : [response.data];
-        console.log('Categories to render:', categoriesData);
-        setCategories(categoriesData);
+      let categoriesData: Category[];
+      
+      if (showActiveOnly) {
+        // Backend'den sadece aktif kategorileri al
+        const response = await categoryService.getActiveCategories();
+        if (response.success) {
+          categoriesData = Array.isArray(response.data) ? response.data : [response.data];
+          console.log('Active categories from backend:', categoriesData);
+        } else {
+          setError(response.message);
+          return;
+        }
       } else {
-        setError(response.message);
+        // Backend'den tüm kategorileri al ve aktif olanları işaretle
+        const allCategories = await categoryService.getAllCategories();
+        const activeResponse = await categoryService.getActiveCategories();
+        
+        let activeCategoryIds: number[] = [];
+        if (activeResponse.success) {
+          const activeCategories = Array.isArray(activeResponse.data) ? activeResponse.data : [activeResponse.data];
+          activeCategoryIds = getAllCategoryIds(activeCategories);
+        }
+        
+        // Tüm kategorileri al ve aktif olanları işaretle
+        categoriesData = markCategoriesAsActive(allCategories, activeCategoryIds);
+        console.log('All categories with active status marked:', categoriesData);
       }
+      
+      console.log('Categories to render:', categoriesData);
+      console.log('Categories with isActive status:', categoriesData.map(cat => ({ 
+        id: cat.id, 
+        name: cat.name, 
+        isActive: cat.isActive,
+        code: cat.code 
+      })));
+      setCategories(categoriesData);
+      
+      // Tüm kategorileri ve alt kategorileri otomatik olarak genişlet
+      const allCategoryIds = getAllCategoryIds(categoriesData);
+      setExpandedCategories(allCategoryIds);
+      console.log('Auto-expanded category IDs:', allCategoryIds);
     } catch (err) {
       console.error('Error loading categories:', err);
       setError('Kategoriler yüklenirken hata oluştu');
@@ -49,9 +108,31 @@ export const CategoryList = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Searching for categories with term:', searchTerm);
+      
       const response = await categoryService.searchCategories(searchTerm);
+      console.log('Search response:', response);
+      
       if (response.success) {
-        setCategories(response.data as Category[]);
+        const searchResults = Array.isArray(response.data) ? response.data : [response.data];
+        console.log('Search results:', searchResults);
+        
+        // Arama sonuçlarını aktif/pasif olarak işaretle
+        const activeResponse = await categoryService.getActiveCategories();
+        let activeCategoryIds: number[] = [];
+        if (activeResponse.success) {
+          const activeCategories = Array.isArray(activeResponse.data) ? activeResponse.data : [activeResponse.data];
+          activeCategoryIds = getAllCategoryIds(activeCategories);
+        }
+        
+        const markedSearchResults = markCategoriesAsActive(searchResults, activeCategoryIds);
+        console.log('Marked search results:', markedSearchResults);
+        
+        setCategories(markedSearchResults);
+        
+        // Arama sonuçlarını da genişlet
+        const searchResultIds = getAllCategoryIds(markedSearchResults);
+        setExpandedCategories(searchResultIds);
       } else {
         setError(response.message);
       }
@@ -135,13 +216,19 @@ export const CategoryList = () => {
           </div>
           <div className="flex items-center space-x-2 ml-4">
             <button
-              onClick={() => navigate(`/categories/${category.id}`)}
+              onClick={() => {
+                console.log('Navigating to category detail:', category.id);
+                navigate(`/categories/${category.id}`);
+              }}
               className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
             >
               Detay
             </button>
             <button
-              onClick={() => navigate(`/categories/edit/${category.id}`)}
+              onClick={() => {
+                console.log('Navigating to category edit:', category.id);
+                navigate(`/categories/edit/${category.id}`);
+              }}
               className="text-yellow-600 hover:text-yellow-900 text-sm font-medium"
             >
               Düzenle
@@ -193,7 +280,10 @@ export const CategoryList = () => {
                   placeholder="Kategori ara..."
                 />
                 <button
-                  onClick={handleSearch}
+                  onClick={() => {
+                    console.log('Search button clicked with term:', searchTerm);
+                    handleSearch();
+                  }}
                   className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   Ara
@@ -237,10 +327,34 @@ export const CategoryList = () => {
             <div className="bg-white shadow overflow-hidden sm:rounded-lg">
               <div className="divide-y divide-gray-200">
                 {categories.length > 0 ? (
-                  categories.map(category => renderCategoryTree(category))
+                  <>
+                    {searchTerm && (
+                      <div className="p-4 bg-blue-50 border-b border-blue-200">
+                        <p className="text-sm text-blue-800">
+                          "{searchTerm}" için {categories.length} sonuç bulundu
+                        </p>
+                      </div>
+                    )}
+                    {categories.map(category => renderCategoryTree(category))}
+                  </>
                 ) : (
                   <div className="p-4 text-center text-gray-500">
-                    Henüz kategori bulunmuyor
+                    {searchTerm ? (
+                      <div>
+                        <p>"{searchTerm}" için sonuç bulunamadı</p>
+                        <button
+                          onClick={() => {
+                            setSearchTerm('');
+                            loadCategories();
+                          }}
+                          className="mt-2 text-indigo-600 hover:text-indigo-900 text-sm"
+                        >
+                          Tüm kategorileri göster
+                        </button>
+                      </div>
+                    ) : (
+                      <p>Henüz kategori bulunmuyor</p>
+                    )}
                   </div>
                 )}
               </div>

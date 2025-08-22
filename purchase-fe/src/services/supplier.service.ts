@@ -13,16 +13,24 @@ class SupplierService {
 
   private mapRequestToApi(request: CreateSupplierRequest | UpdateSupplierRequest) {
     const apiRequest = {
-      ...request,
-      active: 'isActive' in request ? request.isActive : undefined,
+      name: request.name,
+      taxNumber: request.taxNumber,
+      taxOffice: request.taxOffice,
+      address: request.address,
+      phone: request.phone,
+      email: request.email,
+      website: request.website,
+      contactPerson: request.contactPerson,
+      contactPhone: request.contactPhone,
+      contactEmail: request.contactEmail,
+      bankAccount: request.bankAccount,
+      iban: request.iban,
+      active: 'isActive' in request ? request.isActive : true,
       preferred: request.isPreferred,
-      categoryIds: request.categoryIds
+      categoryIds: request.categoryIds || []
     };
 
-    // Remove the original fields that we've mapped
-    if ('isActive' in apiRequest) delete apiRequest.isActive;
-    if ('isPreferred' in apiRequest) delete apiRequest.isPreferred;
-
+    console.log('Mapped API request:', apiRequest);
     return apiRequest;
   }
 
@@ -36,7 +44,9 @@ class SupplierService {
 
   async createSupplier(supplier: CreateSupplierRequest): Promise<SupplierResponse> {
     try {
+      console.log('Original supplier request:', supplier);
       const apiRequest = this.mapRequestToApi(supplier);
+      console.log('Sending to API:', JSON.stringify(apiRequest, null, 2));
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/suppliers`, {
         method: 'POST',
         headers: this.getHeaders(),
@@ -44,9 +54,11 @@ class SupplierService {
       });
 
       const data = await response.json();
+      console.log('API Response:', data);
       
       if (!response.ok) {
-        throw new Error(data.message || 'Tedarikçi oluşturulurken bir hata oluştu');
+        console.error('API Error Response:', data);
+        throw new Error(data.message || data.error || 'Tedarikçi oluşturulurken bir hata oluştu');
       }
 
       return {

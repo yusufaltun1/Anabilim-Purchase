@@ -148,7 +148,7 @@ class ProductService {
     return await response.json();
   }
 
-  async getActiveProducts(): Promise<ProductResponse> {
+  async getActiveProducts(): Promise<Product[]> {
     try {
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/products/active`, {
         method: 'GET',
@@ -160,19 +160,20 @@ class ProductService {
       }
 
       const data = await response.json();
-      return {
-        success: true,
-        data,
-        message: '',
-        timestamp: new Date().toISOString()
-      };
+      console.log('Active products response:', data);
+      
+      // Backend'den gelen response formatını kontrol et
+      if (Array.isArray(data)) {
+        return data;
+      } else if (data && Array.isArray(data.data)) {
+        return data.data;
+      } else {
+        console.error('Unexpected active products data format:', data);
+        return [];
+      }
     } catch (error: any) {
-      return {
-        success: false,
-        data: [],
-        message: error.message,
-        timestamp: new Date().toISOString()
-      };
+      console.error('Error fetching active products:', error);
+      return [];
     }
   }
 

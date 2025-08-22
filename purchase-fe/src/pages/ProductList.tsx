@@ -9,6 +9,7 @@ export const ProductList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadProducts();
@@ -114,19 +115,29 @@ export const ProductList = () => {
                       <div className="px-4 py-4 sm:px-6">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
-                            <p className="text-sm font-medium text-indigo-600 truncate">
-                              {product.name}
-                            </p>
-                            <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                              {product.code}
-                            </span>
-                            {product.productType && (
-                              <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {PRODUCT_TYPE_LABELS[product.productType]?.label || product.productType}
+                            <div>
+                              <p className="text-sm font-medium text-indigo-600 truncate">
+                                {product.name}
+                              </p>
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                {product.code}
                               </span>
-                            )}
+                              {product.productType && (
+                                <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                  {PRODUCT_TYPE_LABELS[product.productType]?.label || product.productType}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center space-x-4">
+                            {product.imageUrl && (
+                              <img
+                                src={product.imageUrl}
+                                alt={product.name}
+                                className="h-12 w-12 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setSelectedImage(product.imageUrl)}
+                              />
+                            )}
                             <p className="px-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                               {formatCurrency(product.estimatedUnitPrice || 0)}
                             </p>
@@ -167,6 +178,26 @@ export const ProductList = () => {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Resim Modal */}
+          {selectedImage && (
+            <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+              <button
+                onClick={() => setSelectedImage(null)}
+                className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70 transition-all z-10"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <img
+                src={selectedImage}
+                alt="Büyük resim görünümü"
+                className="max-w-[80vw] max-h-[80vh] object-contain rounded-lg shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              />
             </div>
           )}
         </div>

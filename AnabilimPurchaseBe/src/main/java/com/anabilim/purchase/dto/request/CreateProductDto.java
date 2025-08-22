@@ -46,6 +46,11 @@ public class CreateProductDto {
     
     @NotBlank(message = "Para birimi boş olamaz")
     private String currency = "TRY";
-    
+
+    @Size(min = 2, max = 100, message = "Ürün adı 2-100 karakter arasında olmalıdır")
+    private String serialNumber;
+
+    private String imageUrl;
+
     private Set<Long> supplierIds;
 } 

@@ -24,7 +24,9 @@ const TransferDetail: React.FC = () => {
     if (!id) return;
     try {
       setLoading(true);
+      console.log('Loading transfer with ID:', id);
       const data = await AssetTransferService.getTransferById(Number(id));
+      console.log('Transfer loaded:', data);
       setTransfer(data);
     } catch (error) {
       console.error('Error loading transfer:', error);

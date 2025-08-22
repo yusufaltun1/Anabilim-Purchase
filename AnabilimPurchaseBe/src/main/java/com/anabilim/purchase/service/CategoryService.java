@@ -7,6 +7,7 @@ import com.anabilim.purchase.dto.response.CategoryDto;
 import java.util.List;
 
 public interface CategoryService {
+
     CategoryDto createCategory(CreateCategoryDto createDto);
     CategoryDto updateCategory(Long id, UpdateCategoryDto updateDto);
     void deleteCategory(Long id);

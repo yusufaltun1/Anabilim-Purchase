@@ -137,7 +137,16 @@ export const SchoolDetail = () => {
                 </div>
                 <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">Okul Türü</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{school.schoolType}</dd>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                  {school.schoolType === 'PRIMARY_SCHOOL' ? 'İlkokul' :
+                   school.schoolType === 'MIDDLE_SCHOOL' ? 'Ortaokul' :
+                   school.schoolType === 'HIGH_SCHOOL' ? 'Lise' :
+                   school.schoolType === 'KINDERGARTEN' ? 'Anaokulu' :
+                   school.schoolType === 'UNIVERSITY' ? 'Üniversite' :
+                   school.schoolType === 'VOCATIONAL_HIGH_SCHOOL' ? 'Meslek Lisesi' :
+                   school.schoolType === 'ANATOLIAN_HIGH_SCHOOL' ? 'Anadolu Lisesi' :
+                   school.schoolType === 'SCIENCE_HIGH_SCHOOL' ? 'Fen Lisesi' : school.schoolType}
+                </dd>
                 </div>
                 <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">Müdür</dt>

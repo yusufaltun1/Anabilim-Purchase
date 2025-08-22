@@ -32,7 +32,13 @@ public class Product {
     
     @Column(name = "name", nullable = false)
     private String name;
-    
+
+    @Column(name = "serial_number" , nullable = false)
+    private String serialNumber;
+
+    @Column(name = "image_url" , columnDefinition = "TEXT", nullable = false)
+    private String imageUrl;
+
     @Column(name = "product_code", unique = true, nullable = false)
     private String code;
     

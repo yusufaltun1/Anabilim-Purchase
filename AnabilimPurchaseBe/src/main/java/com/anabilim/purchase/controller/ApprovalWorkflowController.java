@@ -23,9 +23,10 @@ import java.util.stream.Collectors;
 @Slf4j
 @CrossOrigin(origins = "*")
 public class ApprovalWorkflowController {
-    
-    private final ApprovalWorkflowService workflowService;
-    
+
+    private final com.anabilim.purchase.service.ApprovalWorkflowService workflowService;
+
+
     /**
      * Tüm aktif onay akışlarını getir
      * GET /api/approval-workflows
@@ -33,9 +34,9 @@ public class ApprovalWorkflowController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<ApprovalWorkflowDto>>> getAllWorkflows() {
         try {
-            log.info("Getting all active approval workflows");
+            log.info("Getting all  approval workflows");
             
-            List<ApprovalWorkflowDto> workflows = workflowService.getAllActiveWorkflows()
+            List<ApprovalWorkflowDto> workflows = workflowService.getAllWorkflows()
                     .stream()
                     .map(workflowService::convertToDto)
                     .collect(Collectors.toList());
@@ -48,7 +49,44 @@ public class ApprovalWorkflowController {
                     .body(ApiResponse.error("Onay akışları getirilemedi: " + e.getMessage()));
         }
     }
-    
+
+    @GetMapping("/active")
+    public ResponseEntity<ApiResponse<List<ApprovalWorkflowDto>>> getActiveWorkflows() {
+        try {
+            log.info("Getting all active approval workflows");
+
+            List<ApprovalWorkflowDto> workflows = workflowService.getAllActiveWorkflows()
+                    .stream()
+                    .map(workflowService::convertToDto)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(ApiResponse.success("Onay akışları başarıyla getirildi", workflows));
+
+        } catch (Exception e) {
+            log.error("Error getting approval workflows", e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Onay akışları getirilemedi: " + e.getMessage()));
+        }
+    }
+
+
+
+    @GetMapping("/inactive")
+    public ResponseEntity<ApiResponse<List<ApprovalWorkflowDto>>> getInactiveWorkflows() {
+        try {
+            List<ApprovalWorkflowDto> workflows = workflowService.getAllInActiveWorkFlow()
+                    .stream()
+                    .map(workflowService::convertToDto)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(ApiResponse.success("Pasif onay akışları getirildi", workflows));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Pasif onay akışları getirilemedi: " + e.getMessage()));
+        }
+    }
+
+
     /**
      * Kategoriye göre onay akışlarını getir
      * GET /api/approval-workflows/category/{category}

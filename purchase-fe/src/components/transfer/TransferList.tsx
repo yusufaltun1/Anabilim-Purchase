@@ -242,7 +242,7 @@ const TransferList: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <button
                             className="text-blue-600 hover:text-blue-900 mr-3"
-                            onClick={() => {/* TODO: Navigate to detail */}}
+                            onClick={() => navigate(`/transfers/${transfer.id}`)}
                           >
                             Detay
                           </button>

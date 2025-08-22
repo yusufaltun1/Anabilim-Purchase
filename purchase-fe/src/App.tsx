@@ -44,6 +44,15 @@ import TransferCreate from './components/transfer/TransferCreate';
 import TransferDetail from './components/transfer/TransferDetail';
 import { CategoryCreate } from './pages/CategoryCreate';
 import { CategoryList } from './pages/CategoryList';
+import { CategoryDetail } from './pages/CategoryDetail';
+import { CategoryEdit } from './pages/CategoryEdit';
+import { ProductSupplierAdd } from './pages/ProductSupplierAdd';
+import { LocationCreate } from './pages/LocationCreate';
+import { LocationList } from './pages/LocationList';
+import { LocationDetail } from './pages/LocationDetail';
+import { LocationEdit } from './pages/LocationEdit';
+// import { LocationDetail } from './pages/LocationDetail';
+// import { LocationEdit } from './pages/LocationEdit';
 
 function App() {
   return (
@@ -191,18 +200,18 @@ function App() {
                 } 
               />
               <Route 
-                path="/products/:id" 
-                element={
-                  <PrivateRoute>
-                    <ProductDetail />
-                  </PrivateRoute>
-                } 
-              />
-              <Route 
                 path="/products/edit/:id" 
                 element={
                   <PrivateRoute>
                     <ProductEdit />
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/products/:id" 
+                element={
+                  <PrivateRoute>
+                    <ProductDetail />
                   </PrivateRoute>
                 } 
               />
@@ -349,8 +358,15 @@ function App() {
               <Route path="/transfers" element={<PrivateRoute><TransferList /></PrivateRoute>} />
               <Route path="/categories" element={<PrivateRoute><CategoryList /></PrivateRoute>} />
               <Route path="/categories/create" element={<PrivateRoute><CategoryCreate /></PrivateRoute>} />
+              <Route path="/categories/edit/:id" element={<PrivateRoute><CategoryEdit /></PrivateRoute>} />
+              <Route path="/categories/:id" element={<PrivateRoute><CategoryDetail /></PrivateRoute>} />
               <Route path="/transfers/create" element={<PrivateRoute><TransferCreate /></PrivateRoute>} />
               <Route path="/transfers/:id" element={<PrivateRoute><TransferDetail /></PrivateRoute>} />
+              <Route path="/products/:id/suppliers/add" element={<PrivateRoute><ProductSupplierAdd /></PrivateRoute>} />
+              <Route path="/locations" element={<PrivateRoute><LocationList /></PrivateRoute>} />
+              <Route path="/locations/create" element={<PrivateRoute><LocationCreate /></PrivateRoute>} />
+              <Route path="/locations/:id" element={<PrivateRoute><LocationDetail /></PrivateRoute>} />
+              <Route path="/locations/edit/:id" element={<PrivateRoute><LocationEdit /></PrivateRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

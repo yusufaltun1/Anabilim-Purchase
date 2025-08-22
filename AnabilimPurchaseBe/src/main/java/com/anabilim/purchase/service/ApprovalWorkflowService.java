@@ -33,7 +33,11 @@ public class ApprovalWorkflowService {
     public List<ApprovalWorkflow> getAllActiveWorkflows() {
         return workflowRepository.findByIsActiveTrue();
     }
-    
+    public List<ApprovalWorkflow> getAllWorkflows() {
+        return workflowRepository.findAll();
+    }
+
+    public List<ApprovalWorkflow> getAllInActiveWorkFlow(){return workflowRepository.findByIsActiveFalse();}
     public List<ApprovalWorkflow> getWorkflowsByCategory(String category) {
         return workflowRepository.findByCategoryAndIsActiveTrue(category);
     }

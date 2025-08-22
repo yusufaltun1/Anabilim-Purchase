@@ -6,19 +6,16 @@ import com.anabilim.purchase.dto.response.PurchaseRequestApprovalDto;
 import com.anabilim.purchase.dto.response.PurchaseRequestDto;
 import com.anabilim.purchase.dto.response.PurchaseRequestItemDto;
 import com.anabilim.purchase.entity.*;
-import com.anabilim.purchase.entity.enums.QuoteStatus;
 import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.repository.ProductRepository;
 import com.anabilim.purchase.repository.SupplierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.UUID;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 @Component
 @RequiredArgsConstructor
@@ -62,7 +59,7 @@ public class PurchaseRequestMapper {
                         return item;
                     })
                     .collect(Collectors.toList());
-            request.setItems(items);
+            request.setItems(new HashSet<>(items));
         }
         
         return request;
@@ -174,7 +171,7 @@ public class PurchaseRequestMapper {
         return dto;
     }
     
-    public List<PurchaseRequestItemDto> toItemDtoList(List<PurchaseRequestItem> items) {
+    public List<PurchaseRequestItemDto> toItemDtoList(Set<PurchaseRequestItem> items) {
         return items.stream()
                 .map(this::toItemDto)
                 .collect(Collectors.toList());

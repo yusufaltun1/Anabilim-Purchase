@@ -55,14 +55,11 @@ export const WarehouseDetail = () => {
 
     try {
       setLoading(true);
-      const response = await warehouseService.getStockMovements(selectedStock.id, {
-        page: movementPage,
-        size: 10
-      });
+      const response = await warehouseService.getStockMovements(selectedStock.id, undefined, undefined, movementPage, 10);
 
-      if (Array.isArray(response.data)) {
-        setStockMovements(response.data);
-        setTotalPages(response.totalPages || 1);
+      if (Array.isArray(response)) {
+        setStockMovements(response);
+        setTotalPages(1); // Backend'den pagination bilgisi gelmiyorsa varsayılan olarak 1 sayfa
       }
     } catch (err: any) {
       showNotification(err.message || 'Stok hareketleri yüklenirken bir hata oluştu', 'error');
@@ -238,7 +235,7 @@ export const WarehouseDetail = () => {
                         <div className="text-sm text-gray-500">{stock.product.code}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{stock.quantity}</div>
+                        <div className="text-sm text-gray-900">{stock.currentStock}</div>
                         <div className="text-sm text-gray-500">{stock.product.unit}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -248,7 +245,7 @@ export const WarehouseDetail = () => {
                         {stock.maxStock}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(stock.lastMovementDate)}
+                        {stock.lastMovementDate ? formatDate(stock.lastMovementDate) : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
@@ -305,7 +302,7 @@ export const WarehouseDetail = () => {
                               {stockMovements.map((movement) => (
                                 <tr key={movement.id}>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {formatDate(movement.createdAt)}
+                                    {movement.createdAt ? formatDate(movement.createdAt) : '-'}
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${

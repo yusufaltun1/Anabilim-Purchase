@@ -31,6 +31,7 @@ export const SupplierCreate = () => {
     bankAccount: '',
     iban: '',
     isPreferred: false,
+    isActive: true,
     categoryIds: []
   });
 
@@ -40,8 +41,12 @@ export const SupplierCreate = () => {
 
   const loadCategories = async () => {
     try {
-      const categories = await categoryService.getActiveCategories();
-      setCategories(categories);
+      const response = await categoryService.getActiveCategories();
+      if (response.success && response.data) {
+        setCategories(Array.isArray(response.data) ? response.data : [response.data]);
+      } else {
+        setError(response.message || 'Kategoriler yüklenirken bir hata oluştu');
+      }
     } catch (err: any) {
       setError(err.message || 'Kategoriler yüklenirken bir hata oluştu');
     }
@@ -55,10 +60,10 @@ export const SupplierCreate = () => {
     }));
   };
 
-  const categoryOptions = categories.map(category => ({
+  const categoryOptions = Array.isArray(categories) ? categories.map(category => ({
     value: category.id,
     label: category.name
-  }));
+  })) : [];
 
   const selectedCategories = categoryOptions.filter(option => 
     formData.categoryIds.includes(option.value)
@@ -71,8 +76,36 @@ export const SupplierCreate = () => {
     }));
   };
 
+  const validateForm = () => {
+    const errors: string[] = [];
+
+    // Vergi numarası validation (10 haneli)
+    if (formData.taxNumber && formData.taxNumber.replace(/\D/g, '').length !== 10) {
+      errors.push('Vergi numarası 10 haneli olmalıdır');
+    }
+
+    // İletişim telefonu validation (10-11 haneli)
+    if (formData.contactPhone && (formData.contactPhone.replace(/\D/g, '').length < 10 || formData.contactPhone.replace(/\D/g, '').length > 11)) {
+      errors.push('İletişim telefonu 10-11 haneli olmalıdır');
+    }
+
+    // IBAN validation (TR ile başlayan 26 haneli)
+    if (formData.iban && !/^TR\d{2}\d{4}\d{4}\d{4}\d{4}\d{4}\d{2}$/.test(formData.iban.replace(/\s/g, '').toUpperCase())) {
+      errors.push('Geçerli bir IBAN numarası giriniz (TR ile başlayan 26 haneli)');
+    }
+
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Form validation
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      setError(validationErrors.join(', '));
+      return;
+    }
     
     try {
       setLoading(true);
@@ -140,10 +173,14 @@ export const SupplierCreate = () => {
                   name="taxNumber"
                   id="taxNumber"
                   required
+                  placeholder="1234567890"
+                  pattern="[0-9]{10}"
+                  maxLength={10}
                   value={formData.taxNumber}
                   onChange={handleChange}
                   className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                 />
+                <p className="mt-1 text-sm text-gray-500">10 haneli vergi numarası giriniz</p>
               </div>
 
               <div>
@@ -244,10 +281,14 @@ export const SupplierCreate = () => {
                   name="contactPhone"
                   id="contactPhone"
                   required
+                  placeholder="05551234567"
+                  pattern="[0-9]{10,11}"
+                  maxLength={11}
                   value={formData.contactPhone}
                   onChange={handleChange}
                   className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                 />
+                <p className="mt-1 text-sm text-gray-500">10-11 haneli telefon numarası giriniz</p>
               </div>
 
               <div>
@@ -289,10 +330,13 @@ export const SupplierCreate = () => {
                   name="iban"
                   id="iban"
                   required
+                  placeholder="TR33 0001 0002 3456 7890 1234 56"
+                  maxLength={34}
                   value={formData.iban}
                   onChange={handleChange}
                   className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                 />
+                <p className="mt-1 text-sm text-gray-500">TR ile başlayan 26 haneli IBAN numarası giriniz</p>
               </div>
 
               <div className="flex items-center">

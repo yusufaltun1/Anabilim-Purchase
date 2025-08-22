@@ -10,7 +10,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "purchase_requests")
@@ -39,9 +41,9 @@ public class PurchaseRequest {
     
     @OneToMany(mappedBy = "purchaseRequest", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PurchaseRequestApproval> approvals = new ArrayList<>();
-    
+
     @OneToMany(mappedBy = "purchaseRequest", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PurchaseRequestItem> items = new ArrayList<>();
+    private Set<PurchaseRequestItem> items = new HashSet<>();
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

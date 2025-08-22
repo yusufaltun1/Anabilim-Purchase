@@ -18,6 +18,7 @@ export const WorkflowEdit = () => {
     minAmount: '',
     maxAmount: '',
     category: '',
+    isActive: true,
   });
   
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
@@ -66,6 +67,7 @@ export const WorkflowEdit = () => {
         minAmount: workflow.minAmount.toString(),
         maxAmount: workflow.maxAmount.toString(),
         category: workflow.category,
+        isActive: workflow.isActive,
       });
       
       setSteps(workflow.steps.map(step => ({ ...step })));
@@ -77,7 +79,7 @@ export const WorkflowEdit = () => {
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -105,6 +107,8 @@ export const WorkflowEdit = () => {
       roleName: '',
       approvalType: 'APPROVE',
       isRequired: true,
+      stepName: '',
+      approverType: 'USER',
     };
     setSteps([...steps, newStep]);
   };
@@ -172,7 +176,7 @@ export const WorkflowEdit = () => {
     // Validate steps
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      if (!step.roleName.trim()) {
+      if (!step.roleName || step.roleName.trim() === '') {
         setError(`${i + 1}. adım için rol seçimi gereklidir`);
         return false;
       }
@@ -199,6 +203,7 @@ export const WorkflowEdit = () => {
         minAmount: parseFloat(formData.minAmount),
         maxAmount: parseFloat(formData.maxAmount),
         category: formData.category,
+        isActive: formData.isActive,
         steps: steps.map(step => ({
           ...step,
           roleName: step.roleName.trim()
@@ -224,6 +229,7 @@ export const WorkflowEdit = () => {
         formData.minAmount !== originalData.minAmount.toString() ||
         formData.maxAmount !== originalData.maxAmount.toString() ||
         formData.category !== originalData.category ||
+        formData.isActive !== originalData.isActive ||
         JSON.stringify(steps) !== JSON.stringify(originalData.steps);
       
       if (hasChanges) {
@@ -416,6 +422,24 @@ export const WorkflowEdit = () => {
                   step="0.01"
                   required
                 />
+              </div>
+              
+              <div className="md:col-span-2">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={formData.isActive}
+                    onChange={(e) => handleInputChange('isActive', e.target.checked)}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
+                    Workflow Aktif
+                  </label>
+                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  Bu seçenek işaretliyse workflow kullanılabilir durumda olacaktır.
+                </p>
               </div>
             </div>
           </div>

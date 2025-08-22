@@ -26,7 +26,7 @@ public class CreatePurchaseRequestDto {
     @Size(min = 10, max = 2000, message = "Açıklama 10-2000 karakter arasında olmalıdır")
     private String description;
     
-    @NotEmpty(message = "En az bir ürün eklenmelidir")
+
     private List<@Valid PurchaseRequestItemDto> items;
     
     @Data

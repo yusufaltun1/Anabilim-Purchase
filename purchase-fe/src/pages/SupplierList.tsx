@@ -134,14 +134,16 @@ export const SupplierList = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
-                                onClick={() => navigate(`/suppliers/${supplier.id}`)}
+                                onClick={() => navigate(`/suppliers/edit/${supplier.id}`)}
                                 className="text-indigo-600 hover:text-indigo-900 mr-4"
+                                title="Düzenle"
                               >
                                 <PencilIcon className="h-5 w-5" />
                               </button>
                               <button
                                 onClick={() => handleDelete(supplier.id)}
                                 className="text-red-600 hover:text-red-900"
+                                title="Sil"
                               >
                                 <TrashIcon className="h-5 w-5" />
                               </button>
