@@ -97,7 +97,8 @@ public class SupplierQuoteServiceImpl implements SupplierQuoteService {
                 quote.getRequestItem().getProduct().getName(),
                 quote.getRequestItem().getProduct().getCode(),
                 quote.getRequestItem().getProduct().getDescription(),
-                quote.getRequestItem().getProduct().getCategory().getName()
+                quote.getRequestItem().getProduct().getCategory().getName(),
+                quote.getRequestItem().getProduct().getProductType().name()
         );
         dto.setProduct(productDto);
         

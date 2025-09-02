@@ -22,11 +22,5 @@ public interface WarehouseStockRepository extends JpaRepository<WarehouseStock, 
     
     @EntityGraph(attributePaths = {"warehouse", "product"})
     List<WarehouseStock> findByProduct(Product product);
-    
-    @Query("SELECT ws FROM WarehouseStock ws WHERE ws.currentStock <= ws.minStock")
-    @EntityGraph(attributePaths = {"warehouse", "product"})
-    List<WarehouseStock> findAllLowStock();
-    
-    @Query("SELECT SUM(ws.currentStock) FROM WarehouseStock ws WHERE ws.product = :product")
-    Integer getTotalStockForProduct(Product product);
+
 } 

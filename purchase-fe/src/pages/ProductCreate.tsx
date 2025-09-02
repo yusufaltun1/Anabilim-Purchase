@@ -120,7 +120,7 @@ export const ProductCreate = () => {
       return;
     }
 
-    if (formData.code.length < 2 || formData.code.length > 20) {
+    if (formData.code.length < 2 || formData.code.length > 100) {
       setError('Ürün kodu 2-20 karakter arasında olmalıdır');
       return;
     }
@@ -159,11 +159,11 @@ export const ProductCreate = () => {
         setFormData({
           name: '',
           code: '',
-                description: '',
-      serialNumber: '',
-      imageUrl: '',
-      categoryId: null,
-          productType: ProductType.OTHER,
+          description: '',
+          serialNumber: '',
+          imageUrl: '',
+          categoryId: null,
+          productType: ProductType.FIXED_ASSET,
           unitOfMeasure: '',
           minQuantity: 1,
           maxQuantity: 1,

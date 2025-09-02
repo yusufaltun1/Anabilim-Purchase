@@ -23,7 +23,6 @@ public class ProductMapper {
         product.setUnitOfMeasure(createDto.getUnitOfMeasure());
         product.setMinQuantity(createDto.getMinQuantity());
         product.setMaxQuantity(createDto.getMaxQuantity());
-        product.setSerialNumber(createDto.getSerialNumber());
         product.setImageUrl(createDto.getImageUrl());
         product.setEstimatedUnitPrice(createDto.getEstimatedUnitPrice());
         product.setCurrency(createDto.getCurrency());

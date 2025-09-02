@@ -166,6 +166,8 @@ export interface CreateStockMovementRequest {
   referenceType: 'PURCHASE_ORDER' | 'SALES_ORDER' | 'TRANSFER' | 'ADJUSTMENT' | 'MANUAL';
   referenceId?: number;
   notes?: string;
+  serialNumber?: string; // Seri numarası (FIXED_ASSET ve SEMI_FIXED_ASSET için)
+  imageUrl?: string; // Resim URL'i (FIXED_ASSET ve SEMI_FIXED_ASSET için)
 }
 
 export interface UpdateStockRequest {
@@ -190,6 +192,52 @@ export interface WarehouseStockResponse {
   success: boolean;
   message: string;
   data: WarehouseStock | WarehouseStock[];
+  timestamp: string;
+}
+
+export interface StockItem {
+  id: number;
+  productId: number;
+  productName: string;
+  productCode: string;
+  serialNumber: string;
+  status: 'IN_STOCK' | 'ASSIGNED' | 'MAINTENANCE' | 'RETIRED';
+  warehouseId: number | null;
+  warehouseName: string | null;
+  assignedUserId: number | null;
+  assignedUserName: string | null;
+  assignedSchoolId: number | null;
+  assignedSchoolName: string | null;
+  purchasePrice: number;
+  purchaseDate: string;
+  warrantyExpiryDate: string;
+  locationDetails: string;
+  imageUrl: string | null;
+  additionalImages: string[];
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  isUnderWarranty: boolean;
+  isAvailable: boolean;
+  isAssigned: boolean;
+}
+
+export interface CreateStockItemRequest {
+  productId: number;
+  serialNumber: string;
+  warehouseId: number;
+  purchasePrice?: number;
+  imageUrl?: string;
+  additionalImages?: string[];
+  locationDetails?: string;
+  notes?: string;
+}
+
+export interface StockItemResponse {
+  success: boolean;
+  message: string;
+  data: StockItem[];
   timestamp: string;
 }
 

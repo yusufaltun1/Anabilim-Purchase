@@ -123,7 +123,7 @@ public class WarehouseStockController {
         
         // Toplam stok hesapla
         Integer totalStock = warehouseStocks.stream()
-                .mapToInt(ws -> ws.getCurrentStock() != null ? ws.getCurrentStock() : 0)
+                .mapToInt(ws -> ws.getCurrentStock())
                 .sum();
 
         // Depo bazında stok detaylarını hazırla
@@ -149,13 +149,6 @@ public class WarehouseStockController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/low-stock")
-    public ResponseEntity<List<WarehouseStockDto>> getLowStocks() {
-        List<WarehouseStockDto> stocks = warehouseStockRepository.findAllLowStock().stream()
-                .map(this::convertToStockDto)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(stocks);
-    }
 
     @PutMapping("/{stockId}")
     public ResponseEntity<WarehouseStockDto> updateStock(
@@ -253,7 +246,7 @@ public class WarehouseStockController {
         
         // Toplam stok hesapla
         Integer totalStock = warehouseStocks.stream()
-                .mapToInt(ws -> ws.getCurrentStock() != null ? ws.getCurrentStock() : 0)
+                .mapToInt(ws -> ws.getCurrentStock() )
                 .sum();
         
         // Kaç depoda stok var
@@ -262,7 +255,7 @@ public class WarehouseStockController {
         // Herhangi bir depoda düşük stok var mı
         boolean hasLowStock = warehouseStocks.stream()
                 .anyMatch(ws -> ws.getMinStock() != null && 
-                              ws.getCurrentStock() != null && 
+
                               ws.getCurrentStock() <= ws.getMinStock());
         
         // En son hareket tarihi
@@ -305,7 +298,7 @@ public class WarehouseStockController {
 
         // Düşük stok kontrolü
         boolean isLowStock = stock.getMinStock() != null && 
-                            stock.getCurrentStock() != null && 
+
                             stock.getCurrentStock() <= stock.getMinStock();
 
         return new ProductStockDetailDto.WarehouseStockDetailDto(

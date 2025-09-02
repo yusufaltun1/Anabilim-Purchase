@@ -1,6 +1,7 @@
 package com.anabilim.purchase.entity;
 
 import com.anabilim.purchase.entity.enums.ProductType;
+import com.anabilim.purchase.entity.enums.StockTrackingType;
 import com.anabilim.purchase.entity.enums.UnitOfMeasure;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -33,10 +34,10 @@ public class Product {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "serial_number" , nullable = false)
+    @Column(name = "serial_number")
     private String serialNumber;
 
-    @Column(name = "image_url" , columnDefinition = "TEXT", nullable = false)
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @Column(name = "product_code", unique = true, nullable = false)
@@ -47,7 +48,14 @@ public class Product {
     
     @Enumerated(EnumType.STRING)
     @Column(name = "product_type", nullable = false)
-    private ProductType productType = ProductType.OTHER;
+    private ProductType productType;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "stock_tracking_type")
+    private StockTrackingType stockTrackingType = StockTrackingType.QUANTITY_ONLY;
+    
+    @Column(name = "requires_serial_number")
+    private Boolean requiresSerialNumber = false;
     
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
@@ -97,6 +105,10 @@ public class Product {
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<PurchaseRequestItem> purchaseRequestItems = new HashSet<>();
     
+    // Seri numaralı ürünler için StockItem ilişkisi
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<StockItem> stockItems = new HashSet<>();
+    
     // Yardımcı metodlar
     public boolean isLowStock() {
         return minQuantity != null && currentStock != null && currentStock <= minQuantity;
@@ -125,7 +137,32 @@ public class Product {
         return ProductType.CONSUMABLE.equals(this.productType);
     }
     
-    public boolean isService() {
-        return ProductType.SERVICE.equals(this.productType);
+    // Stok takip tipi kontrol metodları
+    public boolean isSerialNumberTracked() {
+        return StockTrackingType.SERIAL_NUMBER.equals(this.stockTrackingType);
+    }
+    
+    public boolean isQuantityOnlyTracked() {
+        return StockTrackingType.QUANTITY_ONLY.equals(this.stockTrackingType);
+    }
+    
+    public boolean isQuantityReusableTracked() {
+        return StockTrackingType.QUANTITY_REUSABLE.equals(this.stockTrackingType);
+    }
+    
+    public boolean isNoStockTracked() {
+        return StockTrackingType.NO_STOCK.equals(this.stockTrackingType);
+    }
+    
+    // Ürün tipi değiştiğinde stok takip tipini otomatik güncelle
+    public void updateStockTrackingTypeFromProductType() {
+        this.stockTrackingType = this.productType.getStockTrackingType();
+        this.requiresSerialNumber = StockTrackingType.SERIAL_NUMBER.equals(this.stockTrackingType);
+    }
+    
+    // Tekrar kullanılabilir mi kontrolü
+    public boolean isReusable() {
+        return StockTrackingType.QUANTITY_REUSABLE.equals(this.stockTrackingType) 
+               || StockTrackingType.SERIAL_NUMBER.equals(this.stockTrackingType);
     }
 } 

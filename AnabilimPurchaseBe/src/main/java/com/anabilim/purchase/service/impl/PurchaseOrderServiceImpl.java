@@ -168,7 +168,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 product.getName(),
                 product.getCode(),
                 product.getDescription(),
-                product.getCategory() != null ? product.getCategory().getName() : null
+                product.getCategory() != null ? product.getCategory().getName() : null, product.getProductType().name()
         );
     }
 

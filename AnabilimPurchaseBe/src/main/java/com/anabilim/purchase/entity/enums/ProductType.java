@@ -4,22 +4,22 @@ import lombok.Getter;
 
 @Getter
 public enum ProductType {
-    CONSUMABLE("Sarf Malzemesi", "Tüketilen malzemeler"),
-    FIXED_ASSET("Demirbaş", "Sabit kıymet olarak kayıtlanan malzemeler"),
-    EQUIPMENT("Ekipman", "Kullanılan ancak tüketilmeyen malzemeler"),
-    SERVICE("Hizmet", "Hizmet alımları"),
-    SOFTWARE("Yazılım", "Yazılım lisansları"),
-    MAINTENANCE("Bakım", "Bakım ve onarım malzemeleri"),
-    OFFICE_SUPPLIES("Ofis Malzemeleri", "Günlük ofis kullanımı için malzemeler"),
-    IT_HARDWARE("IT Donanımı", "Bilgi işlem donanımları"),
-    FURNITURE("Mobilya", "Ofis mobilyaları"),
-    OTHER("Diğer", "Diğer ürün tipleri");
+    // Sarf Malzemeleri (Tüketilen, geri gelmez)
+    CONSUMABLE("Sarf Malzemesi", "Tüketilen malzemeler", StockTrackingType.QUANTITY_ONLY),
+    
+    // Demirbaş (Seri numaralı, tekrar kullanılabilir)
+    FIXED_ASSET("Demirbaş", "Seri numaralı sabit kıymetler", StockTrackingType.SERIAL_NUMBER),
+    
+    // Yarı Demirbaş (Seri numarasız, tekrar kullanılabilir)
+    SEMI_FIXED_ASSET("Yarı Demirbaş", "Seri numarasız tekrar kullanılabilir malzemeler", StockTrackingType.QUANTITY_REUSABLE);
 
     private final String displayName;
     private final String description;
+    private final StockTrackingType stockTrackingType;
 
-    ProductType(String displayName, String description) {
+    ProductType(String displayName, String description, StockTrackingType stockTrackingType) {
         this.displayName = displayName;
         this.description = description;
+        this.stockTrackingType = stockTrackingType;
     }
 } 

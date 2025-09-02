@@ -9,7 +9,10 @@ import {
   WarehouseResponse,
   ProductStock,
   ProductStockDetail,
-  ProductStockListResponse
+  ProductStockListResponse,
+  StockItem,
+  StockItemResponse,
+  CreateStockItemRequest
 } from '../types/warehouse';
 
 class WarehouseService {
@@ -127,6 +130,23 @@ class WarehouseService {
       `${this.baseUrl}/warehouse-stocks/product/${productId}/detail`
     );
     return response.data;
+  }
+
+  async getProductStockItems(productId: number): Promise<StockItemResponse> {
+    const response = await axiosInstance.get<StockItemResponse>(
+      `/api/v1/stock-items/product/${productId}`
+    );
+    return response.data;
+  }
+
+  async createStockItem(request: CreateStockItemRequest): Promise<WarehouseResponse> {
+    const response = await axiosInstance.post<StockItem>('/api/v1/stock-items', request);
+    return {
+      success: true,
+      message: 'Stok itemı başarıyla oluşturuldu',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
   }
 }
 

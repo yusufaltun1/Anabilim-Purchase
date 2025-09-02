@@ -3,27 +3,14 @@ import { Category } from './category';
 export enum ProductType {
   CONSUMABLE = 'CONSUMABLE',
   FIXED_ASSET = 'FIXED_ASSET',
-  EQUIPMENT = 'EQUIPMENT',
-  SERVICE = 'SERVICE',
-  SOFTWARE = 'SOFTWARE',
-  MAINTENANCE = 'MAINTENANCE',
-  OFFICE_SUPPLIES = 'OFFICE_SUPPLIES',
-  IT_HARDWARE = 'IT_HARDWARE',
-  FURNITURE = 'FURNITURE',
-  OTHER = 'OTHER'
+  SEMI_FIXED_ASSET  = 'SEMI_FIXED_ASSET '
 }
 
 export const PRODUCT_TYPE_LABELS: Record<ProductType, { label: string; description: string }> = {
   [ProductType.CONSUMABLE]: { label: 'Sarf Malzemesi', description: 'Tüketilen malzemeler' },
   [ProductType.FIXED_ASSET]: { label: 'Demirbaş', description: 'Sabit kıymet olarak kayıtlanan malzemeler' },
-  [ProductType.EQUIPMENT]: { label: 'Ekipman', description: 'Kullanılan ancak tüketilmeyen malzemeler' },
-  [ProductType.SERVICE]: { label: 'Hizmet', description: 'Hizmet alımları' },
-  [ProductType.SOFTWARE]: { label: 'Yazılım', description: 'Yazılım lisansları' },
-  [ProductType.MAINTENANCE]: { label: 'Bakım', description: 'Bakım ve onarım malzemeleri' },
-  [ProductType.OFFICE_SUPPLIES]: { label: 'Ofis Malzemeleri', description: 'Günlük ofis kullanımı için malzemeler' },
-  [ProductType.IT_HARDWARE]: { label: 'IT Donanımı', description: 'Bilgi işlem donanımları' },
-  [ProductType.FURNITURE]: { label: 'Mobilya', description: 'Ofis mobilyaları' },
-  [ProductType.OTHER]: { label: 'Diğer', description: 'Diğer ürün tipleri' }
+  [ProductType.SEMI_FIXED_ASSET ]: { label: 'Yarı Sabit Kıymet', description: 'Yarı sabit kıymet olarak kayıtlanan malzemeler' },
+  
 };
 
 // Helper function to map Turkish labels back to enum keys

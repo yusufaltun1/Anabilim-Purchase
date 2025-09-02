@@ -1,0 +1,312 @@
+import { axiosInstance } from './axios-instance';
+import { 
+  Assignment, 
+  AssignmentResponse, 
+  AssignmentCountResponse,
+  CreateAssignmentRequest,
+  TransferRequest,
+  AssignmentStatus 
+} from '../types/assignment';
+
+class AssignmentService {
+  private readonly baseUrl = '/api/v1/assignments';
+
+  // CRUD İşlemleri
+  async createAssignment(request: CreateAssignmentRequest): Promise<AssignmentResponse> {
+    const response = await axiosInstance.post<Assignment>(this.baseUrl, request);
+    return {
+      success: true,
+      message: 'Zimmet başarıyla oluşturuldu',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getAssignmentById(id: number): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment>(`${this.baseUrl}/${id}`);
+    return {
+      success: true,
+      message: 'Zimmet başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getAllAssignments(): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(this.baseUrl);
+    return {
+      success: true,
+      message: 'Zimmetler başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async deleteAssignment(id: number): Promise<void> {
+    await axiosInstance.delete(`${this.baseUrl}/${id}`);
+  }
+
+  // Ürün Bazlı İşlemler
+  async getAssignmentsByProduct(productId: number): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<AssignmentResponse>(`${this.baseUrl}/product/${productId}`);
+    return response.data;
+  }
+
+  async getAssignmentsByProductAndStatus(productId: number, status: AssignmentStatus): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/product/${productId}/status/${status}`);
+    return {
+      success: true,
+      message: 'Ürün zimmetleri başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // Kullanıcı Bazlı İşlemler
+  async getAssignmentsByUser(userId: number): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/user/${userId}`);
+    return {
+      success: true,
+      message: 'Kullanıcı zimmetleri başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getActiveAssignmentsByUser(userId: number): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/user/${userId}/active`);
+    return {
+      success: true,
+      message: 'Kullanıcı aktif zimmetleri başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getAssignmentsByUserAndStatus(userId: number, status: AssignmentStatus): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/user/${userId}/status/${status}`);
+    return {
+      success: true,
+      message: 'Kullanıcı zimmetleri başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // Okul/Konum Bazlı İşlemler
+  async getAssignmentsBySchool(schoolId: number): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/school/${schoolId}`);
+    return {
+      success: true,
+      message: 'Okul zimmetleri başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getAssignmentsByLocation(locationName: string): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/location?locationName=${encodeURIComponent(locationName)}`);
+    return {
+      success: true,
+      message: 'Konum zimmetleri başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getActiveAssignmentsByLocation(locationName: string): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/location/active?locationName=${encodeURIComponent(locationName)}`);
+    return {
+      success: true,
+      message: 'Konum aktif zimmetleri başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // Durum İşlemleri
+  async getAssignmentsByStatus(status: AssignmentStatus): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/status/${status}`);
+    return {
+      success: true,
+      message: 'Durum zimmetleri başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getActiveAssignments(): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/active`);
+    return {
+      success: true,
+      message: 'Aktif zimmetler başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getExpiredAssignments(): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/expired`);
+    return {
+      success: true,
+      message: 'Süresi dolmuş zimmetler başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // Zimmet İşlemleri
+  async returnAssignment(id: number): Promise<AssignmentResponse> {
+    const response = await axiosInstance.post<Assignment>(`${this.baseUrl}/${id}/return`);
+    return {
+      success: true,
+      message: 'Zimmet başarıyla iade edildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async markAssignmentAsLost(id: number): Promise<AssignmentResponse> {
+    const response = await axiosInstance.post<Assignment>(`${this.baseUrl}/${id}/lost`);
+    return {
+      success: true,
+      message: 'Zimmet kayıp olarak işaretlendi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async markAssignmentAsDamaged(id: number): Promise<AssignmentResponse> {
+    const response = await axiosInstance.post<Assignment>(`${this.baseUrl}/${id}/damaged`);
+    return {
+      success: true,
+      message: 'Zimmet hasarlı olarak işaretlendi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async transferToUser(id: number, request: TransferRequest): Promise<AssignmentResponse> {
+    const params = new URLSearchParams();
+    if (request.newUserId) params.append('newUserId', request.newUserId.toString());
+    if (request.newSchoolId) params.append('newSchoolId', request.newSchoolId.toString());
+    if (request.notes) params.append('notes', request.notes);
+
+    const response = await axiosInstance.post<Assignment>(`${this.baseUrl}/${id}/transfer/user?${params}`);
+    return {
+      success: true,
+      message: 'Zimmet başarıyla transfer edildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async transferToLocation(id: number, request: TransferRequest): Promise<AssignmentResponse> {
+    const params = new URLSearchParams();
+    if (request.newLocationName) params.append('newLocationName', request.newLocationName);
+    if (request.newLocationDetails) params.append('newLocationDetails', request.newLocationDetails);
+    if (request.notes) params.append('notes', request.notes);
+
+    const response = await axiosInstance.post<Assignment>(`${this.baseUrl}/${id}/transfer/location?${params}`);
+    return {
+      success: true,
+      message: 'Zimmet başarıyla transfer edildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // Sayım İşlemleri
+  async getAssignmentCountByProduct(productId: number): Promise<AssignmentCountResponse> {
+    const response = await axiosInstance.get<number>(`${this.baseUrl}/count/product/${productId}`);
+    return {
+      success: true,
+      message: 'Ürün zimmet sayısı başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getAssignmentCountByUser(userId: number): Promise<AssignmentCountResponse> {
+    const response = await axiosInstance.get<number>(`${this.baseUrl}/count/user/${userId}`);
+    return {
+      success: true,
+      message: 'Kullanıcı zimmet sayısı başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getAssignmentCountBySchool(schoolId: number): Promise<AssignmentCountResponse> {
+    const response = await axiosInstance.get<number>(`${this.baseUrl}/count/school/${schoolId}`);
+    return {
+      success: true,
+      message: 'Okul zimmet sayısı başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getAssignmentCountByLocation(locationName: string): Promise<AssignmentCountResponse> {
+    const response = await axiosInstance.get<number>(`${this.baseUrl}/count/location?locationName=${encodeURIComponent(locationName)}`);
+    return {
+      success: true,
+      message: 'Konum zimmet sayısı başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getAssignmentCountByStatus(status: AssignmentStatus): Promise<AssignmentCountResponse> {
+    const response = await axiosInstance.get<number>(`${this.baseUrl}/count/status/${status}`);
+    return {
+      success: true,
+      message: 'Durum zimmet sayısı başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async getActiveAssignmentCount(): Promise<AssignmentCountResponse> {
+    const response = await axiosInstance.get<number>(`${this.baseUrl}/count/active`);
+    return {
+      success: true,
+      message: 'Aktif zimmet sayısı başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // Aktif/Pasif İşlemleri
+  async getActiveOnlyAssignments(): Promise<AssignmentResponse> {
+    const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/active-only`);
+    return {
+      success: true,
+      message: 'Sadece aktif zimmetler başarıyla getirildi',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async activateAssignment(id: number): Promise<AssignmentResponse> {
+    const response = await axiosInstance.post<Assignment>(`${this.baseUrl}/${id}/activate`);
+    return {
+      success: true,
+      message: 'Zimmet başarıyla aktif yapıldı',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async deactivateAssignment(id: number): Promise<AssignmentResponse> {
+    const response = await axiosInstance.post<Assignment>(`${this.baseUrl}/${id}/deactivate`);
+    return {
+      success: true,
+      message: 'Zimmet başarıyla pasif yapıldı',
+      data: response.data,
+      timestamp: new Date().toISOString()
+    };
+  }
+}
+
+export const assignmentService = new AssignmentService();

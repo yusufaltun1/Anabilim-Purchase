@@ -20,7 +20,7 @@ public class CreateProductDto {
     private String name;
     
     @NotBlank(message = "Ürün kodu boş olamaz")
-    @Pattern(regexp = "^[A-Z0-9_]{2,20}$", message = "Ürün kodu sadece büyük harf, rakam ve alt çizgi içerebilir (2-20 karakter)")
+    @Pattern(regexp = "^[A-Z0-9_]{2,100}$", message = "Ürün kodu sadece büyük harf, rakam ve alt çizgi içerebilir (2-20 karakter)")
     private String code;
     
     @Size(max = 500, message = "Açıklama en fazla 500 karakter olabilir")
@@ -30,7 +30,7 @@ public class CreateProductDto {
     private Long categoryId;
     
     @NotNull(message = "Ürün tipi boş olamaz")
-    private ProductType productType = ProductType.OTHER;
+    private ProductType productType;
     
     @NotNull(message = "Ölçü birimi boş olamaz")
     private UnitOfMeasure unitOfMeasure;
@@ -46,9 +46,6 @@ public class CreateProductDto {
     
     @NotBlank(message = "Para birimi boş olamaz")
     private String currency = "TRY";
-
-    @Size(min = 2, max = 100, message = "Ürün adı 2-100 karakter arasında olmalıdır")
-    private String serialNumber;
 
     private String imageUrl;
 

@@ -51,7 +51,6 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         PurchaseRequest request = purchaseRequestMapper.toEntity(createDto, requester);
         request = purchaseRequestRepository.save(request);
         
-        // Onay adımlarını oluştur
         createApprovalSteps(request, requester);
         
         return purchaseRequestMapper.toDto(request);
