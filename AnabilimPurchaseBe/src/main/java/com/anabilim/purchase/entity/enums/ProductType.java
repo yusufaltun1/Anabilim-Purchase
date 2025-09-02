@@ -11,8 +11,14 @@ public enum ProductType {
     FIXED_ASSET("Demirbaş", "Seri numaralı sabit kıymetler", StockTrackingType.SERIAL_NUMBER),
     
     // Yarı Demirbaş (Seri numarasız, tekrar kullanılabilir)
-    SEMI_FIXED_ASSET("Yarı Demirbaş", "Seri numarasız tekrar kullanılabilir malzemeler", StockTrackingType.QUANTITY_REUSABLE);
+    SEMI_FIXED_ASSET("Yarı Demirbaş", "Seri numarasız tekrar kullanılabilir malzemeler", StockTrackingType.QUANTITY_REUSABLE),
+    SOFTWARE("Yazılım", "Yazılım ürünleri", StockTrackingType.QUANTITY_ONLY),
+    OTHER("Diğer", "Diğer ürün türleri", StockTrackingType.QUANTITY_ONLY),
+    OFFICE_SUPPLIES("Ofis Malzemeleri", "Ofis kullanımı için malzemeler", StockTrackingType.QUANTITY_ONLY),
 
+    FURNITURE("Mobilya", "Mobilya ürünleri", StockTrackingType.QUANTITY_ONLY), // << Added FURNITURE here
+
+    IT_HARDWARE("Donanım", "Bilgisayar, çevre birimleri vs.", StockTrackingType.SERIAL_NUMBER);
     private final String displayName;
     private final String description;
     private final StockTrackingType stockTrackingType;

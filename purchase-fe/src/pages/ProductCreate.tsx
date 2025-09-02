@@ -18,7 +18,7 @@ export const ProductCreate = () => {
     description: '',
     serialNumber: '',
     categoryId: null,
-    productType: ProductType.OTHER,
+    productType: ProductType.CONSUMABLE, // Sarf Malzemesi varsayılan olarak seçili
     unitOfMeasure: '',
     minQuantity: 1,
     maxQuantity: 1,
@@ -29,6 +29,12 @@ export const ProductCreate = () => {
   useEffect(() => {
     loadCategories();
   }, []);
+
+  // Form data değişikliklerini izle
+  useEffect(() => {
+    console.log('Form data changed:', formData);
+    console.log('Current productType:', formData.productType);
+  }, [formData]);
 
   const loadCategories = async () => {
     try {
@@ -71,15 +77,26 @@ export const ProductCreate = () => {
   ) => {
     const { name, value, type } = e.target;
     
-    setFormData(prev => ({
-      ...prev,
-      [name]: ['minQuantity', 'maxQuantity', 'estimatedUnitPrice'].includes(name)
+    console.log('handleChange called:', { name, value, type });
+    
+    setFormData(prev => {
+      const newValue = ['minQuantity', 'maxQuantity', 'estimatedUnitPrice'].includes(name)
         ? parseFloat(value)
         : name === 'categoryId'
           ? (value ? parseInt(value) : null)
-          : value
-    }));
-      };
+          : value;
+      
+      const updatedData = { ...prev, [name]: newValue };
+      console.log('Form data updated:', { 
+        field: name, 
+        oldValue: prev[name as keyof CreateProductRequest], 
+        newValue, 
+        fullFormData: updatedData 
+      });
+      
+      return updatedData;
+    });
+  };
 
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,6 +168,8 @@ export const ProductCreate = () => {
       setSuccessMessage(null);
 
       console.log('Submitting form data:', formData);
+      console.log('ProductType value being sent:', formData.productType);
+      console.log('ProductType type:', typeof formData.productType);
       const response = await productService.createProduct(formData);
       console.log('Create product response:', response);
 
@@ -163,7 +182,7 @@ export const ProductCreate = () => {
           serialNumber: '',
           imageUrl: '',
           categoryId: null,
-          productType: ProductType.FIXED_ASSET,
+          productType: ProductType.CONSUMABLE, // Tutarlılık için CONSUMABLE kullan
           unitOfMeasure: '',
           minQuantity: 1,
           maxQuantity: 1,
@@ -380,6 +399,9 @@ export const ProductCreate = () => {
                     </option>
                   ))}
                 </select>
+                <div className="mt-1 text-xs text-gray-500">
+                  Seçili değer: {formData.productType} - {PRODUCT_TYPE_LABELS[formData.productType]?.label}
+                </div>
               </div>
 
               <div>

@@ -20,12 +20,12 @@ export const WarehouseList = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await warehouseService.getWarehouses();
+      const response = await warehouseService.getAllWarehouses();
 
       if (Array.isArray(response)) {
         const filteredWarehouses = showInactive 
-          ? response.filter(warehouse => !warehouse.active)
-          : response;
+          ? response 
+          : response.filter(warehouse => warehouse.active);
         setWarehouses(filteredWarehouses);
       } else {
         setError('Beklenmeyen response formatı');
@@ -40,7 +40,7 @@ export const WarehouseList = () => {
   const handleToggleStatus = async (warehouse: Warehouse) => {
     try {
       setLoading(true);
-      await warehouseService.updateWarehouseStatus(warehouse.id);
+      await warehouseService.toggleWarehouseStatus(warehouse.id);
       await loadWarehouses();
     } catch (err: any) {
       setError(err.message || 'Depo durumu değiştirilirken bir hata oluştu');

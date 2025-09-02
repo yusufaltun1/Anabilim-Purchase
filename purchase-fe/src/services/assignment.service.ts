@@ -13,13 +13,35 @@ class AssignmentService {
 
   // CRUD İşlemleri
   async createAssignment(request: CreateAssignmentRequest): Promise<AssignmentResponse> {
-    const response = await axiosInstance.post<Assignment>(this.baseUrl, request);
-    return {
-      success: true,
-      message: 'Zimmet başarıyla oluşturuldu',
-      data: response.data,
-      timestamp: new Date().toISOString()
-    };
+    console.log('AssignmentService - createAssignment called with request:', request);
+    console.log('AssignmentService - request type:', typeof request);
+    console.log('AssignmentService - request keys:', Object.keys(request));
+    console.log('AssignmentService - request details:', {
+      productId: request.productId,
+      stockItemId: request.stockItemId,
+      quantity: request.quantity,
+      assignedUserId: request.assignedUserId,
+      assignedSchoolId: request.assignedSchoolId,
+      assignedLocationId: request.assignedLocationId
+    });
+    
+    try {
+      const response = await axiosInstance.post<Assignment>(this.baseUrl, request);
+      console.log('AssignmentService - createAssignment success response:', response.data);
+      return {
+        success: true,
+        message: 'Zimmet başarıyla oluşturuldu',
+        data: response.data,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error: any) {
+      console.error('AssignmentService - createAssignment error:', error);
+      console.error('AssignmentService - error response data:', error.response?.data);
+      console.error('AssignmentService - error status:', error.response?.status);
+      console.error('AssignmentService - error message:', error.message);
+      console.error('AssignmentService - full error object:', error);
+      throw error;
+    }
   }
 
   async getAssignmentById(id: number): Promise<AssignmentResponse> {

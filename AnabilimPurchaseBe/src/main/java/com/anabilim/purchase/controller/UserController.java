@@ -26,7 +26,7 @@ public class UserController {
      * Tüm kullanıcıları getir
      */
     @GetMapping
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+  //  @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<List<UserDto>>> getAllUsers() {
         log.info("Tüm kullanıcılar getiriliyor");
         List<UserDto> users = userService.getAllUsers();
@@ -48,7 +48,7 @@ public class UserController {
      * ID'ye göre kullanıcı getir
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+   // @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<UserDto>> getUserById(@PathVariable Long id) {
         log.info("Kullanıcı getiriliyor, ID: {}", id);
         UserDto user = userService.getUserById(id);

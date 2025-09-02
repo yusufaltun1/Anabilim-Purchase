@@ -79,11 +79,34 @@ class WarehouseService {
   }
 
   async createStockMovement(warehouseId: number, productId: number, request: CreateStockMovementRequest): Promise<WarehouseResponse> {
+    // Stok hareketi için currentStock değerini hesapla
+    let currentStock = 0;
+    
+    // Eğer request'te currentStock varsa onu kullan, yoksa varsayılan değer
+    if (request.currentStock !== undefined) {
+      currentStock = request.currentStock;
+    } else {
+      // Mevcut stok bilgisini almaya çalış
+      try {
+        const existingStock = await this.getWarehouseStocks(warehouseId);
+        const productStock = existingStock.find(stock => stock.productId === productId);
+        if (productStock) {
+          currentStock = productStock.currentStock;
+        }
+      } catch (error) {
+        console.warn('Mevcut stok bilgisi alınamadı, varsayılan değer 0 kullanılıyor:', error);
+        currentStock = 0;
+      }
+    }
+
     const movementRequest = {
       warehouseId,
       productId,
+      currentStock: currentStock,
       ...request
     };
+    
+    console.log('Stok hareketi request:', movementRequest);
     
     const response = await axiosInstance.post<StockMovement>(`${this.baseUrl}/warehouse-stocks/movements`, movementRequest);
     return {
@@ -92,6 +115,69 @@ class WarehouseService {
       data: response.data,
       timestamp: new Date().toISOString()
     };
+  }
+
+  // Stok hareketi oluştururken currentStock değerini otomatik hesapla
+  async createStockMovementWithAutoStock(warehouseId: number, productId: number, request: CreateStockMovementRequest): Promise<WarehouseResponse> {
+    try {
+      console.log('createStockMovementWithAutoStock called with:', { warehouseId, productId, request });
+      
+      // Mevcut stok bilgisini al
+      const existingStock = await this.getWarehouseStocks(warehouseId);
+      const productStock = existingStock.find(stock => stock.productId === productId);
+      
+      console.log('Existing stock found:', productStock);
+      
+      // currentStock değerini hesapla
+      let currentStock = 0;
+      if (productStock) {
+        if (request.movementType === 'IN') {
+          currentStock = productStock.currentStock + request.quantity;
+        } else if (request.movementType === 'OUT') {
+          currentStock = Math.max(0, productStock.currentStock - request.quantity);
+        } else {
+          currentStock = productStock.currentStock;
+        }
+        
+        console.log('Calculated currentStock:', {
+          originalStock: productStock.currentStock,
+          movementType: request.movementType,
+          quantity: request.quantity,
+          newCurrentStock: currentStock
+        });
+      } else {
+        console.log('No existing stock found for product in warehouse');
+      }
+
+      const movementRequest = {
+        warehouseId,
+        productId,
+        currentStock: currentStock,
+        ...request
+      };
+      
+      console.log('Otomatik stok hesaplamalı hareket request:', movementRequest);
+      
+      const response = await axiosInstance.post<StockMovement>(`${this.baseUrl}/warehouse-stocks/movements`, movementRequest);
+      console.log('Stock movement created successfully:', response.data);
+      
+      return {
+        success: true,
+        message: 'Stok hareketi başarıyla oluşturuldu',
+        data: response.data,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Stok hareketi oluşturulurken hata:', error);
+      console.error('Error details:', {
+        warehouseId,
+        productId,
+        request,
+        errorMessage: error.message,
+        errorResponse: error.response?.data
+      });
+      throw error;
+    }
   }
 
   async getStockMovements(stockId: number, referenceType?: string, referenceId?: number, page = 0, size = 10): Promise<StockMovement[]> {
