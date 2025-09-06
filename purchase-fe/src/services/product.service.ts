@@ -43,6 +43,10 @@ class ProductService {
 
   async updateProduct(id: number, product: UpdateProductRequest): Promise<ProductResponse> {
     try {
+      console.log('ProductService - updateProduct called with:', { id, product });
+      console.log('ProductService - active value:', product.active);
+      console.log('ProductService - JSON stringified product:', JSON.stringify(product, null, 2));
+      
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/products/${id}`, {
         method: 'PUT',
         headers: this.getHeaders(),

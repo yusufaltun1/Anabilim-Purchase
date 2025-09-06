@@ -16,7 +16,7 @@ export const PRODUCT_TYPE_LABELS: Record<ProductType, { label: string; descripti
 // Helper function to map Turkish labels back to enum keys
 export const getProductTypeFromLabel = (label: string): ProductType => {
   const entry = Object.entries(PRODUCT_TYPE_LABELS).find(([key, value]) => value.label === label);
-  return entry ? (entry[0] as ProductType) : ProductType.OTHER;
+  return entry ? (entry[0] as ProductType) : ProductType.CONSUMABLE;
 };
 
 export interface Product {
@@ -27,10 +27,11 @@ export interface Product {
   serialNumber?: string;
   imageUrl?: string;
   unitOfMeasure: string;
-  productType?: ProductType;
+  productType?: ProductType | string; // Backend'den string (Türkçe label) veya enum değeri gelebilir
   category?: Category;
   categories?: Category[];
-  isActive: boolean;
+  isActive?: boolean;
+  active?: boolean; // Backend'den gelen alan
   createdAt?: string;
   updatedAt?: string;
   estimatedUnitPrice?: number;
@@ -67,7 +68,7 @@ export interface UpdateProductRequest {
   maxQuantity?: number;
   estimatedUnitPrice?: number;
   currency?: string;
-  isActive: boolean;
+  active: boolean; // Backend'in beklediği alan adı
 }
 
 export interface ProductResponse {

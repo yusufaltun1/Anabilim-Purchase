@@ -39,7 +39,7 @@ public class WarehouseStock {
     
     @Column(name = "min_stock")
     private Integer minStock;
-    
+
     @Column(name = "max_stock")
     private Integer maxStock;
     
@@ -53,7 +53,7 @@ public class WarehouseStock {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-    
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
@@ -62,7 +62,8 @@ public class WarehouseStock {
         movements.add(movement);
         movement.setWarehouseStock(this);
     }
-    
+
+
     public void removeMovement(StockMovement movement) {
         if (movements.remove(movement)) {
             movement.setWarehouseStock(null);
@@ -140,6 +141,6 @@ public class WarehouseStock {
     public int getCurrentStock() {
         return calculateCurrentStock();
     }
-    
+
 
 } 

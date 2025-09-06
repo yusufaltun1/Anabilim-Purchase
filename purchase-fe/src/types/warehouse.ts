@@ -163,11 +163,12 @@ export interface StockMovement {
 export interface CreateStockMovementRequest {
   quantity: number;
   movementType: 'IN' | 'OUT' | 'TRANSFER' | 'ADJUSTMENT';
-  referenceType: 'PURCHASE_ORDER' | 'SALES_ORDER' | 'TRANSFER' | 'ADJUSTMENT' | 'MANUAL';
+  referenceType: 'PURCHASE_ORDER' | 'SALES_ORDER' | 'TRANSFER' | 'ADJUSTMENT' | 'MANUAL' | 'ASSIGNMENT';
   referenceId?: number;
   notes?: string;
   serialNumber?: string; // Seri numarası (FIXED_ASSET ve SEMI_FIXED_ASSET için)
   imageUrl?: string; // Resim URL'i (FIXED_ASSET ve SEMI_FIXED_ASSET için)
+  currentStock?: number; // Mevcut stok miktarı
 }
 
 export interface UpdateStockRequest {
@@ -183,7 +184,7 @@ export interface UpdateWarehouseStockRequest {
 export interface WarehouseResponse {
   success: boolean;
   message: string;
-  data: Warehouse | Warehouse[] | WarehouseStock | WarehouseStock[] | StockMovement | StockMovement[];
+  data: Warehouse | Warehouse[] | WarehouseStock | WarehouseStock[] | StockMovement | StockMovement[] | StockItem | StockItem[];
   timestamp: string;
   errorCode?: string;
 }
@@ -196,14 +197,14 @@ export interface WarehouseStockResponse {
 }
 
 export interface StockItem {
-  id: number;
+  id: number | string;
   productId: number;
   productName: string;
   productCode: string;
   serialNumber: string;
-  status: 'IN_STOCK' | 'ASSIGNED' | 'MAINTENANCE' | 'RETIRED';
-  warehouseId: number | null;
-  warehouseName: string | null;
+  status: 'IN_STOCK' | 'ASSIGNED' | 'MAINTENANCE' | 'RETIRED' | string;
+  warehouseId: number;
+  warehouseName: string;
   assignedUserId: number | null;
   assignedUserName: string | null;
   assignedSchoolId: number | null;
@@ -221,6 +222,7 @@ export interface StockItem {
   isUnderWarranty: boolean;
   isAvailable: boolean;
   isAssigned: boolean;
+  currentStock?: number; // Gruplandırılmış item'lar için stok miktarı
 }
 
 export interface CreateStockItemRequest {

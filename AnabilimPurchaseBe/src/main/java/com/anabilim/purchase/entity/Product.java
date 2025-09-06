@@ -136,7 +136,9 @@ public class Product {
     public boolean isConsumable() {
         return ProductType.CONSUMABLE.equals(this.productType);
     }
-    
+
+
+
     // Stok takip tipi kontrol metodları
     public boolean isSerialNumberTracked() {
         return StockTrackingType.SERIAL_NUMBER.equals(this.stockTrackingType);

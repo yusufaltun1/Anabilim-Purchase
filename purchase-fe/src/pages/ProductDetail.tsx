@@ -37,7 +37,8 @@ export const ProductDetail = () => {
     assignedUserId: '',
     assignedSchoolId: '',
     assignedLocationId: '',
-    locationDetails: ''
+    locationDetails: '',
+    quantity: 1
   });
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
@@ -46,6 +47,8 @@ export const ProductDetail = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [locationsLoading, setLocationsLoading] = useState(false);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
 
   useEffect(() => {
     loadProductData();
@@ -64,6 +67,11 @@ export const ProductDetail = () => {
       setError(null);
       const response = await productService.getProductById(parseInt(id!));
       
+      console.log('Product loaded:', response);
+      console.log('Product active field:', response.active);
+      console.log('Product isActive field:', response.isActive);
+      console.log('Product type:', response.productType);
+      
       setProduct(response);
     } catch (err: any) {
       console.error('Error loading product:', err);
@@ -73,14 +81,122 @@ export const ProductDetail = () => {
     }
   };
 
+
+
   const loadStockItems = async () => {
     try {
       setStockItemsLoading(true);
-      const response = await warehouseService.getProductStockItems(parseInt(id!));
-      setStockItems(response.data || []);
+      console.log('loadStockItems called, product:', product);
+      console.log('Product type:', product?.productType);
+      console.log('Product ID:', id);
+      
+      // Tüm ürün tiplerinde genel stok bilgisi göster (sarf, demirbaş, yarı demirbaş)
+      console.log('Loading general stock for all product types');
+      
+      try {
+        // Önce getProductStocks ile dene
+        const stockResponse = await warehouseService.getProductStocks(parseInt(id!));
+        console.log('General stock response:', stockResponse);
+        console.log('Stock response length:', stockResponse?.length);
+        
+        if (stockResponse && stockResponse.length > 0) {
+          // Genel stok bilgisini StockItem formatına çevir
+          const generalStockItems: StockItem[] = stockResponse.map(stock => {
+            console.log('Processing stock item:', stock);
+            console.log('Stock warehouse info:', {
+              warehouseId: stock.warehouse?.id,
+              warehouseName: stock.warehouse?.name,
+              stockWarehouseId: stock.warehouseId
+            });
+            
+            const stockItem = {
+              id: stock.id,
+              productId: stock.productId,
+              productName: stock.product.name,
+              productCode: stock.product.code,
+              serialNumber: '', // Genel stok bilgisinde seri numarası yok
+              status: stock.currentStock > 0 ? 'IN_STOCK' : 'ASSIGNED',
+              warehouseId: stock.warehouse.id,
+              warehouseName: stock.warehouse.name,
+              assignedUserId: null,
+              assignedUserName: null,
+              assignedSchoolId: null,
+              assignedSchoolName: null,
+              purchasePrice: 0,
+              purchaseDate: new Date().toISOString(),
+              warrantyExpiryDate: new Date().toISOString(),
+              locationDetails: '',
+              imageUrl: null,
+              additionalImages: [],
+              notes: `Genel stok: ${stock.currentStock} ${stock.product.unit || 'adet'}`,
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              isUnderWarranty: false, // Genel stok bilgisinde garanti yok
+              isAvailable: stock.currentStock > 0,
+              isAssigned: false
+            };
+            
+            console.log('Generated stock item:', stockItem);
+            return stockItem;
+          });
+          
+          console.log('Generated generalStockItems:', generalStockItems);
+          setStockItems(generalStockItems);
+        } else {
+          console.log('No stock response or empty array, trying alternative API...');
+          
+          // Alternatif olarak getProductStockDetail ile dene
+          try {
+            const detailResponse = await warehouseService.getProductStockDetail(parseInt(id!));
+            console.log('Product stock detail response:', detailResponse);
+            
+            if (detailResponse && detailResponse.warehouseStocks && detailResponse.warehouseStocks.length > 0) {
+              const detailStockItems: StockItem[] = detailResponse.warehouseStocks.map(stock => ({
+                id: stock.stockId,
+                productId: parseInt(id!),
+                productName: detailResponse.product.name,
+                productCode: detailResponse.product.code,
+                serialNumber: '',
+                status: stock.currentStock > 0 ? 'IN_STOCK' : 'ASSIGNED',
+                warehouseId: stock.warehouse.id,
+                warehouseName: stock.warehouse.name,
+                assignedUserId: null,
+                assignedSchoolId: null,
+                assignedSchoolName: null,
+                assignedUserName: null,
+                purchasePrice: 0,
+                purchaseDate: new Date().toISOString(),
+                warrantyExpiryDate: new Date().toISOString(),
+                locationDetails: '',
+                imageUrl: null,
+                additionalImages: [],
+                notes: `Genel stok: ${stock.currentStock} ${detailResponse.product.unit || 'adet'}`,
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                isUnderWarranty: false,
+                isAvailable: stock.currentStock > 0,
+                isAssigned: false
+              }));
+              
+              console.log('Generated detailStockItems:', detailStockItems);
+              setStockItems(detailStockItems);
+            } else {
+              console.log('No detail stock response, setting empty array');
+              setStockItems([]);
+            }
+          } catch (detailError) {
+            console.error('Error getting product stock detail:', detailError);
+            setStockItems([]);
+          }
+        }
+      } catch (stockError) {
+        console.error('Error getting product stocks:', stockError);
+        setStockItems([]);
+      }
     } catch (err: any) {
       console.error('Error loading stock items:', err);
-      // Stock items yüklenemezse hata gösterme, sadece boş array kullan
       setStockItems([]);
     } finally {
       setStockItemsLoading(false);
@@ -91,7 +207,8 @@ export const ProductDetail = () => {
     try {
       setAssignmentsLoading(true);
       const response = await assignmentService.getAssignmentsByProduct(parseInt(id!));
-      setAssignments(Array.isArray(response.data) ? response.data : []);
+      const assignmentsList = Array.isArray(response.data) ? response.data : [];
+      setAssignments(assignmentsList);
     } catch (err: any) {
       console.error('Error loading assignments:', err);
       setAssignments([]);
@@ -104,10 +221,13 @@ export const ProductDetail = () => {
     try {
       setUsersLoading(true);
       const response = await userService.getAllUsers();
-      setUsers(Array.isArray(response.data) ? response.data : []);
+      const usersList = Array.isArray(response) ? response : [];
+      setUsers(usersList);
+      setFilteredUsers(usersList);
     } catch (err: any) {
       console.error('Error loading users:', err);
       setUsers([]);
+      setFilteredUsers([]);
     } finally {
       setUsersLoading(false);
     }
@@ -117,7 +237,8 @@ export const ProductDetail = () => {
     try {
       setSchoolsLoading(true);
       const response = await schoolService.getAllSchools();
-      setSchools(Array.isArray(response.data) ? response.data : []);
+      const schoolsList = response.content || [];
+      setSchools(schoolsList);
     } catch (err: any) {
       console.error('Error loading schools:', err);
       setSchools([]);
@@ -130,12 +251,27 @@ export const ProductDetail = () => {
     try {
       setLocationsLoading(true);
       const response = await locationService.getAllLocations();
-      setLocations(Array.isArray(response.data) ? response.data : []);
+      const locationsList = Array.isArray(response.data) ? response.data : [];
+      setLocations(locationsList);
     } catch (err: any) {
       console.error('Error loading locations:', err);
       setLocations([]);
     } finally {
       setLocationsLoading(false);
+    }
+  };
+
+  const handleUserSearch = (searchTerm: string) => {
+    setUserSearchTerm(searchTerm);
+    if (searchTerm.trim() === '') {
+      setFilteredUsers(users);
+    } else {
+      const filtered = users.filter(user => 
+        user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredUsers(filtered);
     }
   };
 
@@ -159,10 +295,34 @@ export const ProductDetail = () => {
         showNotification('Lütfen bir stock item seçin', 'error');
         return;
       }
+
+      // Stok miktarı kontrolü
+      const selectedStock = stockItems.find(item => item.id.toString() === assignmentForm.selectedStockItemId);
+      if (selectedStock && selectedStock.notes) {
+        const match = selectedStock.notes.match(/Genel stok: (\d+)/);
+        const availableStock = match ? parseInt(match[1]) : 0;
+        
+        if (assignmentForm.quantity > availableStock) {
+          showNotification(`Stokta sadece ${availableStock} adet bulunuyor. ${assignmentForm.quantity} adet zimmet edilemez.`, 'error');
+          return;
+        }
+      }
+      
+      // Ürün tipine göre request oluştur
+      const isConsumable = product?.productType === 'CONSUMABLE' || 
+                          product?.productType === 'Sarf Malzemesi' ||
+                          (typeof product?.productType === 'string' && product.productType.includes('Sarf'));
+      
+      console.log('Creating assignment for product type:', product?.productType);
+      console.log('Is consumable:', isConsumable);
+      console.log('Selected stock item ID:', assignmentForm.selectedStockItemId);
       
       const request = {
         productId: parseInt(id!),
-        stockItemId: parseInt(assignmentForm.selectedStockItemId),
+        // Sarf malzemeleri için stockItemId gönderme, sadece demirbaş ürünler için
+        ...(isConsumable ? {} : { stockItemId: parseInt(assignmentForm.selectedStockItemId) }),
+        // Sarf malzemeleri için quantity ekle
+        ...(isConsumable ? { quantity: assignmentForm.quantity } : {}),
         expectedReturnDate: assignmentForm.expectedReturnDate || undefined,
         notes: assignmentForm.notes || undefined,
         ...(assignmentForm.assignmentType === 'user' ? {
@@ -173,11 +333,66 @@ export const ProductDetail = () => {
           locationDetails: assignmentForm.locationDetails || undefined
         })
       };
-
-      await assignmentService.createAssignment(request);
       
-      // Zimmet listesini yenile
-      await loadAssignments();
+      console.log('Assignment request:', request);
+
+      const assignmentResponse = await assignmentService.createAssignment(request);
+      
+      // Zimmet başarılı olduysa depodan otomatik çıkış yap
+      if (assignmentResponse.success) {
+        try {
+          console.log('Assignment created successfully, creating stock movement...');
+          
+          // Tüm ürün tiplerinde depodan çıkış yap
+          const selectedStockItem = stockItems.find(item => item.id.toString() === assignmentForm.selectedStockItemId);
+          if (selectedStockItem) {
+            console.log('Selected stock item for movement:', selectedStockItem);
+            console.log('Warehouse ID check:', {
+              warehouseId: selectedStockItem.warehouseId,
+              warehouseIdType: typeof selectedStockItem.warehouseId,
+              warehouseName: selectedStockItem.warehouseName
+            });
+            
+            if (!selectedStockItem.warehouseId) {
+              console.error('Warehouse ID is undefined for selected stock item:', selectedStockItem);
+              showNotification('Seçilen depo için warehouse ID bulunamadı', 'error');
+              return;
+            }
+            
+            console.log('Creating stock movement for product:', {
+              warehouseId: selectedStockItem.warehouseId,
+              productId: parseInt(id!),
+              quantity: assignmentForm.quantity || 1,
+              notes: `Zimmet: ${assignmentForm.notes || 'Zimmet işlemi'}`
+            });
+            
+            await warehouseService.createStockMovementWithAutoStock(
+              selectedStockItem.warehouseId,
+              parseInt(id!),
+              {
+                movementType: 'OUT',
+                quantity: assignmentForm.quantity || 1,
+                referenceType: 'ASSIGNMENT',
+                referenceId: (assignmentResponse.data as Assignment)?.id || 0,
+                notes: `Zimmet: ${assignmentForm.notes || 'Zimmet işlemi'}`
+              }
+            );
+            
+            console.log('Stock movement created successfully for product');
+          } else {
+            console.error('Selected stock item not found');
+            showNotification('Seçilen stok item bulunamadı', 'error');
+            return;
+          }
+        } catch (stockError) {
+          console.error('Error creating stock movement:', stockError);
+          // Stok hareketi oluşturulamazsa kullanıcıya bilgi ver ama zimmeti iptal etme
+          showNotification('Zimmet oluşturuldu ancak stok güncellenirken hata oluştu', 'info');
+        }
+      }
+      
+      // Zimmet listesini ve stok itemlarını yenile
+      await Promise.all([loadAssignments(), loadStockItems()]);
       
       // Modal'ı kapat ve formu sıfırla
       setShowAssignmentModal(false);
@@ -189,10 +404,15 @@ export const ProductDetail = () => {
         assignedUserId: '',
         assignedSchoolId: '',
         assignedLocationId: '',
-        locationDetails: ''
+        locationDetails: '',
+        quantity: 1
       });
       
-      showNotification('Zimmet başarıyla oluşturuldu', 'success');
+      // Arama terimini de sıfırla
+      setUserSearchTerm('');
+      setFilteredUsers(users);
+      
+      showNotification(`Zimmet başarıyla oluşturuldu! ${assignmentForm.quantity || 1} adet depodan çıkış yapıldı.`, 'success');
     } catch (err: any) {
       console.error('Error creating assignment:', err);
       showNotification('Zimmet oluşturulurken hata oluştu', 'error');
@@ -270,9 +490,9 @@ export const ProductDetail = () => {
               <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>
               <div className="mt-2 flex items-center">
                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  product.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  product.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                 }`}>
-                  {product.isActive ? 'Aktif' : 'Pasif'}
+                  {product.active ? 'Aktif' : 'Pasif'}
                 </span>
                 <span className="ml-4 text-sm text-gray-500">
                   Kod: {product.code}
@@ -332,7 +552,10 @@ export const ProductDetail = () => {
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Ürün Tipi</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    {product.productType ? PRODUCT_TYPE_LABELS[product.productType]?.label : 'Belirtilmemiş'}
+                    {product.productType ? 
+                      (PRODUCT_TYPE_LABELS[product.productType]?.label || product.productType) 
+                      : 'Belirtilmemiş'
+                    }
                   </dd>
                 </div>
                 <div>
@@ -396,10 +619,12 @@ export const ProductDetail = () => {
 
           {/* Stock Items Bölümü */}
           <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
-            <div className="px-4 py-5 sm:px-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">Stok Itemları</h3>
+                        <div className="px-4 py-5 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Depo Stokları
+              </h3>
               <p className="mt-1 text-sm text-gray-500">
-                Bu ürüne ait seri numaralı stok itemları
+                Bu ürüne ait depo stok bilgileri
               </p>
             </div>
             <div className="border-t border-gray-200">
@@ -415,7 +640,10 @@ export const ProductDetail = () => {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Seri Numarası
+                          {product?.productType === 'CONSUMABLE' || product?.productType === 'Sarf Malzemesi' || (typeof product?.productType === 'string' && product?.productType.includes('Sarf'))
+                            ? 'Miktar'
+                            : 'Miktar'
+                          }
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Durum
@@ -426,9 +654,11 @@ export const ProductDetail = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Atanan Kişi
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Garanti
-                        </th>
+                        {!(product?.productType === 'CONSUMABLE' || product?.productType === 'Sarf Malzemesi' || (typeof product?.productType === 'string' && product?.productType.includes('Sarf'))) && (
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Garanti
+                          </th>
+                        )}
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Resim
                         </th>
@@ -438,7 +668,7 @@ export const ProductDetail = () => {
                       {stockItems.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {item.serialNumber}
+                            {item.notes || 'Miktar bilgisi yok'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -462,15 +692,17 @@ export const ProductDetail = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.assignedUserName || '-'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {item.isUnderWarranty ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                Garantili
-                              </span>
-                            ) : (
-                              <span className="text-sm text-gray-500">-</span>
-                            )}
-                          </td>
+                          {!(product?.productType === 'CONSUMABLE' || product?.productType === 'Sarf Malzemesi' || (typeof product?.productType === 'string' && product?.productType.includes('Sarf'))) && (
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {item.isUnderWarranty ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Garantili
+                                </span>
+                              ) : (
+                                <span className="text-sm text-gray-500">-</span>
+                              )}
+                            </td>
+                          )}
                           <td className="px-6 py-4 whitespace-nowrap">
                             {item.imageUrl ? (
                               <button
@@ -495,7 +727,10 @@ export const ProductDetail = () => {
               ) : (
                 <div className="px-4 py-8 sm:px-6">
                   <p className="text-sm text-gray-500 text-center">
-                    Bu ürüne ait seri numaralı stok itemı bulunamadı.
+                    {product?.productType === 'CONSUMABLE' || product?.productType === 'Sarf Malzemesi' || (typeof product?.productType === 'string' && product?.productType.includes('Sarf'))
+                      ? 'Bu ürüne ait depo stok bilgisi bulunamadı.'
+                      : 'Bu ürüne ait seri numaralı stok itemı bulunamadı.'
+                    }
                   </p>
                 </div>
               )}
@@ -519,6 +754,8 @@ export const ProductDetail = () => {
               loadUsers();
               loadSchools();
               loadLocations();
+              setUserSearchTerm('');
+              setFilteredUsers([]);
             }}
             className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
@@ -650,26 +887,106 @@ export const ProductDetail = () => {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Stock Item Seçimi *
+                          {product?.productType === 'CONSUMABLE' || product?.productType === 'Sarf Malzemesi' || (typeof product?.productType === 'string' && product?.productType.includes('Sarf'))
+                            ? 'Depo Stok Seçimi *'
+                            : 'Stock Item Seçimi *'
+                          }
                         </label>
-                        <select 
-                          value={assignmentForm.selectedStockItemId}
-                          onChange={(e) => setAssignmentForm({...assignmentForm, selectedStockItemId: e.target.value})}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          required
-                        >
-                          <option value="">Stock Item Seçin</option>
-                          {stockItems
-                            .filter(item => item.status === 'IN_STOCK')
-                            .map(item => (
-                              <option key={item.id} value={item.id}>
-                                {item.serialNumber} - {item.warehouseName || 'Depo belirtilmemiş'}
-                              </option>
-                            ))}
-                        </select>
+                        {(() => {
+                          const isConsumable = product?.productType === 'CONSUMABLE' || 
+                                             product?.productType === 'Sarf Malzemesi' ||
+                                             (typeof product?.productType === 'string' && product?.productType.includes('Sarf'));
+                          
+                          return isConsumable ? (
+                            // Sarf malzemeleri için depo seçimi ve miktar
+                            <div className="space-y-2">
+                              <select 
+                                value={assignmentForm.selectedStockItemId}
+                                onChange={(e) => setAssignmentForm({...assignmentForm, selectedStockItemId: e.target.value})}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                required
+                              >
+                                <option value="">Depo Seçin</option>
+                                {stockItems
+                                  .filter(item => item.status === 'IN_STOCK')
+                                  .map(item => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.warehouseName || 'Depo belirtilmemiş'}
+                                    </option>
+                                  ))}
+                              </select>
+                              <input
+                                type="number"
+                                name="quantity"
+                                min="1"
+                                max={(() => {
+                                  const selectedStock = stockItems.find(item => item.id.toString() === assignmentForm.selectedStockItemId);
+                                  if (selectedStock && selectedStock.notes) {
+                                    // "Genel stok: X adet" formatından sayıyı çıkar
+                                    const match = selectedStock.notes.match(/Genel stok: (\d+)/);
+                                    return match ? parseInt(match[1]) : 1;
+                                  }
+                                  return 1;
+                                })()}
+                                value={assignmentForm.quantity}
+                                onChange={(e) => {
+                                  const value = parseInt(e.target.value) || 1;
+                                  const max = (() => {
+                                    const selectedStock = stockItems.find(item => item.id.toString() === assignmentForm.selectedStockItemId);
+                                    if (selectedStock && selectedStock.notes) {
+                                      const match = selectedStock.notes.match(/Genel stok: (\d+)/);
+                                      return match ? parseInt(match[1]) : 1;
+                                    }
+                                    return 1;
+                                  })();
+                                  
+                                  // Maksimum stok miktarını aşmayacak şekilde sınırla
+                                  const limitedValue = Math.min(value, max);
+                                  setAssignmentForm({...assignmentForm, quantity: limitedValue});
+                                }}
+                                placeholder="Miktar"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                required
+                              />
+                              {(() => {
+                                const selectedStock = stockItems.find(item => item.id.toString() === assignmentForm.selectedStockItemId);
+                                if (selectedStock && selectedStock.notes) {
+                                  const match = selectedStock.notes.match(/Genel stok: (\d+)/);
+                                  const maxStock = match ? parseInt(match[1]) : 1;
+                                  return (
+                                    <p className="mt-1 text-sm text-gray-500">
+                                      Maksimum zimmet edilebilir: <span className="font-medium">{maxStock}</span> adet
+                                    </p>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </div>
+                          ) : (
+                            // Demirbaş ve yarı demirbaş ürünler için sadece depo seçimi (quantity yok)
+                            <select 
+                              value={assignmentForm.selectedStockItemId}
+                              onChange={(e) => setAssignmentForm({...assignmentForm, selectedStockItemId: e.target.value})}
+                              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                              required
+                            >
+                              <option value="">Depo Seçin</option>
+                              {stockItems
+                                .filter(item => item.status === 'IN_STOCK')
+                                .map(item => (
+                                  <option key={item.id} value={item.id}>
+                                    {item.warehouseName || 'Depo belirtilmemiş'}
+                                  </option>
+                                ))}
+                            </select>
+                          );
+                        })()}
                         {stockItems.filter(item => item.status === 'IN_STOCK').length === 0 && (
                           <p className="text-sm text-red-600 mt-1">
-                            Bu ürün için stokta olan item bulunamadı.
+                            {product?.productType === 'CONSUMABLE' || product?.productType === 'Sarf Malzemesi' || (typeof product?.productType === 'string' && product?.productType.includes('Sarf'))
+                              ? 'Bu ürün için stokta olan depo bulunamadı.'
+                              : 'Bu ürün için stokta olan item bulunamadı.'
+                            }
                           </p>
                         )}
                       </div>
@@ -694,19 +1011,56 @@ export const ProductDetail = () => {
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Kullanıcı *
                             </label>
-                            <select 
-                              value={assignmentForm.assignedUserId}
-                              onChange={(e) => setAssignmentForm({...assignmentForm, assignedUserId: e.target.value})}
-                              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                              required
-                            >
-                              <option value="">Kullanıcı Seçin</option>
-                              {users.map(user => (
-                                <option key={user.id} value={user.id}>
-                                  {user.firstName} {user.lastName} ({user.email})
-                                </option>
-                              ))}
-                            </select>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={assignmentForm.assignedUserId 
+                                  ? `${users.find(u => u.id.toString() === assignmentForm.assignedUserId)?.firstName} ${users.find(u => u.id.toString() === assignmentForm.assignedUserId)?.lastName} (${users.find(u => u.id.toString() === assignmentForm.assignedUserId)?.email})`
+                                  : userSearchTerm
+                                }
+                                onChange={(e) => {
+                                  if (assignmentForm.assignedUserId) {
+                                    // Eğer kullanıcı seçiliyse ve input değişiyorsa, seçimi temizle
+                                    setAssignmentForm({...assignmentForm, assignedUserId: ''});
+                                    setUserSearchTerm(e.target.value);
+                                  } else {
+                                    // Normal arama
+                                    handleUserSearch(e.target.value);
+                                  }
+                                }}
+                                placeholder="Kullanıcı ara (ad, soyad veya email)..."
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                              />
+                              {userSearchTerm && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                  {filteredUsers.length > 0 ? (
+                                    filteredUsers.map(user => (
+                                      <button
+                                        key={user.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setAssignmentForm({...assignmentForm, assignedUserId: user.id.toString()});
+                                          // Kullanıcı seçildikten sonra arama terimini temizle ve listeyi kapat
+                                          setUserSearchTerm('');
+                                        }}
+                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                                      >
+                                        {user.firstName} {user.lastName} ({user.email})
+                                      </button>
+                                    ))
+                                  ) : (
+                                    <div className="px-4 py-2 text-sm text-gray-500">
+                                      Kullanıcı bulunamadı
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            {assignmentForm.assignedUserId && (
+                              <div className="mt-2 text-sm text-gray-600">
+                                Seçilen: {filteredUsers.find(u => u.id.toString() === assignmentForm.assignedUserId)?.firstName} {filteredUsers.find(u => u.id.toString() === assignmentForm.assignedUserId)?.lastName}
+                              </div>
+                            )}
                           </div>
 
                           <div>
@@ -788,6 +1142,30 @@ export const ProductDetail = () => {
                           placeholder="Zimmet hakkında notlar..."
                           className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                         />
+                      </div>
+
+                      {/* Bilgilendirici Kutu */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-blue-800">
+                              Zimmet Bilgisi
+                            </h3>
+                            <div className="mt-2 text-sm text-blue-700">
+                              <p>
+                                {product?.productType === 'CONSUMABLE' || product?.productType === 'Sarf Malzemesi' || (typeof product?.productType === 'string' && product?.productType.includes('Sarf'))
+                                  ? 'Sarf malzemesi zimmeti yapıldığında, seçilen depodan belirtilen miktar otomatik olarak çıkış yapılacak ve stok miktarı güncellenecektir. ✅'
+                                  : 'Demirbaş ürün zimmeti yapıldığında, seçilen stock item\'ın durumu "Atanmış" olarak güncellenecektir.'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
