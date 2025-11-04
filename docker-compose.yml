@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  anabilim-purchase-be:
+    image: ysfaltn/anabilim-purchase-be:latest
+    container_name: anabilim-purchase-be
+    restart: unless-stopped
+    ports:
+      # Dokploy portu otomatik yönetir, ancak referans için burada bırakıyorum.
+      - "8080:8080"
+    depends_on:
+      - postgres-db
+    environment:
+      # Veritabanı bağlantı bilgileri
+      - DB_URL=jdbc:postgresql://postgres-db:5432/purchase
+      - DB_USERNAME=anabilim
+      - DB_PASSWORD=anabilimpass
+      
+      # E-posta sunucu bilgileri (Dokploy'da bunları secret olarak yönetin)
+      - MAIL_USERNAME=your-email@example.com
+      - MAIL_PASSWORD=your-mail-password
+      
+      # JWT Secret (Dokploy'da bunu secret olarak yönetin)
+      - JWT_SECRET=your-super-secret-jwt-key-that-is-very-long-and-secure
+    networks:
+      - anabilim-network
+
+  postgres-db:
+    image: postgres:15
+    container_name: postgres-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=purchase
+      - POSTGRES_USER=anabilim
+      - POSTGRES_PASSWORD=anabilimpass
+    volumes:
+      # Veritabanı verilerini kalıcı olarak saklar
+      - postgres_data:/var/lib/postgresql/data
+    # Veritabanı portunu dışarıya açmaya gerek yok, çünkü sadece uygulama erişecek.
+    networks:
+      - anabilim-network
+
+volumes:
+  postgres_data:
+
+networks:
+  anabilim-network:
+    driver: bridge
