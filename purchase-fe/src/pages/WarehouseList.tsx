@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { warehouseService } from '../services/warehouse.service';
 import { Warehouse } from '../types/warehouse';
-import { formatDate } from '../utils/date';
 
 export const WarehouseList = () => {
   const navigate = useNavigate();
@@ -20,7 +19,7 @@ export const WarehouseList = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await warehouseService.getAllWarehouses();
+      const response = await warehouseService.getWarehouses();
 
       if (Array.isArray(response)) {
         const filteredWarehouses = showInactive 
@@ -40,7 +39,7 @@ export const WarehouseList = () => {
   const handleToggleStatus = async (warehouse: Warehouse) => {
     try {
       setLoading(true);
-      await warehouseService.toggleWarehouseStatus(warehouse.id);
+      await warehouseService.updateWarehouseStatus(warehouse.id);
       await loadWarehouses();
     } catch (err: any) {
       setError(err.message || 'Depo durumu değiştirilirken bir hata oluştu');
@@ -182,4 +181,4 @@ export const WarehouseList = () => {
       </div>
     </div>
   );
-}; 
+};

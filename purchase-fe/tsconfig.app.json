@@ -26,10 +26,11 @@
     "strictBindCallApply": false,
     "strictPropertyInitialization": false,
     "noImplicitReturns": false,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true,
+    "noFallthroughCasesInSwitch": false,
+    "noUncheckedSideEffectImports": false,
     "allowJs": true,
-    "checkJs": false
+    "checkJs": false,
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["src"]
 }

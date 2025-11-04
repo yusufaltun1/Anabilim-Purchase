@@ -64,7 +64,7 @@ export const SchoolList = () => {
       });
     } catch (err: any) {
       console.error('Error loading schools:', err);
-      showNotification('error', 'Okullar yüklenirken bir hata oluştu');
+      showNotification('Okullar yüklenirken bir hata oluştu', 'error');
     } finally {
       setLoading(false);
     }
@@ -107,7 +107,7 @@ export const SchoolList = () => {
         number: 0
       }));
     } catch (err: any) {
-      showNotification('error', 'Şehire göre filtreleme başarısız');
+      showNotification('Şehire göre filtreleme başarısız', 'error');
     } finally {
       setLoading(false);
     }
@@ -132,7 +132,7 @@ export const SchoolList = () => {
         number: 0
       }));
     } catch (err: any) {
-      showNotification('error', 'İlçeye göre filtreleme başarısız');
+      showNotification('İlçeye göre filtreleme başarısız', 'error');
     } finally {
       setLoading(false);
     }
@@ -157,7 +157,7 @@ export const SchoolList = () => {
         number: 0
       }));
     } catch (err: any) {
-      showNotification('error', 'Türe göre filtreleme başarısız');
+      showNotification('Türe göre filtreleme başarısız', 'error');
     } finally {
       setLoading(false);
     }
@@ -170,10 +170,10 @@ export const SchoolList = () => {
 
     try {
       await schoolService.deleteSchool(id);
-      showNotification('success', 'Okul başarıyla silindi');
+      showNotification('Okul başarıyla silindi', 'success');
       loadSchools();
     } catch (err: any) {
-      showNotification('error', 'Okul silinirken bir hata oluştu');
+      showNotification('Okul silinirken bir hata oluştu', 'error');
     }
   };
 
@@ -453,4 +453,4 @@ export const SchoolList = () => {
       </div>
     </div>
   );
-}; 
+};

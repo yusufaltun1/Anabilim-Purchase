@@ -25,7 +25,7 @@ export const SchoolDetail = () => {
       setSchool(schoolData);
     } catch (err: any) {
       console.error('Error loading school:', err);
-      showNotification('error', 'Okul bilgileri yüklenirken bir hata oluştu');
+      showNotification('Okul bilgileri yüklenirken bir hata oluştu', 'error');
       navigate('/schools');
     } finally {
       setLoading(false);
@@ -41,10 +41,10 @@ export const SchoolDetail = () => {
 
     try {
       await schoolService.deleteSchool(school.id);
-      showNotification('success', 'Okul başarıyla silindi');
+      showNotification('Okul başarıyla silindi', 'success');
       navigate('/schools');
     } catch (err: any) {
-      showNotification('error', 'Okul silinirken bir hata oluştu');
+      showNotification('Okul silinirken bir hata oluştu', 'error');
     }
   };
 
@@ -269,4 +269,4 @@ export const SchoolDetail = () => {
       </div>
     </div>
   );
-}; 
+};

@@ -182,7 +182,7 @@ export const PurchaseOrderDetail = () => {
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Kategori</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    {order.supplierQuote?.product?.category || 'Kategori Yok'}
+                    {order.supplierQuote?.product?.category?.name || 'Kategori Yok'}
                   </dd>
                 </div>
                 <div>
@@ -355,4 +355,4 @@ export const PurchaseOrderDetail = () => {
       )}
     </div>
   );
-}; 
+};

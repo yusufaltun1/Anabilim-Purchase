@@ -5,7 +5,7 @@ import { schoolService } from '../services/school.service';
 import { School, UpdateSchoolRequest, SchoolType } from '../types/school';
 import { useNotification } from '../contexts/NotificationContext';
 
-export const SchoolEdit = () => {
+const SchoolEdit = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
@@ -48,7 +48,7 @@ export const SchoolEdit = () => {
       });
     } catch (err: any) {
       console.error('Error loading school:', err);
-      showNotification('error', 'Okul bilgileri yüklenirken bir hata oluştu');
+      showNotification('Okul bilgileri yüklenirken bir hata oluştu', 'error');
       navigate('/schools');
     } finally {
       setInitialLoading(false);
@@ -71,72 +71,72 @@ export const SchoolEdit = () => {
     
     // Basic validation
     if (!formData.name.trim()) {
-      showNotification('error', 'Okul adı zorunludur');
+      showNotification('Okul adı zorunludur', 'error');
       return;
     }
 
     if (!formData.code.trim()) {
-      showNotification('error', 'Okul kodu zorunludur');
+      showNotification('Okul kodu zorunludur', 'error');
       return;
     }
 
     if (!formData.address.trim()) {
-      showNotification('error', 'Adres zorunludur');
+      showNotification('Adres zorunludur', 'error');
       return;
     }
 
     if (!formData.phone.trim()) {
-      showNotification('error', 'Telefon zorunludur');
+      showNotification('Telefon zorunludur', 'error');
       return;
     }
 
     if (!formData.email.trim()) {
-      showNotification('error', 'E-posta zorunludur');
+      showNotification('E-posta zorunludur', 'error');
       return;
     }
 
     if (!formData.principalName.trim()) {
-      showNotification('error', 'Müdür adı zorunludur');
+      showNotification('Müdür adı zorunludur', 'error');
       return;
     }
 
     if (!formData.city.trim()) {
-      showNotification('error', 'Şehir zorunludur');
+      showNotification('Şehir zorunludur', 'error');
       return;
     }
 
     if (!formData.district.trim()) {
-      showNotification('error', 'İlçe zorunludur');
+      showNotification('İlçe zorunludur', 'error');
       return;
     }
 
     if (formData.studentCapacity <= 0) {
-      showNotification('error', 'Öğrenci kapasitesi 0\'dan büyük olmalıdır');
+      showNotification('Öğrenci kapasitesi 0\'dan büyük olmalıdır', 'error');
       return;
     }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      showNotification('error', 'Geçerli bir e-posta adresi giriniz');
+      showNotification('Geçerli bir e-posta adresi giriniz', 'error');
       return;
     }
 
     // Phone validation
     const phoneRegex = /^[+]?[0-9\s-()]+$/;
     if (!phoneRegex.test(formData.phone)) {
-      showNotification('error', 'Geçerli bir telefon numarası giriniz');
+      showNotification('Geçerli bir telefon numarası giriniz', 'error');
       return;
     }
 
     try {
       setLoading(true);
       await schoolService.updateSchool(parseInt(id!), formData);
-      showNotification('success', 'Okul başarıyla güncellendi');
+      showNotification('Okul başarıyla güncellendi', 'success');
       navigate(`/schools/${id}`);
     } catch (err: any) {
       console.error('Error updating school:', err);
-      showNotification('error', err.response?.data?.message || 'Okul güncellenirken bir hata oluştu');
+      showNotification(err.response?.data?.message || 'Okul güncellenirken bir hata oluştu', 'error');
     } finally {
       setLoading(false);
     }
@@ -405,4 +405,5 @@ export const SchoolEdit = () => {
       </div>
     </div>
   );
-}; 
+};
+export default SchoolEdit

@@ -38,9 +38,9 @@ export const ConvertRequestToOrderForm = ({
 
   const loadWarehouses = async () => {
     try {
-      const response = await warehouseService.getWarehouses({ active: true });
+      const response = await warehouseService.getWarehouses();
       if (Array.isArray(response)) {
-        setWarehouses(response);
+        setWarehouses(response.filter(w => w.active));
       }
     } catch (error) {
       console.error('Depolar yüklenirken hata oluştu:', error);
@@ -143,4 +143,4 @@ export const ConvertRequestToOrderForm = ({
       </div>
     </form>
   );
-}; 
+};

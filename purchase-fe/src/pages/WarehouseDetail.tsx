@@ -82,7 +82,8 @@ export const WarehouseDetail = () => {
   };
 
   const handleCreateStockMovement = async (
-    stockId: number,
+    warehouseId: number,
+    productId: number,
     quantity: number,
     movementType: 'IN' | 'OUT',
     referenceType: 'PURCHASE_ORDER' | 'SALES_ORDER' | 'TRANSFER' | 'ADJUSTMENT',
@@ -91,7 +92,7 @@ export const WarehouseDetail = () => {
   ) => {
     try {
       setLoading(true);
-      await warehouseService.createStockMovement(stockId, {
+      await warehouseService.createStockMovement(warehouseId, productId, {
         quantity,
         movementType,
         referenceType,
@@ -99,7 +100,7 @@ export const WarehouseDetail = () => {
         notes
       });
       await loadWarehouseData();
-      if (selectedStock?.id === stockId) {
+      if (selectedStock?.product.id === productId) {
         await loadStockMovements();
       }
       showNotification('Stok hareketi oluşturuldu', 'success');
@@ -402,4 +403,4 @@ export const WarehouseDetail = () => {
       </div>
     </div>
   );
-}; 
+};

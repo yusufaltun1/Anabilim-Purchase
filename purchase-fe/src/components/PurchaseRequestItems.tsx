@@ -23,7 +23,6 @@ interface SupplierOption {
 }
 
 export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ items, onChange }) => {
-  console.log('PurchaseRequestItems rendered with items:', items);
   const [products, setProducts] = useState<Product[]>([]);
   const [categorySuppliers, setCategorySuppliers] = useState<Supplier[]>([]);
   const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
@@ -38,27 +37,11 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
 
   const loadProducts = async () => {
     try {
-      console.log('Loading products...');
       setLoading(true);
       setError(null);
       const response = await productService.getActiveProducts();
-      console.log('Products response:', response);
-      
-      let productsData: Product[] = [];
-      if (Array.isArray(response)) {
-        productsData = response;
-      } else if (response.success && Array.isArray(response.data)) {
-        productsData = response.data;
-      } else {
-        console.error('Invalid products response format:', response);
-        setError('Ürünler yüklenirken bir hata oluştu');
-        return;
-      }
-
-      console.log('Loaded products:', productsData);
-      setProducts(productsData);
+      setProducts(response);
     } catch (err: any) {
-      console.error('Error loading products:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -68,8 +51,8 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
   const loadAllSuppliers = async () => {
     try {
       const response = await supplierService.getActiveSuppliers();
-      if (response.success && Array.isArray(response.data)) {
-        setAllSuppliers(response.data);
+      if (Array.isArray(response)) {
+        setAllSuppliers(response);
       }
     } catch (err) {
       console.error('Tüm tedarikçiler yüklenirken hata:', err);
@@ -78,16 +61,9 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
 
   const loadSuppliersByCategory = async (categoryId: number) => {
     try {
-      console.log('Loading suppliers for category:', categoryId);
       const response = await supplierService.getSuppliersByCategory(categoryId);
-      console.log('Category suppliers response:', response);
-      
-      if (response.success && Array.isArray(response.data)) {
-        console.log('Setting category suppliers:', response.data);
-        setCategorySuppliers(response.data);
-      } else {
-        console.warn('Invalid or empty suppliers response:', response);
-        setCategorySuppliers([]);
+      if (Array.isArray(response)) {
+        setCategorySuppliers(response);
       }
     } catch (err) {
       console.error('Kategoriye göre tedarikçiler yüklenirken hata:', err);
@@ -97,11 +73,16 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
 
   const handleAddItem = () => {
     const newItem: PurchaseRequestItem = {
-      productId: 0,
+      id: 0,
+      product: { id: 0, name: '', code: '', description: '', category: '', unit: '' },
       quantity: 1,
-      potentialSupplierIds: [],
+      potentialSuppliers: [],
+      supplierQuotes: [],
+      selectedSupplierId: null,
       estimatedDeliveryDate: new Date().toISOString().split('T')[0] + 'T00:00:00',
-      notes: ''
+      notes: '',
+      createdAt: '',
+      updatedAt: ''
     };
     onChange([...items, newItem]);
   };
@@ -111,7 +92,6 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
     newItems.splice(index, 1);
     onChange(newItems);
     
-    // Temizle
     setShowAllSuppliers(prev => {
       const updated = { ...prev };
       delete updated[index];
@@ -122,28 +102,24 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
   const handleItemChange = async (index: number, field: keyof PurchaseRequestItem, value: any) => {
     const newItems = [...items];
     
-    if (field === 'productId') {
-      console.log('Selected product ID:', value);
+    if (field === 'product') {
       const selectedProduct = products.find(p => p.id === value);
-      console.log('Selected product:', selectedProduct);
-      
-      // Ürünün category veya categories alanını kontrol et
-      const categoryId = selectedProduct?.category?.id || 
-                        (selectedProduct?.categories && selectedProduct.categories.length > 0 ? selectedProduct.categories[0].id : null);
-      
-      if (categoryId) {
-        console.log('Loading suppliers for category:', categoryId);
-        await loadSuppliersByCategory(categoryId);
-        setShowAllSuppliers(prev => ({ ...prev, [index]: false }));
+      if (selectedProduct) {
+        const categoryId = selectedProduct?.category?.id || 
+                          (selectedProduct?.categories && selectedProduct.categories.length > 0 ? selectedProduct.categories[0].id : null);
         
-        // Tedarikçi listesini sıfırla
-        newItems[index] = {
-          ...newItems[index],
-          [field]: value,
-          potentialSupplierIds: []
-        };
-      } else {
-        console.warn('Product has no category:', selectedProduct);
+        if (categoryId) {
+          await loadSuppliersByCategory(categoryId);
+          setShowAllSuppliers(prev => ({ ...prev, [index]: false }));
+          
+          newItems[index] = {
+            ...newItems[index],
+            product: { ...selectedProduct, unit: selectedProduct.unitOfMeasure, category: selectedProduct.category?.name || '' },
+            potentialSuppliers: []
+          };
+        } else {
+          console.warn('Product has no category:', selectedProduct);
+        }
       }
     } else if (field === 'estimatedDeliveryDate') {
       newItems[index] = {
@@ -189,19 +165,17 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
       {items.map((item, index) => (
         <div key={index} className="border p-4 rounded-lg bg-white shadow-sm">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Ürün Seçimi */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Ürün</label>
               <Select
                 options={productOptions}
-                value={productOptions.find(option => option.value === item.productId)}
-                onChange={(option) => handleItemChange(index, 'productId', option?.value)}
+                value={productOptions.find(option => option.value === item.product.id)}
+                onChange={(option) => handleItemChange(index, 'product', option?.value)}
                 className="mt-1"
                 placeholder="Ürün seçin..."
               />
             </div>
 
-            {/* Ürün Adı */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Ürün Adı</label>
               <input
@@ -213,7 +187,6 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               />
             </div>
 
-            {/* Miktar */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Miktar</label>
               <input
@@ -225,7 +198,6 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               />
             </div>
 
-            {/* Açıklama */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700">Açıklama</label>
               <textarea
@@ -237,7 +209,6 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               />
             </div>
 
-            {/* Ürün Linki */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700">Ürün Linki</label>
               <input
@@ -249,7 +220,6 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               />
             </div>
 
-            {/* Ürün Resmi */}
             {item.imageBase64 && (
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Ürün Resmi</label>
@@ -263,11 +233,10 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               </div>
             )}
 
-            {/* Potansiyel Tedarikçiler */}
             <div className="md:col-span-2">
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-medium text-gray-700">Potansiyel Tedarikçiler</label>
-                {item.productId > 0 && (
+                {item.product.id > 0 && (
                   <button
                     type="button"
                     onClick={() => toggleSupplierView(index)}
@@ -280,14 +249,13 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               <Select
                 isMulti
                 options={getSupplierOptions(index)}
-                value={getSupplierOptions(index).filter(option => item.potentialSupplierIds?.includes(option.value))}
-                onChange={(options) => handleItemChange(index, 'potentialSupplierIds', options.map(o => o.value))}
+                value={getSupplierOptions(index).filter(option => item.potentialSuppliers?.some(s => s.id === option.value))}
+                onChange={(options) => handleItemChange(index, 'potentialSuppliers', options.map(o => allSuppliers.find(s => s.id === o.value)))}
                 className="mt-1"
                 placeholder="Tedarikçileri seçin..."
               />
             </div>
 
-            {/* Tahmini Teslim Tarihi */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Tahmini Teslim Tarihi</label>
               <input
@@ -298,7 +266,6 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               />
             </div>
 
-            {/* Notlar */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700">Notlar</label>
               <textarea
@@ -334,4 +301,4 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
       </div>
     </div>
   );
-}; 
+};

@@ -1,4 +1,5 @@
 import { User } from './user';
+import { Product } from './product';
 
 export type PurchaseOrderStatus = 
   | 'DRAFT'
@@ -29,14 +30,6 @@ export interface Supplier {
   contactPerson: string;
   contactPhone: string;
   contactEmail: string;
-}
-
-export interface Product {
-  id: number;
-  name: string;
-  code: string;
-  description: string;
-  category: string;
 }
 
 export interface SupplierQuote {
@@ -95,4 +88,4 @@ export interface PurchaseOrderResponse {
   data: PurchaseOrder | PurchaseOrder[];
   timestamp: string;
   errorCode?: string;
-} 
+}

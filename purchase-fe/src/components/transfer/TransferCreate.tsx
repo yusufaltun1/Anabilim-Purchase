@@ -290,7 +290,7 @@ const TransferCreate: React.FC = () => {
                             <option value="0">Ürün Seçin</option>
                             {products.map((product) => {
                               const stock = warehouseStocks.find(s => s.product.id === product.id);
-                              const stockInfo = stock ? ` (Stok: ${stock.currentStock} ${product.unit})` : ' (Stok yok)';
+                              const stockInfo = stock ? ` (Stok: ${stock.currentStock} ${product.unitOfMeasure})` : ' (Stok yok)';
                               return (
                                 <option key={product.id} value={product.id}>
                                   {product.name}{stockInfo}
@@ -386,4 +386,4 @@ const TransferCreate: React.FC = () => {
   );
 };
 
-export default TransferCreate; 
+export default TransferCreate;

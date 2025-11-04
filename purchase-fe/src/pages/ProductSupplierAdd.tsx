@@ -31,11 +31,8 @@ export const ProductSupplierAdd = () => {
       setProduct(productResponse);
       
       // Tüm tedarikçileri yükle
-      const suppliersResponse = await supplierService.getAllSuppliers();
-      if (suppliersResponse.success) {
-        const allSuppliers = Array.isArray(suppliersResponse.data) ? suppliersResponse.data : [suppliersResponse.data];
-        setSuppliers(allSuppliers);
-      }
+      const suppliersResponse = await supplierService.getActiveSuppliers();
+      setSuppliers(suppliersResponse);
     } catch (err: any) {
       console.error('Error loading data:', err);
       setError(err.message || 'Veriler yüklenirken hata oluştu');
@@ -158,7 +155,7 @@ export const ProductSupplierAdd = () => {
                     <option value="">Tedarikçi seçin</option>
                     {suppliers.map((supplier) => (
                       <option key={supplier.id} value={supplier.id}>
-                        {supplier.companyName || supplier.name}
+                        {supplier.name}
                       </option>
                     ))}
                   </select>

@@ -12,9 +12,8 @@ class SupplierService {
   }
 
   private mapRequestToApi(request: CreateSupplierRequest | UpdateSupplierRequest) {
-    const apiRequest = {
+    const apiRequest: any = {
       name: request.name,
-      taxNumber: request.taxNumber,
       taxOffice: request.taxOffice,
       address: request.address,
       phone: request.phone,
@@ -29,6 +28,10 @@ class SupplierService {
       preferred: request.isPreferred,
       categoryIds: request.categoryIds || []
     };
+
+    if ('taxNumber' in request) {
+      apiRequest.taxNumber = request.taxNumber;
+    }
 
     console.log('Mapped API request:', apiRequest);
     return apiRequest;
@@ -189,57 +192,29 @@ class SupplierService {
     }
   }
 
-  async getActiveSuppliers(): Promise<SupplierResponse> {
-    try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/suppliers/active`, {
+  async getActiveSuppliers(): Promise<Supplier[]> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/suppliers/active`, {
         method: 'GET',
         headers: this.getHeaders(),
-      });
-      const data = await response.json();
-      return {
-        success: true,
-        data: Array.isArray(data) ? data.map(this.mapApiToSupplier) : this.mapApiToSupplier(data),
-        message: '',
-        timestamp: new Date().toISOString()
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        data: [],
-        message: error.message,
-        timestamp: new Date().toISOString()
-      };
+    });
+    if (!response.ok) {
+        throw new Error('Aktif tedarikçiler alınamadı');
     }
+    const data = await response.json();
+    return Array.isArray(data) ? data.map(this.mapApiToSupplier) : [this.mapApiToSupplier(data)];
   }
 
-  async getSuppliersByCategory(categoryId: number): Promise<SupplierResponse> {
-    try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/suppliers/by-category/${categoryId}`, {
+  async getSuppliersByCategory(categoryId: number): Promise<Supplier[]> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/suppliers/by-category/${categoryId}`, {
         method: 'GET',
         headers: this.getHeaders(),
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Tedarikçiler yüklenirken bir hata oluştu');
-      }
-
-      return {
-        success: true,
-        data,
-        message: '',
-        timestamp: new Date().toISOString()
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        data: [],
-        message: error.message,
-        timestamp: new Date().toISOString()
-      };
+    });
+    if (!response.ok) {
+        throw new Error('Kategoriye göre tedarikçiler alınamadı');
     }
+    const data = await response.json();
+    return Array.isArray(data) ? data.map(this.mapApiToSupplier) : [this.mapApiToSupplier(data)];
   }
 }
 
-export const supplierService = new SupplierService(); 
+export const supplierService = new SupplierService();

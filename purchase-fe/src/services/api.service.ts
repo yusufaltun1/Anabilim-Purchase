@@ -144,7 +144,7 @@ export async function fetchAllCandidates(): Promise<any[]> {
   return response.json();
 }
 
-export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = endpoint.startsWith('/api') 
     ? `${API_CONFIG.BASE_URL}${endpoint}`
     : `${API_CONFIG.BASE_URL}/api${endpoint}`;
@@ -160,4 +160,4 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
     throw new Error('API Error');
   }
   return response.json();
-} 
+}
