@@ -1,12 +1,12 @@
 # Build stage
-FROM maven:3-eclipse-temurin-21 AS build
+FROM openjdk:21-jdk AS build
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Package stage
-FROM eclipse-temurin:21-jdk-slim
+FROM openjdk:21-jdk
 WORKDIR /app
 COPY --from=build /app/target/AnabilimPurchaseBe-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
