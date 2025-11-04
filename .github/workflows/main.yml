@@ -19,6 +19,7 @@ jobs:
         cache: maven
 
     - name: Build with Maven
+      working-directory: AnabilimPurchaseBe
       run: mvn clean install -DskipTests
 
     - name: Login to Docker Hub
@@ -30,6 +31,6 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v4
       with:
-        context: .
+        context: AnabilimPurchaseBe
         push: true
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/anabilim-purchase-be:latest
