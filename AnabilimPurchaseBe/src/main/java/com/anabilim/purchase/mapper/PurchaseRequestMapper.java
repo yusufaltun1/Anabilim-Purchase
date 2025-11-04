@@ -34,15 +34,17 @@ public class PurchaseRequestMapper {
         if (createDto.getItems() != null && !createDto.getItems().isEmpty()) {
             List<PurchaseRequestItem> items = createDto.getItems().stream()
                     .map(itemDto -> {
-                        Product product = productRepository.findById(itemDto.getProductId())
-                                .orElseThrow(() -> new ResourceNotFoundException("Ürün bulunamadı: " + itemDto.getProductId()));
-                        
                         PurchaseRequestItem item = new PurchaseRequestItem();
                         item.setPurchaseRequest(request);
-                        item.setProduct(product);
                         item.setQuantity(itemDto.getQuantity());
                         item.setEstimatedDeliveryDate(itemDto.getEstimatedDeliveryDate());
                         item.setNotes(itemDto.getNotes());
+                        
+                        // Ürün bilgileri
+                        item.setProductName(itemDto.getProductName());
+                        item.setDescription(itemDto.getDescription());
+                        item.setImageBase64(itemDto.getImageBase64());
+                        item.setProductLink(itemDto.getProductLink());
                         
                         if (itemDto.getPotentialSupplierIds() != null && !itemDto.getPotentialSupplierIds().isEmpty()) {
                             // Önce Set'i temizle
@@ -72,15 +74,17 @@ public class PurchaseRequestMapper {
     }
     
     public PurchaseRequestItem toItemEntity(UpdatePurchaseRequestItemsDto.PurchaseRequestItemDto itemDto) {
-        Product product = productRepository.findById(itemDto.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Ürün bulunamadı: " + itemDto.getProductId()));
-        
         PurchaseRequestItem item = new PurchaseRequestItem();
-        item.setProduct(product);
         item.setQuantity(itemDto.getQuantity());
         item.setSelectedSupplierId(itemDto.getSelectedSupplierId());
         item.setEstimatedDeliveryDate(itemDto.getEstimatedDeliveryDate());
         item.setNotes(itemDto.getNotes());
+        
+        // Ürün bilgileri
+        item.setProductName(itemDto.getProductName());
+        item.setDescription(itemDto.getDescription());
+        item.setImageBase64(itemDto.getImageBase64());
+        item.setProductLink(itemDto.getProductLink());
         
         if (itemDto.getPotentialSupplierIds() != null && !itemDto.getPotentialSupplierIds().isEmpty()) {
             // Önce Set'i temizle
@@ -155,7 +159,6 @@ public class PurchaseRequestMapper {
         
         PurchaseRequestItemDto dto = new PurchaseRequestItemDto();
         dto.setId(item.getId());
-        dto.setProduct(toProductDto(item.getProduct()));
         dto.setPotentialSuppliers(item.getPotentialSuppliers().stream()
                 .map(this::toSupplierDto)
                 .collect(Collectors.toSet()));
@@ -168,6 +171,13 @@ public class PurchaseRequestMapper {
         dto.setNotes(item.getNotes());
         dto.setCreatedAt(item.getCreatedAt());
         dto.setUpdatedAt(item.getUpdatedAt());
+        
+        // Ürün bilgileri
+        dto.setProductName(item.getProductName());
+        dto.setDescription(item.getDescription());
+        dto.setImageBase64(item.getImageBase64());
+        dto.setProductLink(item.getProductLink());
+        
         return dto;
     }
     
@@ -177,16 +187,7 @@ public class PurchaseRequestMapper {
                 .collect(Collectors.toList());
     }
     
-    private PurchaseRequestItemDto.ProductDto toProductDto(Product product) {
-        return new PurchaseRequestItemDto.ProductDto(
-                product.getId(),
-                product.getName(),
-                product.getCode(),
-                product.getDescription(),
-                product.getCategory() != null ? product.getCategory().getName() : null,
-                product.getUnitOfMeasure().getDisplayName()
-        );
-    }
+    // ProductDto artık gerekli değil çünkü product bilgileri request içinde saklanıyor
     
     private PurchaseRequestItemDto.SupplierDto toSupplierDto(Supplier supplier) {
         return new PurchaseRequestItemDto.SupplierDto(

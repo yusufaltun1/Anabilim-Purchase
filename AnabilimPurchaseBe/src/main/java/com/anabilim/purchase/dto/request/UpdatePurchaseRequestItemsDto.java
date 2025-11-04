@@ -3,6 +3,7 @@ package com.anabilim.purchase.dto.request;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,14 +24,23 @@ public class UpdatePurchaseRequestItemsDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PurchaseRequestItemDto {
-        private Long productId;
+        @NotEmpty(message = "En az bir potansiyel tedarikçi eklenmelidir")
         private Set<Long> potentialSupplierIds;
+        
         private Long selectedSupplierId;
+        
+        @NotNull(message = "Miktar belirtilmelidir")
         private Integer quantity;
         
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
         private LocalDateTime estimatedDeliveryDate;
         
         private String notes;
+        
+        // Ürün bilgileri
+        private String productName;
+        private String description;
+        private String imageBase64;
+        private String productLink;
     }
 } 

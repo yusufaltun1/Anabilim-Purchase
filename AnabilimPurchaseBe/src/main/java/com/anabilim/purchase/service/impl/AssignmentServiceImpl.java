@@ -74,6 +74,15 @@ public class AssignmentServiceImpl implements AssignmentService {
             throw new IllegalArgumentException("Hem kullanıcıya hem konuma zimmet yapılamaz");
         }
         
+        // Geçerlilik tarihi kontrolü
+        if (dto.getExpectedReturnDate() != null) {
+            // Geçerlilik tarihi bugünden önce olamaz
+            if (dto.getExpectedReturnDate().isBefore(LocalDate.now())) {
+                throw new IllegalArgumentException("Geçerlilik tarihi bugünden önce olamaz");
+            }
+        }
+        // Geçerlilik tarihi belirtilmezse null kalır (manuel iade gerekir)
+        
         // Assignment'ı kaydet
         Assignment savedAssignment = assignmentRepository.save(assignment);
         
@@ -472,6 +481,26 @@ public class AssignmentServiceImpl implements AssignmentService {
                                         assignment.getLocationName())));
                 
                 stockMovementRepository.save(movement);
+            }
+        }
+    }
+    
+    @Override
+    @Transactional
+    public void autoCloseExpiredAssignments() {
+        // Süresi dolmuş aktif zimmetleri bul
+        List<Assignment> expiredAssignments = assignmentRepository.findAll().stream()
+                .filter(Assignment::isExpired)
+                .collect(java.util.stream.Collectors.toList());
+        
+        for (Assignment assignment : expiredAssignments) {
+            // Otomatik kapat
+            assignment.autoCloseIfExpired();
+            assignmentRepository.save(assignment);
+            
+            // Depoya geri kazandır (sadece geri kazandırılabilir ürünler için)
+            if (assignment.getProduct().isReusable()) {
+                createStockMovementForReturn(assignment);
             }
         }
     }

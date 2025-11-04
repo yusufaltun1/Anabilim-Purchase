@@ -14,7 +14,6 @@ import java.util.Set;
 @AllArgsConstructor
 public class PurchaseRequestItemDto {
     private Long id;
-    private ProductDto product;
     private Set<SupplierDto> potentialSuppliers;
     private Set<SupplierQuoteDto> supplierQuotes;
     private Long selectedSupplierId;
@@ -24,17 +23,13 @@ public class PurchaseRequestItemDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class ProductDto {
-        private Long id;
-        private String name;
-        private String code;
-        private String description;
-        private String category;
-        private String unit;
-    }
+    // Ürün bilgileri
+    private String productName;
+    private String description;
+    private String imageBase64;
+    private String productLink;
+    
+    // ProductDto artık gerekli değil çünkü product bilgileri request içinde saklanıyor
     
     @Data
     @NoArgsConstructor

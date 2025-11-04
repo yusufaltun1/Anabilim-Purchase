@@ -31,7 +31,7 @@ public class CreateAssignmentDto {
     
     private String locationDetails;
     
-    private LocalDate expectedReturnDate; // Sarf malzemeler için süre
+    private LocalDate expectedReturnDate; // Zimmet geçerlilik tarihi - bu tarihte otomatik kapanır (opsiyonel)
     
     private String notes;
 }

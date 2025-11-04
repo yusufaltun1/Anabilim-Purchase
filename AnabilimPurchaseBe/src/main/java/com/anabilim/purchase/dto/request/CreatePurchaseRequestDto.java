@@ -33,14 +33,19 @@ public class CreatePurchaseRequestDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PurchaseRequestItemDto {
-        @NotNull(message = "Ürün seçilmelidir")
-        private Long productId;
-        
         @NotNull(message = "Miktar belirtilmelidir")
         private Integer quantity;
         
-        @NotEmpty(message = "En az bir potansiyel tedarikçi eklenmelidir")
+        // İlk oluşturmada potansiyel tedarikçi zorunlu değil
         private Set<Long> potentialSupplierIds;
+        
+        // Ürün bilgileri
+        @NotBlank(message = "Ürün adı boş olamaz")
+        private String productName;
+        
+        private String description;
+        private String imageBase64;
+        private String productLink;
         
         private LocalDateTime estimatedDeliveryDate;
         private String notes;

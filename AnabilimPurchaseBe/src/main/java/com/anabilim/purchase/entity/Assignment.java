@@ -96,6 +96,16 @@ public class Assignment {
                AssignmentStatus.ACTIVE.equals(this.status);
     }
     
+    /**
+     * Geçerlilik tarihi geçmişse otomatik olarak kapatır
+     */
+    public void autoCloseIfExpired() {
+        if (isExpired()) {
+            this.status = AssignmentStatus.EXPIRED;
+//            this.actualReturnDate = LocalDate.now();
+        }
+    }
+    
     public boolean isUserAssignment() {
         return assignedUser != null;
     }

@@ -49,6 +49,11 @@ export interface PurchaseRequestItem {
   notes: string;
   createdAt: string;
   updatedAt: string;
+  // Yeni alanlar
+  productName?: string;
+  description?: string;
+  imageBase64?: string;
+  productLink?: string;
 }
 
 export interface Approval {
@@ -99,9 +104,21 @@ export interface PurchaseRequest {
   pending: boolean;
 }
 
+export interface CreatePurchaseRequestItem {
+  productName: string;
+  description: string;
+  quantity: number;
+  imageBase64?: string;
+  productLink?: string;
+  potentialSupplierIds: number[];
+  estimatedDeliveryDate: string;
+  notes?: string;
+}
+
 export interface CreatePurchaseRequest {
   title: string;
   description: string;
+  items: CreatePurchaseRequestItem[];
 }
 
 export interface AddItemsRequest {

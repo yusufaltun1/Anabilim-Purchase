@@ -11,9 +11,9 @@ spring:
     name: anabilim-purchase-be
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/purchase
-    username: postgres
-    password: 1234
+    url: ${DB_URL:jdbc:postgresql://localhost:5430/purchase}
+    username: ${DB_USERNAME:oteller}
+    password: ${DB_PASSWORD:otellerpassword}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -32,18 +32,19 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        show_sql: true
 
   security:
     user:
       name: admin
       password: admin
 
+  # Microsoft OAuth2 Configuration
+
   mail:
     host: smtp.gmail.com
     port: 587
-    username: your-email@gmail.com
-    password: your-app-password
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
@@ -53,7 +54,7 @@ spring:
 
 # JWT Configuration
 jwt:
-  secret: your-super-secret-jwt-key-here-make-it-long-and-secure-for-production
+  secret: ${JWT_SECRET}
   expiration: 86400000  # 24 saat
   refresh-expiration: 604800000  # 7 gün
 
@@ -74,4 +75,3 @@ management:
   endpoint:
     health:
       show-details: always
-

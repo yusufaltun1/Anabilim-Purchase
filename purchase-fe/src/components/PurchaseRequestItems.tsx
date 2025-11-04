@@ -189,6 +189,7 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
       {items.map((item, index) => (
         <div key={index} className="border p-4 rounded-lg bg-white shadow-sm">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* Ürün Seçimi */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Ürün</label>
               <Select
@@ -200,6 +201,19 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               />
             </div>
 
+            {/* Ürün Adı */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Ürün Adı</label>
+              <input
+                type="text"
+                value={item.productName || ''}
+                onChange={(e) => handleItemChange(index, 'productName', e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                placeholder="Ürün adını girin..."
+              />
+            </div>
+
+            {/* Miktar */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Miktar</label>
               <input
@@ -211,6 +225,45 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               />
             </div>
 
+            {/* Açıklama */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Açıklama</label>
+              <textarea
+                value={item.description || ''}
+                onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                rows={2}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                placeholder="Ürün açıklamasını girin..."
+              />
+            </div>
+
+            {/* Ürün Linki */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Ürün Linki</label>
+              <input
+                type="url"
+                value={item.productLink || ''}
+                onChange={(e) => handleItemChange(index, 'productLink', e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                placeholder="https://www.example.com/product"
+              />
+            </div>
+
+            {/* Ürün Resmi */}
+            {item.imageBase64 && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Ürün Resmi</label>
+                <div className="relative inline-block">
+                  <img
+                    src={item.imageBase64}
+                    alt="Ürün resmi"
+                    className="w-full max-w-md h-48 object-cover rounded-md border border-gray-300"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Potansiyel Tedarikçiler */}
             <div className="md:col-span-2">
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-medium text-gray-700">Potansiyel Tedarikçiler</label>
@@ -234,6 +287,7 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               />
             </div>
 
+            {/* Tahmini Teslim Tarihi */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Tahmini Teslim Tarihi</label>
               <input
@@ -244,6 +298,7 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
               />
             </div>
 
+            {/* Notlar */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700">Notlar</label>
               <textarea
@@ -251,6 +306,7 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
                 onChange={(e) => handleItemChange(index, 'notes', e.target.value)}
                 rows={2}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                placeholder="Ek notlar..."
               />
             </div>
           </div>

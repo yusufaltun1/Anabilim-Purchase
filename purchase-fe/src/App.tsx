@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { MsalProvider } from '@azure/msal-react';
+import { PublicClientApplication } from '@azure/msal-browser';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { Login } from './pages/Login';
@@ -54,11 +56,16 @@ import { LocationEdit } from './pages/LocationEdit';
 // import { LocationDetail } from './pages/LocationDetail';
 // import { LocationEdit } from './pages/LocationEdit';
 
-function App() {
+interface AppProps {
+  instance: PublicClientApplication;
+}
+
+function App({ instance }: AppProps) {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <Router>
+    <MsalProvider instance={instance}>
+      <AuthProvider>
+        <NotificationProvider>
+          <Router>
           <div className="App">
             <Routes>
               <Route path="/" element={<Navigate to="/login" replace />} />
@@ -373,6 +380,7 @@ function App() {
         </Router>
       </NotificationProvider>
     </AuthProvider>
+    </MsalProvider>
   );
 }
 

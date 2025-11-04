@@ -26,25 +26,31 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(name = "microsoft_365_id", unique = true, nullable = false)
+    @Column(name = "microsoft_365_id", unique = true)
     private String microsoft365Id;
+    
+    @Column(name = "microsoft_id")
+    private String microsoftId;
     
     @Column(name = "email", unique = true, nullable = false)
     private String email;
     
-    @Column(name = "first_name", nullable = false)
+    @Column(name = "first_name")
     private String firstName;
     
-    @Column(name = "last_name", nullable = false)
+    @Column(name = "last_name")
     private String lastName;
     
-    @Column(name = "display_name", nullable = false)
+    @Column(name = "display_name")
     private String displayName;
     
-    @Column(name = "department", nullable = false)
+    @Column(name = "full_name")
+    private String fullName;
+    
+    @Column(name = "department")
     private String department;
     
-    @Column(name = "position", nullable = false)
+    @Column(name = "position")
     private String position;
     
     @Column(name = "phone")

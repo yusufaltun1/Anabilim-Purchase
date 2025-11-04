@@ -78,4 +78,11 @@ public interface AssignmentService {
     AssignmentDto activateAssignment(Long assignmentId);
     
     AssignmentDto deactivateAssignment(Long assignmentId);
+    
+    // ========== Otomatik İşlemler ==========
+    
+    /**
+     * Süresi dolmuş zimmetleri otomatik olarak kapatır
+     */
+    void autoCloseExpiredAssignments();
 }

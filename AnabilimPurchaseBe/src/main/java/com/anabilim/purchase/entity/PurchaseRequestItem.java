@@ -35,11 +35,23 @@ public class PurchaseRequestItem {
     private PurchaseRequest purchaseRequest;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
+    @JoinColumn(name = "product_id", nullable = true)
     private Product product;
     
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
+    
+    @Column(name = "product_name")
+    private String productName;
+    
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+    
+    @Column(name = "image_base64", columnDefinition = "TEXT")
+    private String imageBase64;
+    
+    @Column(name = "product_link", columnDefinition = "TEXT")
+    private String productLink;
     
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

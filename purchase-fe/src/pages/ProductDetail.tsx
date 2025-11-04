@@ -737,10 +737,8 @@ export const ProductDetail = () => {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Zimmet Bölümü */}
-      <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
           <div>
             <h3 className="text-lg leading-6 font-medium text-gray-900">Zimmetler</h3>
@@ -859,6 +857,10 @@ export const ProductDetail = () => {
           )}
         </div>
       </div>
+      </div>
+
+      {/* Zimmet Bölümü */}
+      
 
       {/* Zimmet Modal */}
       {showAssignmentModal && (

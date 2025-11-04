@@ -26,6 +26,20 @@ interface LoginResponse {
   errorCode: string | null;
 }
 
+interface MicrosoftLoginResponse {
+  success: boolean;
+  message: string;
+  data: {
+    token: string;
+    user: {
+      id: number;
+      email: string;
+      fullName: string;
+      microsoftId: string;
+    };
+  };
+}
+
 export const authService = {
   async login(email: string, password: string): Promise<LoginResponse> {
     const response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/login`, {
@@ -82,5 +96,47 @@ export const authService = {
       firstName: userInfo.firstName,
       lastName: userInfo.lastName
     } : null;
+  },
+
+  async microsoftLogin(): Promise<void> {
+    // Microsoft OAuth2 login sayfasına yönlendir
+    // Backend'de redirect URI: http://localhost:3000/auth/microsoft/callback olarak ayarlanmalı
+    const microsoftAuthUrl = `${API_CONFIG.BASE_URL}/oauth2/authorization/microsoft`;
+    window.location.href = microsoftAuthUrl;
+  },
+
+  async handleMicrosoftCallback(): Promise<MicrosoftLoginResponse> {
+    // URL'den authorization code'u al
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    
+    if (!code) {
+      throw new Error('Authorization code not found');
+    }
+
+    // Doğru endpoint'e code gönder
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/auth/microsoft/verify-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code }),
+      mode: 'cors',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Microsoft login failed');
+    }
+
+    const data: MicrosoftLoginResponse = await response.json();
+    
+    // Store authentication data
+    localStorage.setItem('access_token', data.data.token);
+    localStorage.setItem('user_info', JSON.stringify(data.data.user));
+    
+    return data;
   }
 }; 

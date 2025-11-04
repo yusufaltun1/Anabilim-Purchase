@@ -255,4 +255,12 @@ public class AssignmentController {
         AssignmentDto deactivatedAssignment = assignmentService.deactivateAssignment(id);
         return ResponseEntity.ok(ApiResponse.success("Zimmet pasif hale getirildi", deactivatedAssignment));
     }
+    
+    // ========== Otomatik İşlemler ==========
+    
+    @PostMapping("/auto-close-expired")
+    public ResponseEntity<ApiResponse<Void>> autoCloseExpiredAssignments() {
+        assignmentService.autoCloseExpiredAssignments();
+        return ResponseEntity.ok(ApiResponse.success("Süresi dolmuş zimmetler otomatik olarak kapatıldı", null));
+    }
 }

@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useMsal } from '@azure/msal-react';
+import { loginRequest } from '../config/msalConfig';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, error } = useAuth();
+  const { instance } = useMsal();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [microsoftLoading, setMicrosoftLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +33,21 @@ export const Login = () => {
       // Error is handled by AuthContext
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMicrosoftLogin = async () => {
+    setMicrosoftLoading(true);
+    try {
+      // MSAL ile Microsoft login
+      await instance.loginRedirect({
+        ...loginRequest,
+        prompt: 'create',
+      });
+      // Redirect işlemi başlatıldı, sayfa Microsoft'a yönlendirilecek
+    } catch (err) {
+      console.error('Microsoft login error:', err);
+      setMicrosoftLoading(false);
     }
   };
 
@@ -88,10 +107,43 @@ export const Login = () => {
           <div className="w-72">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || microsoftLoading}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition disabled:opacity-60"
             >
               {loading ? 'Giriş Yapılıyor...' : 'Giriş Yap'}
+            </button>
+          </div>
+          
+          {/* Divider */}
+          <div className="w-72">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">veya</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Microsoft Login Button */}
+          <div className="w-72">
+            <button
+              type="button"
+              onClick={handleMicrosoftLogin}
+              disabled={loading || microsoftLoading}
+              className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition disabled:opacity-60"
+            >
+              {microsoftLoading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                    <path fill="#00BCF2" d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/>
+                  </svg>
+                  Microsoft ile Giriş Yap
+                </>
+              )}
             </button>
           </div>
         </form>

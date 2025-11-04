@@ -321,30 +321,20 @@ export const PurchaseOrderDetail = () => {
                       Sevk Et
                     </button>
                   )}
-                  {order.status === 'SHIPPED' && (
-                    <>
-                      <button
-                        onClick={() => handleStatusUpdate('DELIVERED')}
-                        disabled={statusUpdateLoading}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                      >
-                        Teslim Edildi
-                      </button>
-                      <button
-                        onClick={() => setShowStockEntryModal(true)}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                      >
-                        Stoğa Kaydet
-                      </button>
-                    </>
-                  )}
-                  {['PENDING', 'CONFIRMED'].includes(order.status) && (
+                  {['PENDING', 'CONFIRMED'].includes(order.status) ? (
                     <button
                       onClick={() => handleStatusUpdate('CANCELLED')}
                       disabled={statusUpdateLoading}
                       className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                     >
                       İptal Et
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowStockEntryModal(true)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                    >
+                      Stoğa Kaydet
                     </button>
                   )}
                 </div>
