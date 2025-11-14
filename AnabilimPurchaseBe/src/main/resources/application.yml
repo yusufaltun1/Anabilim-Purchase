@@ -73,3 +73,7 @@ management:
   endpoint:
     health:
       show-details: always
+
+client:
+  url: https://testsatinalma.anabilim.k12.tr
+  url2: http://localhost:5173
