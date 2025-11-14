@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,10 +17,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
-/**
- * JWT token doğrulama ve kimlik doğrulama filtresi
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -27,14 +27,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
     private final JwtService jwtService;
     private final AuthService authService;
-    
+
+    // Bu yollar JWT filtresinden geçmeyecek
+    private static final List<String> EXCLUDED_PATHS = Arrays.asList(
+            "/api/auth/",
+            "/api/v1/auth/microsoft/",
+            "/swagger-ui/",
+            "/v3/api-docs",
+            "/actuator",
+            "/api/supplier-quotes/"
+    );
+
     @Override
     protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         
+        final String requestURI = request.getRequestURI();
+
+        // Eğer istek, hariç tutulan yollardan biriyse, filtreyi atla
+        if (isExcluded(requestURI)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         try {
             String jwt = getJwtFromRequest(request);
             
@@ -60,10 +78,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception ex) {
-            log.error("JWT token authentication failed", ex);
+            log.error("JWT token authentication failed for URI: {}", requestURI, ex);
         }
         
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isExcluded(String requestURI) {
+        return EXCLUDED_PATHS.stream().anyMatch(requestURI::startsWith);
     }
     
     private String getJwtFromRequest(HttpServletRequest request) {
@@ -75,4 +97,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         
         return null;
     }
-} 
+}

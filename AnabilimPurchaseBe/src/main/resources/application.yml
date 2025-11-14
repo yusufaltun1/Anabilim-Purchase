@@ -54,15 +54,13 @@ spring:
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:your-super-secret-jwt-key-here-make-it-long-and-secure-for-production}
   expiration: 86400000  # 24 saat
   refresh-expiration: 604800000  # 7 gün
 
 logging:
   level:
     root: INFO
-    com.anabilim.purchase: DEBUG
-    org.springframework.security: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 

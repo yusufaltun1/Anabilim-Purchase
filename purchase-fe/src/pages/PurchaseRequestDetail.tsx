@@ -22,6 +22,8 @@ export const PurchaseRequestDetail = () => {
   const [actionComment, setActionComment] = useState('');
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [showConvertModal, setShowConvertModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionComment, setRejectionComment] = useState('');
 
   useEffect(() => {
     loadRequestData();
@@ -43,15 +45,11 @@ export const PurchaseRequestDetail = () => {
         return;
       }
 
-      console.log('Fetching request data for ID:', requestId);
       const requestResponse = await purchaseRequestService.getRequestById(requestId);
-      console.log('Response from server:', requestResponse);
 
       if (requestResponse.success) {
-        console.log('Setting request data:', requestResponse.data);
         setRequest(requestResponse.data as PurchaseRequest);
       } else {
-        console.log('Error in response:', requestResponse.message);
         setError(requestResponse.message);
       }
     } catch (err) {
@@ -72,23 +70,24 @@ export const PurchaseRequestDetail = () => {
         return;
       }
 
-      const requestId = parseInt(id);
-      if (isNaN(requestId)) {
-        setError('Geçersiz talep ID\'si');
-        return;
-      }
-
-      await purchaseRequestService.approveRequest(requestId, { comment: actionComment });
+      await purchaseRequestService.approveRequest(parseInt(id), { comment: actionComment });
       await loadRequestData();
+      showNotification('Talep başarıyla onaylandı', 'success');
     } catch (err) {
       console.error('Error approving request:', err);
       setError('Talep onaylanırken hata oluştu');
+      showNotification('Talep onaylanırken hata oluştu', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleReject = async () => {
+  const submitRejection = async () => {
+    if (!rejectionComment.trim()) {
+      showNotification('Reddetme gerekçesi boş bırakılamaz.', 'error');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -98,23 +97,22 @@ export const PurchaseRequestDetail = () => {
         return;
       }
 
-      const requestId = parseInt(id);
-      if (isNaN(requestId)) {
-        setError('Geçersiz talep ID\'si');
-        return;
-      }
-
-      await purchaseRequestService.rejectRequest(requestId, { comment: actionComment });
+      await purchaseRequestService.rejectRequest(parseInt(id), { comment: rejectionComment });
+      setShowRejectModal(false);
+      setRejectionComment('');
       await loadRequestData();
+      showNotification('Talep başarıyla reddedildi', 'success');
     } catch (err) {
       console.error('Error rejecting request:', err);
       setError('Talep reddedilirken hata oluştu');
+      showNotification('Talep reddedilirken hata oluştu', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancel = async () => {
+    // Bu fonksiyon da benzer bir modal yapısı kullanabilir, şimdilik olduğu gibi bırakıyorum.
     try {
       setLoading(true);
       setError(null);
@@ -124,17 +122,13 @@ export const PurchaseRequestDetail = () => {
         return;
       }
 
-      const requestId = parseInt(id);
-      if (isNaN(requestId)) {
-        setError('Geçersiz talep ID\'si');
-        return;
-      }
-
-      await purchaseRequestService.cancelRequest(requestId, { comment: actionComment });
+      await purchaseRequestService.cancelRequest(parseInt(id), { comment: actionComment });
       await loadRequestData();
+      showNotification('Talep başarıyla iptal edildi', 'success');
     } catch (err) {
       console.error('Error canceling request:', err);
       setError('Talep iptal edilirken hata oluştu');
+      showNotification('Talep iptal edilirken hata oluştu', 'error');
     } finally {
       setLoading(false);
     }
@@ -142,43 +136,27 @@ export const PurchaseRequestDetail = () => {
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'DRAFT':
-        return 'bg-gray-100 text-gray-800';
-      case 'IN_APPROVAL':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'APPROVED':
-        return 'bg-green-100 text-green-800';
-      case 'REJECTED':
-        return 'bg-red-100 text-red-800';
-      case 'CANCELLED':
-        return 'bg-gray-100 text-gray-800';
-      case 'IN_PROGRESS':
-        return 'bg-blue-100 text-blue-800';
-      case 'COMPLETED':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'DRAFT': return 'bg-gray-100 text-gray-800';
+      case 'IN_APPROVAL': return 'bg-yellow-100 text-yellow-800';
+      case 'APPROVED': return 'bg-green-100 text-green-800';
+      case 'REJECTED': return 'bg-red-100 text-red-800';
+      case 'CANCELLED': return 'bg-gray-100 text-gray-800';
+      case 'IN_PROGRESS': return 'bg-blue-100 text-blue-800';
+      case 'COMPLETED': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'DRAFT':
-        return 'Taslak';
-      case 'IN_APPROVAL':
-        return 'Onay Bekliyor';
-      case 'APPROVED':
-        return 'Onaylandı';
-      case 'REJECTED':
-        return 'Reddedildi';
-      case 'CANCELLED':
-        return 'İptal Edildi';
-      case 'IN_PROGRESS':
-        return 'İşlemde';
-      case 'COMPLETED':
-        return 'Tamamlandı';
-      default:
-        return status;
+      case 'DRAFT': return 'Taslak';
+      case 'IN_APPROVAL': return 'Onay Bekliyor';
+      case 'APPROVED': return 'Onaylandı';
+      case 'REJECTED': return 'Reddedildi';
+      case 'CANCELLED': return 'İptal Edildi';
+      case 'IN_PROGRESS': return 'İşlemde';
+      case 'COMPLETED': return 'Tamamlandı';
+      default: return status;
     }
   };
 
@@ -187,176 +165,34 @@ export const PurchaseRequestDetail = () => {
     return request.approvals.find(a => a.status === 'PENDING')?.approver || null;
   };
 
-  const PurchaseRequestItems: React.FC<{ items: PurchaseRequestItem[] }> = ({ items }) => {
-    return (
-      <div className="mt-8 flow-root">
-        <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-            {items.map((item) => (
-              <div key={item.id} className="mb-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-                <div className="bg-white">
-                  <div className="px-4 py-5 sm:p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium leading-6 text-gray-900">
-                        {item.product.name}
-                      </h3>
-                      <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
-                        {item.product.code}
-                      </span>
-                    </div>
-
-                    <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 mb-6">
-                      <div>
-                        <dt className="text-sm font-medium text-gray-500">Miktar</dt>
-                        <dd className="mt-1 text-sm text-gray-900">{item.quantity} {item.product.unit}</dd>
-                      </div>
-                      {item.notes && (
-                        <div className="sm:col-span-2">
-                          <dt className="text-sm font-medium text-gray-500">Notlar</dt>
-                          <dd className="mt-1 text-sm text-gray-900">{item.notes}</dd>
-                        </div>
-                      )}
-                    </dl>
-
-                    {/* Tedarikçi Teklifleri */}
-                    <div className="mt-6">
-                      <h4 className="text-sm font-medium text-gray-900 mb-4">Tedarikçi Teklifleri</h4>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Tedarikçi
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Birim Fiyat
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Toplam Fiyat
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Teslimat Tarihi
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Durum
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                İşlemler
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {item.supplierQuotes?.map((quote) => (
-                              <tr key={quote.id}>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">{quote.supplier.name}</div>
-                                  <div className="text-sm text-gray-500">{quote.quoteNumber}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {quote.unitPrice} {quote.currency}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {quote.totalPrice} {quote.currency}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {formatDate(quote.deliveryDate)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    quote.status === 'RESPONDED'
-                                      ? 'bg-green-100 text-green-800'
-                                      : quote.status === 'REJECTED'
-                                      ? 'bg-red-100 text-red-800'
-                                      : quote.status === 'CONVERTED_TO_ORDER'
-                                      ? 'bg-blue-100 text-blue-800'
-                                      : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                    {quote.status === 'RESPONDED'
-                                      ? 'Yanıtlandı'
-                                      : quote.status === 'REJECTED'
-                                      ? 'Reddedildi'
-                                      : quote.status === 'CONVERTED_TO_ORDER'
-                                      ? 'Siparişe Dönüştürüldü'
-                                      : 'Beklemede'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  {quote.status === 'RESPONDED' && !quote.isSelected && (
-                                    <button
-                                      onClick={() => {
-                                        setSelectedQuote(quote);
-                                        setShowConvertModal(true);
-                                      }}
-                                      className="text-indigo-600 hover:text-indigo-900"
-                                    >
-                                      Siparişe Dönüştür
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+  const PurchaseRequestItems: React.FC<{ items: PurchaseRequestItem[] }> = ({ items }) => (
+    <div className="mt-8 flow-root">
+      <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+        <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+          {items.map((item) => (
+            <div key={item.id} className="mb-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+              <div className="bg-white px-4 py-5 sm:p-6">
+                <h3 className="text-lg font-medium leading-6 text-gray-900">{item.product?.name}</h3>
+                <SupplierQuoteList quotes={item.supplierQuotes} onConvertToOrder={(quote) => { setSelectedQuote(quote); setShowConvertModal(true); }} />
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
-    );
-  };
+    </div>
+  );
 
   const handleConvertSuccess = () => {
     loadRequestData();
   };
 
   if (loading && !request) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navigation />
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen bg-gray-50"><Navigation /><div className="flex justify-center items-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div></div>;
   }
 
   if (!request) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navigation />
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            {error ? (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center">
-                <p className="text-gray-500">Talep bulunamadı</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen bg-gray-50"><Navigation /><div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"><div className="text-center py-12"><p className="text-gray-500">{error || 'Talep bulunamadı'}</p></div></div></div>;
   }
-
-  console.log('Current request state:', request);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -364,140 +200,48 @@ export const PurchaseRequestDetail = () => {
       
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-           
-
-          {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                </div>
-              </div>
-            </div>
-          )}
+          {error && <div className="mb-6 bg-red-50 border border-red-200 text-red-800 rounded-md p-4"><p>{error}</p></div>}
 
           <div>
             <div className="flex justify-between items-start">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">{request.title}</h1>
-                <div className="mt-2 flex items-center">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(request.status)}`}>
-                    {getStatusText(request.status)}
-                  </span>
-                  <span className="ml-4 text-sm text-gray-500">
-                    Oluşturan: {request.requester.firstName} {request.requester.lastName}
-                  </span>
-                  {getCurrentApprover(request) && (
-                    <span className="ml-4 text-sm text-gray-500">
-                      Onaylayacak: {getCurrentApprover(request)?.firstName} {getCurrentApprover(request)?.lastName}
-                    </span>
-                  )}
+                <div className="mt-2 flex items-center flex-wrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(request.status)}`}>{getStatusText(request.status)}</span>
+                  <span className="ml-4 text-sm text-gray-500">Oluşturan: {request.requester.firstName} {request.requester.lastName}</span>
+                  {getCurrentApprover(request) && <span className="ml-4 text-sm text-gray-500">Onaylayacak: {getCurrentApprover(request)?.firstName} {getCurrentApprover(request)?.lastName}</span>}
                 </div>
               </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => navigate('/purchase-requests')}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Geri
-                </button>
-              </div>
+              <div className="flex space-x-3"><button onClick={() => navigate('/purchase-requests')} className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Geri</button></div>
             </div>
 
             <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
-              <div className="px-4 py-5 sm:px-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Talep Detayları</h3>
-              </div>
+              <div className="px-4 py-5 sm:px-6"><h3 className="text-lg leading-6 font-medium text-gray-900">Talep Detayları</h3></div>
               <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
                 <dl className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500">Açıklama</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{request.description}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Oluşturulma Tarihi</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {formatDate(request.createdAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Son Güncelleme</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {formatDate(request.updatedAt)}
-                    </dd>
-                  </div>
+                  <div className="sm:col-span-2"><dt className="text-sm font-medium text-gray-500">Açıklama</dt><dd className="mt-1 text-sm text-gray-900">{request.description}</dd></div>
+                  <div><dt className="text-sm font-medium text-gray-500">Oluşturulma Tarihi</dt><dd className="mt-1 text-sm text-gray-900">{formatDate(request.createdAt)}</dd></div>
+                  <div><dt className="text-sm font-medium text-gray-500">Son Güncelleme</dt><dd className="mt-1 text-sm text-gray-900">{formatDate(request.updatedAt)}</dd></div>
                 </dl>
               </div>
             </div>
 
-            {request.items && request.items.length > 0 && (
-              <PurchaseRequestItems items={request.items} />
-            )}
+            {request.items && request.items.length > 0 && <PurchaseRequestItems items={request.items} />}
 
-            {/* Approval Workflow Section */}
             <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
-              <div className="px-4 py-5 sm:px-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Onay Süreci</h3>
-              </div>
+              <div className="px-4 py-5 sm:px-6"><h3 className="text-lg leading-6 font-medium text-gray-900">Onay Süreci</h3></div>
               <div className="border-t border-gray-200">
                 <ul className="divide-y divide-gray-200">
-                  {request.approvals?.map((approval, index) => (
+                  {request.approvals?.map((approval) => (
                     <li key={approval.id} className="px-4 py-4 sm:px-6">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0">
-                            <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                              approval.status === 'APPROVED' ? 'bg-green-100' :
-                              approval.status === 'REJECTED' ? 'bg-red-100' :
-                              approval.status === 'PENDING' ? 'bg-yellow-100' : 'bg-gray-100'
-                            }`}>
-                              {approval.status === 'APPROVED' && (
-                                <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                              {approval.status === 'REJECTED' && (
-                                <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              )}
-                              {approval.status === 'PENDING' && (
-                                <span className="text-yellow-600 text-sm font-medium">{index + 1}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {approval.approver.firstName} {approval.approver.lastName}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {approval.roleName.replace(/_/g, ' ')}
-                            </div>
-                          </div>
+                          <div className="ml-4"><div className="text-sm font-medium text-gray-900">{approval.approver.firstName} {approval.approver.lastName}</div><div className="text-sm text-gray-500">{approval.roleName.replace(/_/g, ' ')}</div></div>
                         </div>
                         <div className="flex items-center">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            approval.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                            approval.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {approval.status === 'APPROVED' ? 'Onaylandı' :
-                             approval.status === 'REJECTED' ? 'Reddedildi' :
-                             'Bekliyor'}
-                          </span>
-                          {approval.comment && (
-                            <span className="ml-2 text-sm text-gray-500">{approval.comment}</span>
-                          )}
-                          {approval.actionTakenAt && (
-                            <span className="ml-2 text-sm text-gray-500">
-                              {new Date(approval.actionTakenAt).toLocaleDateString('tr-TR')}
-                            </span>
-                          )}
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(approval.status)}`}>{getStatusText(approval.status)}</span>
+                          {approval.comment && <span className="ml-2 text-sm text-gray-500">{approval.comment}</span>}
+                          {approval.actionTakenAt && <span className="ml-2 text-sm text-gray-500">{formatDate(approval.actionTakenAt)}</span>}
                         </div>
                       </div>
                     </li>
@@ -509,35 +253,13 @@ export const PurchaseRequestDetail = () => {
             {request.status === 'IN_APPROVAL' && getCurrentApprover(request)?.id === authService.getCurrentUser()?.id && (
               <div className="mt-6 bg-white shadow sm:rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Onay İşlemi
-                  </h3>
-                  <div className="mt-2 max-w-xl text-sm text-gray-500">
-                    <p>Bu talebi onaylayabilir veya reddedebilirsiniz.</p>
-                  </div>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">Onay İşlemi</h3>
+                  <div className="mt-2 max-w-xl text-sm text-gray-500"><p>Bu talebi onaylayabilir veya reddedebilirsiniz.</p></div>
                   <div className="mt-5">
-                    <textarea
-                      rows={3}
-                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      placeholder="Yorum ekleyin..."
-                      value={actionComment}
-                      onChange={(e) => setActionComment(e.target.value)}
-                    />
+                    <textarea rows={3} className="shadow-sm block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Onay yorumu ekleyin (opsiyonel)..." value={actionComment} onChange={(e) => setActionComment(e.target.value)} />
                     <div className="mt-5 flex space-x-3">
-                      <button
-                        onClick={handleApprove}
-                        disabled={loading}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                      >
-                        Onayla
-                      </button>
-                      <button
-                        onClick={handleReject}
-                        disabled={loading}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                      >
-                        Reddet
-                      </button>
+                      <button onClick={handleApprove} disabled={loading} className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">Onayla</button>
+                      <button onClick={() => setShowRejectModal(true)} disabled={loading} className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">Reddet</button>
                     </div>
                   </div>
                 </div>
@@ -547,13 +269,54 @@ export const PurchaseRequestDetail = () => {
         </div>
       </div>
 
+      {/* Reject Confirmation Modal */}
+      {showRejectModal && (
+        <div className="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <svg className="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">Talebi Reddet</h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">Bu talebi reddetmek istediğinizden emin misiniz? Lütfen reddetme gerekçenizi belirtin.</p>
+                    </div>
+                    <div className="mt-4">
+                      <textarea
+                        rows={4}
+                        className="shadow-sm block w-full sm:text-sm border-gray-300 rounded-md"
+                        placeholder="Reddetme gerekçesi (zorunlu)..."
+                        value={rejectionComment}
+                        onChange={(e) => setRejectionComment(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onClick={submitRejection} disabled={loading} className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm">
+                  {loading ? 'Reddediliyor...' : 'Talebi Reddet'}
+                </button>
+                <button type="button" onClick={() => setShowRejectModal(false)} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">
+                  İptal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedQuote && (
         <ConvertRequestToOrderModal
           isOpen={showConvertModal}
-          onClose={() => {
-            setShowConvertModal(false);
-            setSelectedQuote(null);
-          }}
+          onClose={() => { setShowConvertModal(false); setSelectedQuote(null); }}
           onSuccess={handleConvertSuccess}
           supplierQuoteId={selectedQuote.id}
           requestedQuantity={selectedQuote.quantity}
@@ -561,4 +324,4 @@ export const PurchaseRequestDetail = () => {
       )}
     </div>
   );
-}; 
+};

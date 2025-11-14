@@ -12,7 +12,7 @@ import {
   UpdateTransferRequest
 } from '../types/asset-transfer';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://testsatinalmaapi.anabilim.k12.tr/api';
 
 // Create axios instance with auth token
 const axiosInstance: AxiosInstance = axios.create({

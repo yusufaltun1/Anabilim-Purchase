@@ -1,23 +1,24 @@
 import { authService } from '@/services/api/auth.service';
 import { storageService } from '@/services/storage/storage.service';
-import { AuthState, LoginRequest, UserInfo } from '@/services/types/auth.types';
+import { AuthState, LoginRequest, UserInfo, MicrosoftLoginRequest } from '@/services/types/auth.types';
 import React, { createContext, ReactNode, useContext, useEffect, useReducer } from 'react';
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  loginWithMicrosoft?: (data: MicrosoftLoginRequest) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 type AuthAction =
   | { type: 'LOGIN_START' }
-  | { type: 'LOGIN_SUCCESS'; payload: { user: UserInfo; token: string; refreshToken: string } }
+  | { type: 'LOGIN_SUCCESS'; payload: { user: UserInfo; token: string; refreshToken: string | null } }
   | { type: 'LOGIN_FAILURE' }
   | { type: 'LOGOUT' }
   | { type: 'REFRESH_START' }
-  | { type: 'REFRESH_SUCCESS'; payload: { user: UserInfo; token: string; refreshToken: string } }
+  | { type: 'REFRESH_SUCCESS'; payload: { user: UserInfo; token: string; refreshToken: string | null } }
   | { type: 'REFRESH_FAILURE' }
   | { type: 'SET_LOADING'; payload: boolean };
 
@@ -92,7 +93,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           storageService.getUserInfo(),
         ]);
 
-        if (token && refreshToken && userInfo) {
+        if (token && userInfo) { // refreshToken zorunlu değil
           dispatch({
             type: 'REFRESH_SUCCESS',
             payload: { user: userInfo, token, refreshToken },
@@ -135,6 +136,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginWithMicrosoft = async (data: MicrosoftLoginRequest) => {
+    try {
+      dispatch({ type: 'LOGIN_START' });
+      const response = await authService.verifyMicrosoftToken(data);
+
+      if (response.success) {
+        const { token, refreshToken, userInfo } = response.data;
+        await storageService.saveAuthData(token, refreshToken, userInfo);
+        dispatch({
+          type: 'LOGIN_SUCCESS',
+          payload: { user: userInfo, token, refreshToken },
+        });
+      } else {
+        throw new Error(response.message || 'Microsoft ile giriş başarısız');
+      }
+    } catch (error) {
+      console.error('Microsoft login error:', error);
+      dispatch({ type: 'LOGIN_FAILURE' });
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await storageService.clearAuthData();
@@ -147,11 +170,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const refreshAuth = async () => {
-    try {
-      if (!state.refreshToken) {
-        throw new Error('No refresh token available');
-      }
+    // Refresh token yoksa işlemi sessizce atla
+    if (!state.refreshToken) {
+      return;
+    }
 
+    try {
       dispatch({ type: 'REFRESH_START' });
       
       const response = await authService.refreshToken(state.refreshToken);
@@ -182,6 +206,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     refreshAuth,
+    loginWithMicrosoft,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -2,14 +2,12 @@ import { CreatePurchaseRequestDto, CreatePurchaseRequestResponse, PurchaseReques
 import { API_CONFIG, getAuthHeaders } from './api.config';
 
 class PurchaseService {
-  private baseUrl = API_CONFIG.BASE_URL;
-
   async createPurchaseRequest(
     requestData: CreatePurchaseRequestDto,
     token: string
   ): Promise<CreatePurchaseRequestResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/v1/purchase-requests`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests`, {
         method: 'POST',
         headers: getAuthHeaders(token),
         body: JSON.stringify(requestData),
@@ -28,9 +26,9 @@ class PurchaseService {
     }
   }
 
-  async getPurchaseRequests(token: string): Promise<PurchaseRequest[]> {
+  async getMyRequests(token: string): Promise<PurchaseRequest[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/v1/purchase-requests`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/my-requests`, {
         method: 'GET',
         headers: getAuthHeaders(token),
       });
@@ -39,17 +37,16 @@ class PurchaseService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data.data || [];
+      return await response.json();
     } catch (error) {
-      console.error('Get purchase requests error:', error);
+      console.error('Get my purchase requests error:', error);
       throw error;
     }
   }
 
-  async getPurchaseRequestById(id: number, token: string): Promise<PurchaseRequest> {
+  async getRequestById(id: number, token: string): Promise<PurchaseRequest> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/v1/purchase-requests/${id}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/${id}`, {
         method: 'GET',
         headers: getAuthHeaders(token),
       });
@@ -58,17 +55,16 @@ class PurchaseService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data.data;
+      return await response.json();
     } catch (error) {
-      console.error('Get purchase request error:', error);
+      console.error('Get purchase request by id error:', error);
       throw error;
     }
   }
 
-  async getSuppliers(token: string): Promise<any[]> {
+  async getPendingApprovals(token: string): Promise<PurchaseRequest[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/v1/suppliers`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/pending-approvals`, {
         method: 'GET',
         headers: getAuthHeaders(token),
       });
@@ -77,10 +73,51 @@ class PurchaseService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data.data || [];
+      return await response.json();
     } catch (error) {
-      console.error('Get suppliers error:', error);
+      console.error('Get pending approvals error:', error);
+      throw error;
+    }
+  }
+
+  async approveRequest(id: number, token: string): Promise<void> {
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/${id}/approve`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({
+          comment: '',
+          rejectionReason: '',
+          approved: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Approve request error:', error);
+      throw error;
+    }
+  }
+
+  async rejectRequest(id: number, reason: string, token: string): Promise<void> {
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/${id}/reject`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({
+          comment: reason,
+          rejectionReason: reason,
+          approved: false,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Reject request error:', error);
       throw error;
     }
   }

@@ -14,7 +14,7 @@ export default function HomeScreen() {
   const colors = AppColors[colorScheme ?? 'light'];
 
   // Rol kontrolü yardımcı fonksiyonları
-  const isAdmin = user?.roles.includes('SYSTEM_ADMIN');
+  const isAdmin = user?.roles?.includes('SYSTEM_ADMIN');
   const isTeacher = !isAdmin;
 
   const handleLogout = () => {
@@ -52,17 +52,6 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Section */}
-        <View style={styles.headerSection}>
-           
-          
-          {user && (
-            <ThemedText style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Merhaba, {user.firstName}! 
-            </ThemedText>
-          )}
-        </View>
-
         {/* User Info Card */}
         {user && (
           <Card style={styles.userCard}>
@@ -78,7 +67,7 @@ export default function HomeScreen() {
                   Ad Soyad:
                 </ThemedText>
                 <ThemedText style={[styles.infoValue, { color: colors.text }]}>
-                  {user.firstName} {user.lastName}
+                  {user.displayName || `${user.firstName || ''} ${user.lastName || ''}`}
                 </ThemedText>
               </View>
               
@@ -96,7 +85,7 @@ export default function HomeScreen() {
                   Departman:
                 </ThemedText>
                 <ThemedText style={[styles.infoValue, { color: colors.text }]}>
-                  {user.department}
+                  {user.department || 'Belirtilmemiş'}
                 </ThemedText>
               </View>
               
@@ -105,24 +94,26 @@ export default function HomeScreen() {
                   Pozisyon:
                 </ThemedText>
                 <ThemedText style={[styles.infoValue, { color: colors.text }]}>
-                  {user.position}
+                  {user.position || 'Belirtilmemiş'}
                 </ThemedText>
               </View>
               
-              <View style={styles.infoRow}>
-                <ThemedText style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                  Roller:
-                </ThemedText>
-                <View style={styles.rolesContainer}>
-                  {user.roles.map((role, index) => (
-                    <View key={index} style={[styles.roleBadge, { backgroundColor: colors.primaryMuted }]}>
-                      <ThemedText style={[styles.roleText, { color: colors.primary }]}>
-                        {role}
-                      </ThemedText>
-                    </View>
-                  ))}
+              {user.roles && user.roles.length > 0 && (
+                <View style={styles.infoRow}>
+                  <ThemedText style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                    Roller:
+                  </ThemedText>
+                  <View style={styles.rolesContainer}>
+                    {user.roles.map((role, index) => (
+                      <View key={index} style={[styles.roleBadge, { backgroundColor: colors.primaryMuted }]}>
+                        <ThemedText style={[styles.roleText, { color: colors.primary }]}>
+                          {role}
+                        </ThemedText>
+                      </View>
+                    ))}
+                  </View>
                 </View>
-              </View>
+              )}
             </View>
           </Card>
         )}
@@ -130,7 +121,7 @@ export default function HomeScreen() {
         {/* Role-based Quick Actions */}
         <View style={styles.actionsSection}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
-            {user?.roles.includes('SYSTEM_ADMIN') ? 'Yönetici İşlemleri' : 'Öğretmen İşlemleri'}
+            {isAdmin ? 'Yönetici İşlemleri' : 'Öğretmen İşlemleri'}
           </ThemedText>
           
           <View style={styles.actionsGrid}>
@@ -191,7 +182,7 @@ export default function HomeScreen() {
                 0
               </ThemedText>
               <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                {user?.roles.includes('SYSTEM_ADMIN') ? 'Bekleyen Talep' : 'Toplam Talep'}
+                {isAdmin ? 'Bekleyen Talep' : 'Toplam Talep'}
               </ThemedText>
             </Card>
             
@@ -200,7 +191,7 @@ export default function HomeScreen() {
                 0
               </ThemedText>
               <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                {user?.roles.includes('SYSTEM_ADMIN') ? 'Onaylanan' : 'Onaylanan'}
+                {isAdmin ? 'Onaylanan' : 'Onaylanan'}
               </ThemedText>
             </Card>
             
@@ -209,7 +200,7 @@ export default function HomeScreen() {
                 0
               </ThemedText>
               <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-                {user?.roles.includes('SYSTEM_ADMIN') ? 'Reddedilen' : 'Bekleyen'}
+                {isAdmin ? 'Reddedilen' : 'Bekleyen'}
               </ThemedText>
             </Card>
           </View>

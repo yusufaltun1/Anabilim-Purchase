@@ -1,8 +1,8 @@
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8080/api',
+  BASE_URL: 'http://localhost:8080',
   ENDPOINTS: {
     AUTH: {
-      LOGIN: '/auth/login',
+      LOGIN: '/api/v1/auth/login',
     },
   },
   TIMEOUT: 10000, // 10 saniye

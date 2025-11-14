@@ -4,15 +4,36 @@ import { Input } from '@/components/ui/Input';
 import { AppColors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { useAuthRequest, makeRedirectUri } from 'expo-auth-session';
+
+WebBrowser.maybeCompleteAuthSession();
+
+// *** DÜZELTME BAŞLANGICI ***
+// Endpoint'ler artık Tenant ID'nizi içeriyor
+const tenantId = '3cad0dae-4bbe-4cbc-9abb-b2b3a8462fe1';
+const discovery = {
+  authorizationEndpoint: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
+  tokenEndpoint: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+  revocationEndpoint: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/logout`,
+};
+// *** DÜZELTME SONU ***
+
+// Expo Auth Proxy kullanarak stabil bir redirect URI oluştur
+const redirectUri = makeRedirectUri({
+  useProxy: true,
+});
+console.log('Your new Redirect URI is: ', redirectUri);
+
 
 interface LoginFormProps {
   onLoginSuccess?: () => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, loginWithMicrosoft } = useAuth();
   const colorScheme = useColorScheme();
   const colors = AppColors[colorScheme ?? 'light'];
 
@@ -28,62 +49,63 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const validateForm = () => {
-    const newErrors = {
-      email: '',
-      password: '',
+  const [request, response, promptAsync] = useAuthRequest(
+    {
+      clientId: '0fdaa90a-9f9f-4a7f-a4f5-7e1a7dffa769',
+      scopes: ['openid', 'profile', 'email', 'offline_access'],
+      redirectUri,
+      responseType: 'token',
+    },
+    discovery
+  );
+
+  useEffect(() => {
+    const handleAuth = async (response: any) => {
+      if (response?.type === 'success') {
+        const { access_token } = response.params;
+
+        if (loginWithMicrosoft) {
+          try {
+            // 1. Microsoft'tan kullanıcı bilgilerini al
+            const userInfoResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+              headers: { Authorization: `Bearer ${access_token}` },
+            });
+
+            console.log(userInfoResponse);
+            console.log(access_token);
+            if (!userInfoResponse.ok) {
+              throw new Error('Failed to fetch user info from Microsoft.');
+            }
+            
+            const userInfo = await userInfoResponse.json();
+
+            // 2. Backend'e verify-token isteği gönder
+            await loginWithMicrosoft({
+              accessToken: access_token,
+              microsoftId: userInfo.id,
+              email: userInfo.mail || userInfo.userPrincipalName,
+              name: userInfo.displayName,
+            });
+
+            // 3. Başarılı olursa ana sayfaya yönlendir
+            onLoginSuccess?.();
+
+          } catch (error) {
+            console.error('Microsoft login verification failed:', error);
+            Alert.alert('Giriş Hatası', 'Microsoft ile giriş yapılırken bir sorun oluştu.');
+          }
+        }
+      } else if (response?.type === 'error') {
+        console.error('Microsoft Auth Error:', response.error);
+        Alert.alert('Giriş Hatası', 'Microsoft ile giriş yapılamadı.');
+      }
     };
 
-    // Email validation
-    if (!formData.email.trim()) {
-      newErrors.email = 'E-posta adresi gereklidir';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Geçerli bir e-posta adresi giriniz';
-    }
+    handleAuth(response);
+  }, [response]);
 
-    // Password validation
-    if (!formData.password.trim()) {
-      newErrors.password = 'Şifre gereklidir';
-    } else if (formData.password.length < 3) {
-      newErrors.password = 'Şifre en az 3 karakter olmalıdır';
-    }
-
-    setErrors(newErrors);
-    return !newErrors.email && !newErrors.password;
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      await login({
-        email: formData.email.trim(),
-        password: formData.password,
-      });
-      
-      // Login başarılı
-      onLoginSuccess?.();
-    } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert(
-        'Giriş Hatası',
-        error instanceof Error ? error.message : 'Giriş yapılırken bir hata oluştu',
-        [{ text: 'Tamam' }]
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleMicrosoftLogin = () => {
+    promptAsync();
   };
 
   return (
@@ -102,37 +124,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
             </View>
           </View>
 
-          <View style={styles.form}>
-            <Input
-              label="E-posta"
-              placeholder="E-posta adresinizi giriniz"
-              value={formData.email}
-              onChangeText={(value) => handleInputChange('email', value)}
-              error={errors.email}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              textContentType="emailAddress"
-            />
-
-            <Input
-              label="Şifre"
-              placeholder="Şifrenizi giriniz"
-              value={formData.password}
-              onChangeText={(value) => handleInputChange('password', value)}
-              error={errors.password}
-              secureTextEntry
-              textContentType="password"
-            />
-
-            <Button
-              title="Giriş Yap"
-              onPress={handleSubmit}
-              loading={isSubmitting || isLoading}
-              disabled={isSubmitting || isLoading}
-              style={styles.submitButton}
-            />
-          </View>
+          <Button
+            title="Microsoft ile Giriş Yap"
+            onPress={handleMicrosoftLogin}
+            disabled={!request}
+            variant="outline"
+            style={styles.microsoftButton}
+          />
 
           <View style={styles.footer}>
             <Button
@@ -180,6 +178,22 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: 8,
+  },
+  separator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  line: {
+    flex: 1,
+    height: 1,
+  },
+  separatorText: {
+    marginHorizontal: 12,
+    fontSize: 14,
+  },
+  microsoftButton: {
+    marginBottom: 24,
   },
   footer: {
     alignItems: 'center',

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UserInfo } from '../types/auth.types';
 
 const STORAGE_KEYS = {
   AUTH_TOKEN: 'auth_token',
@@ -44,12 +45,21 @@ class StorageService {
   }
 
   // Auth specific methods
-  async saveAuthData(token: string, refreshToken: string, userInfo: any): Promise<void> {
-    await Promise.all([
+  async saveAuthData(token: string, refreshToken: string | null, userInfo: UserInfo): Promise<void> {
+    const promises = [
       this.setItem(STORAGE_KEYS.AUTH_TOKEN, token),
-      this.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken),
       this.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(userInfo)),
-    ]);
+    ];
+
+    // refreshToken null ise kaydetme, dolu ise kaydet
+    if (refreshToken) {
+      promises.push(this.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken));
+    } else {
+      // Eğer refreshToken null gelirse, depodaki eski değeri temizle
+      promises.push(this.removeItem(STORAGE_KEYS.REFRESH_TOKEN));
+    }
+
+    await Promise.all(promises);
   }
 
   async getAuthToken(): Promise<string | null> {
@@ -60,7 +70,7 @@ class StorageService {
     return this.getItem(STORAGE_KEYS.REFRESH_TOKEN);
   }
 
-  async getUserInfo(): Promise<any | null> {
+  async getUserInfo(): Promise<UserInfo | null> {
     const userInfoStr = await this.getItem(STORAGE_KEYS.USER_INFO);
     return userInfoStr ? JSON.parse(userInfoStr) : null;
   }

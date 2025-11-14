@@ -2,7 +2,7 @@ import axios from 'axios';
 import { authService } from './auth.service';
 
 export const axiosInstance = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: 'https://testsatinalmaapi.anabilim.k12.tr',
   headers: {
     'Content-Type': 'application/json'
   }

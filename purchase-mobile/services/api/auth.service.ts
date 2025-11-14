@@ -1,4 +1,4 @@
-import { LoginRequest, LoginResponse } from '../types/auth.types';
+import { LoginRequest, LoginResponse, MicrosoftLoginRequest } from '../types/auth.types';
 import { API_CONFIG, getAuthHeaders } from './api.config';
 
 class AuthService {
@@ -21,6 +21,31 @@ class AuthService {
       return data;
     } catch (error) {
       console.error('Login error:', error);
+      throw error;
+    }
+  }
+
+  async verifyMicrosoftToken(data: MicrosoftLoginRequest): Promise<LoginResponse> {
+    try {
+
+      console.log(data);
+      console.log(`${this.baseUrl}/api/v1/auth/microsoft/verify-token`)
+      const response = await fetch(`${this.baseUrl}/v1/auth/microsoft/verify-token`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
+
+      console.log(response);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const result: LoginResponse = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Microsoft token verification error:', error);
       throw error;
     }
   }
