@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import { loginRequest } from '../config/msalConfig';
-import { authService } from '../services/auth.service';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -20,16 +19,14 @@ export const Login = () => {
     try {
       await login(email, password);
       
-      const userInfo = authService.getUserInfo();
-      const userRoles = userInfo?.roles || [];
+      // Check if user is newly registered
+      const isNewlyRegistered = localStorage.getItem('isNewlyRegistered') === 'true';
       
-      const restrictedRoles = ['OGRETMEN', 'ZUMRE_BASKANI', 'OKUL_MUDURU'];
-      
-      const hasRestrictedRole = userRoles.some(role => restrictedRoles.includes(role));
-
-      if (hasRestrictedRole) {
-        navigate('/purchase-requests');
+      if (isNewlyRegistered) {
+        console.log('Newly registered user, going to dashboard for onboarding');
+        navigate('/dashboard');
       } else {
+        console.log('Existing user, going to dashboard');
         navigate('/dashboard');
       }
     } catch (err) {
@@ -42,10 +39,12 @@ export const Login = () => {
   const handleMicrosoftLogin = async () => {
     setMicrosoftLoading(true);
     try {
+      // MSAL ile Microsoft login
       await instance.loginRedirect({
         ...loginRequest,
         prompt: 'create',
       });
+      // Redirect işlemi başlatıldı, sayfa Microsoft'a yönlendirilecek
     } catch (err) {
       console.error('Microsoft login error:', err);
       setMicrosoftLoading(false);
@@ -115,6 +114,7 @@ export const Login = () => {
             </button>
           </div>
           
+          {/* Divider */}
           <div className="w-72">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -126,6 +126,7 @@ export const Login = () => {
             </div>
           </div>
           
+          {/* Microsoft Login Button */}
           <div className="w-72">
             <button
               type="button"
@@ -147,6 +148,7 @@ export const Login = () => {
           </div>
         </form>
         
+        {/* Register Link */}
         <div className="mt-6 text-center">
           <p className="text-gray-600 text-sm">
             Hesabınız yok mu?{' '}
@@ -167,4 +169,4 @@ export const Login = () => {
       `}</style>
     </div>
   );
-};
+}; 

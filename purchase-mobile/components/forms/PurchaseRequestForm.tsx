@@ -10,7 +10,8 @@ import { purchaseService } from '@/services/api/purchase.service';
 import { CreatePurchaseRequestDto, PurchaseRequestItem } from '@/services/types/purchase.types';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface PurchaseRequestFormProps {
   onSuccess?: (request: any) => void;
@@ -32,6 +33,10 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState<{ itemIndex: number; show: boolean }>({
+    itemIndex: -1,
+    show: false,
+  });
 
   const addNewItem = () => {
     const newItem: Omit<PurchaseRequestItem, 'id' | 'potentialSuppliers' | 'supplierQuotes' | 'selectedSupplierId' | 'createdAt' | 'updatedAt'> = {
@@ -64,6 +69,56 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
         i === index ? { ...item, [field]: value } : item
       ),
     }));
+  };
+
+  // Tarihi LocalDateTime formatına çevir (YYYY-MM-DDTHH:mm:ss)
+  const formatDateToLocalDateTime = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  };
+
+  // String tarihi Date objesine çevir
+  const parseDateFromString = (dateString: string | undefined): Date => {
+    if (!dateString) return new Date();
+    try {
+      return new Date(dateString);
+    } catch {
+      return new Date();
+    }
+  };
+
+  // Tarih seçimi için date picker'ı göster
+  const handleDatePickerOpen = (itemIndex: number) => {
+    setShowDatePicker({ itemIndex, show: true });
+  };
+
+  // Tarih seçildiğinde
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker({ itemIndex: -1, show: false });
+    
+    if (event.type === 'set' && selectedDate && showDatePicker.itemIndex >= 0) {
+      const formattedDate = formatDateToLocalDateTime(selectedDate);
+      updateItem(showDatePicker.itemIndex, 'estimatedDeliveryDate', formattedDate);
+    }
+  };
+
+  // Tarihi görüntülemek için formatla (DD.MM.YYYY)
+  const formatDateForDisplay = (dateString: string | undefined): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+    } catch {
+      return '';
+    }
   };
 
 
@@ -136,8 +191,9 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
       setIsSubmitting(true);
       const response = await purchaseService.createPurchaseRequest(formData, token);
       
-      if (response.success) {
-        Alert.alert('Başarılı', 'Talep başarıyla oluşturuldu', [
+      // Response başarılı ise (success true veya data varsa)
+      if (response.success || response.data) {
+        Alert.alert('Başarılı', response.message || 'Talep başarıyla oluşturuldu', [
           { text: 'Tamam', onPress: () => onSuccess?.(response.data) }
         ]);
       } else {
@@ -240,12 +296,27 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
                   />
                 </View>
                 <View style={styles.dateInput}>
-                  <Input
-                    label="Teslim Tarihi"
-                    placeholder="YYYY-MM-DD"
-                    value={item.estimatedDeliveryDate || ''}
-                    onChangeText={(value) => updateItem(index, 'estimatedDeliveryDate', value)}
-                  />
+                  <ThemedText style={styles.dateLabel}>Teslim Tarihi</ThemedText>
+                  <TouchableOpacity
+                    style={[styles.datePickerButton, { borderColor: colors.border, backgroundColor: colors.background }]}
+                    onPress={() => handleDatePickerOpen(index)}
+                  >
+                    <ThemedText style={[styles.datePickerText, { color: item.estimatedDeliveryDate ? colors.text : colors.textSecondary }]}>
+                      {item.estimatedDeliveryDate ? formatDateForDisplay(item.estimatedDeliveryDate) : '📅 Tarih seç'}
+                    </ThemedText>
+                  </TouchableOpacity>
+                  {showDatePicker.show && showDatePicker.itemIndex === index && Platform.OS === 'android' && (
+                    <DateTimePicker
+                      value={parseDateFromString(item.estimatedDeliveryDate)}
+                      mode="date"
+                      display="default"
+                      onChange={handleDateChange}
+                      minimumDate={new Date()}
+                    />
+                  )}
+                  {Platform.OS === 'ios' && showDatePicker.show && showDatePicker.itemIndex === index && (
+                    <View style={styles.iosDatePickerPlaceholder} />
+                  )}
                 </View>
               </View>
 
@@ -312,6 +383,63 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
           />
         </View>
       </ThemedView>
+
+      {/* iOS Date Picker Modal */}
+      {Platform.OS === 'ios' && showDatePicker.show && (
+        <Modal
+          transparent
+          animationType="slide"
+          visible={showDatePicker.show}
+          onRequestClose={() => setShowDatePicker({ itemIndex: -1, show: false })}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker({ itemIndex: -1, show: false })}
+                >
+                  <ThemedText style={[styles.modalButton, { color: colors.primary }]}>
+                    İptal
+                  </ThemedText>
+                </TouchableOpacity>
+                <ThemedText style={styles.modalTitle}>Tarih Seç</ThemedText>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (showDatePicker.itemIndex >= 0) {
+                      const item = formData.items[showDatePicker.itemIndex];
+                      const selectedDate = parseDateFromString(item.estimatedDeliveryDate);
+                      const formattedDate = formatDateToLocalDateTime(selectedDate);
+                      updateItem(showDatePicker.itemIndex, 'estimatedDeliveryDate', formattedDate);
+                    }
+                    setShowDatePicker({ itemIndex: -1, show: false });
+                  }}
+                >
+                  <ThemedText style={[styles.modalButton, { color: colors.primary }]}>
+                    Tamam
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+              {showDatePicker.itemIndex >= 0 && (
+                <DateTimePicker
+                  value={parseDateFromString(formData.items[showDatePicker.itemIndex]?.estimatedDeliveryDate)}
+                  mode="date"
+                  display="spinner"
+                  onChange={(event, date) => {
+                    // iOS'ta sadece "Tamam" butonuna basıldığında kaydedilecek
+                    // Bu yüzden burada sadece state'i güncelliyoruz
+                    if (date && showDatePicker.itemIndex >= 0) {
+                      const formattedDate = formatDateToLocalDateTime(date);
+                      updateItem(showDatePicker.itemIndex, 'estimatedDeliveryDate', formattedDate);
+                    }
+                  }}
+                  minimumDate={new Date()}
+                  style={styles.datePickerIOS}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 };
@@ -377,6 +505,54 @@ const styles = StyleSheet.create({
   },
   dateInput: {
     flex: 2,
+  },
+  dateLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  datePickerButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  datePickerText: {
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalButton: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  datePickerIOS: {
+    height: 200,
+  },
+  iosDatePickerPlaceholder: {
+    height: 0,
   },
   buttonContainer: {
     flexDirection: 'row',

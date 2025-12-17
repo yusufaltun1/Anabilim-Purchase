@@ -1,12 +1,11 @@
-import { API_CONFIG, getAuthHeaders } from './api.config';
 import { Notification, UnreadCountResponse } from '../types/notification.types';
+import { API_CONFIG, getAuthHeaders } from './api.config';
 
 class NotificationService {
   private baseUrl = `${API_CONFIG.BASE_URL}/api/v1/notifications`;
 
   async getNotifications(token: string): Promise<Notification[]> {
     try {
-        console.log(this.baseUrl)
       const response = await fetch(this.baseUrl, {
         method: 'GET',
         headers: getAuthHeaders(token),

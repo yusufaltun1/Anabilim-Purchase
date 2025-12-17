@@ -78,3 +78,10 @@ management:
 client:
   url: https://testsatinalma.anabilim.k12.tr
   url2: http://localhost:5173
+
+microsoft:
+  graph:
+    client-id: ${MIC_CLIENT_ID}
+    client-secret: ${MIC_CLIENT_SECRET}
+    tenant-id: ${MIC_TENANT_ID}
+    sender-email: hr@talentai.com.tr

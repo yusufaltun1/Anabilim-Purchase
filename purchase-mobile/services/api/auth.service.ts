@@ -1,5 +1,5 @@
 import { LoginRequest, LoginResponse, MicrosoftLoginRequest } from '../types/auth.types';
-import { API_CONFIG, getAuthHeaders } from './api.config';
+import { API_CONFIG, getHeaders } from './api.config';
 
 class AuthService {
   private baseUrl = API_CONFIG.BASE_URL;
@@ -8,10 +8,10 @@ class AuthService {
     try {
       const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.AUTH.LOGIN}`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: getHeaders(),
         body: JSON.stringify(credentials),
       });
-
+      console.log("response", JSON.stringify(response));
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
@@ -30,13 +30,13 @@ class AuthService {
 
       console.log(data);
       console.log(`${this.baseUrl}/api/v1/auth/microsoft/verify-token`)
-      const response = await fetch(`${this.baseUrl}/v1/auth/microsoft/verify-token`, {
+      const response = await fetch(`${this.baseUrl}/api/v1/auth/microsoft/verify-token`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: getHeaders(),
         body: JSON.stringify(data),
       });
 
-      console.log(response);
+      console.log("response", JSON.stringify(response));
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
@@ -54,7 +54,7 @@ class AuthService {
     try {
       const response = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: getHeaders(),
         body: JSON.stringify({ refreshToken }),
       });
 

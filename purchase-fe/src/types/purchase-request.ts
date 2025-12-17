@@ -50,10 +50,12 @@ export interface PurchaseRequestItem {
   createdAt: string;
   updatedAt: string;
   // Yeni alanlar
+  productId?: number;
   productName?: string;
   description?: string;
   imageBase64?: string;
   productLink?: string;
+  potentialSupplierIds?: number[];
 }
 
 export interface Approval {

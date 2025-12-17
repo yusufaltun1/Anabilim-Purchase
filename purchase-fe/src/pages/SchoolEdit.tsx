@@ -5,7 +5,7 @@ import { schoolService } from '../services/school.service';
 import { School, UpdateSchoolRequest, SchoolType } from '../types/school';
 import { useNotification } from '../contexts/NotificationContext';
 
-const SchoolEdit = () => {
+export const SchoolEdit = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
@@ -406,4 +406,3 @@ const SchoolEdit = () => {
     </div>
   );
 };
-export default SchoolEdit

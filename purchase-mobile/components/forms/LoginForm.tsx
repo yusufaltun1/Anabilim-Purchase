@@ -4,10 +4,10 @@ import { Input } from '@/components/ui/Input';
 import { AppColors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React, { useState, useEffect } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
-import { useAuthRequest, makeRedirectUri } from 'expo-auth-session';
+import React, { useEffect, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -108,6 +108,65 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     promptAsync();
   };
 
+  const validateForm = () => {
+    const newErrors = {
+      email: '',
+      password: '',
+    };
+
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = 'E-posta adresi gereklidir';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Geçerli bir e-posta adresi giriniz';
+    }
+
+    // Password validation
+    if (!formData.password.trim()) {
+      newErrors.password = 'Şifre gereklidir';
+    } else if (formData.password.length < 3) {
+      newErrors.password = 'Şifre en az 3 karakter olmalıdır';
+    }
+
+    setErrors(newErrors);
+    return !newErrors.email && !newErrors.password;
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field as keyof typeof errors]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await login({
+        email: formData.email.trim(),
+        password: formData.password,
+      });
+      
+      // Login başarılı
+      onLoginSuccess?.();
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert(
+        'Giriş Hatası',
+        error instanceof Error ? error.message : 'Giriş yapılırken bir hata oluştu',
+        [{ text: 'Tamam' }]
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -124,14 +183,38 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
             </View>
           </View>
 
-          <Button
-            title="Microsoft ile Giriş Yap"
-            onPress={handleMicrosoftLogin}
-            disabled={!request}
-            variant="outline"
-            style={styles.microsoftButton}
-          />
+          
+          <View style={styles.form}>
+            <Input
+              label="E-posta"
+              placeholder="E-posta adresinizi giriniz"
+              value={formData.email}
+              onChangeText={(value) => handleInputChange('email', value)}
+              error={errors.email}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="emailAddress"
+            />
 
+            <Input
+              label="Şifre"
+              placeholder="Şifrenizi giriniz"
+              value={formData.password}
+              onChangeText={(value) => handleInputChange('password', value)}
+              error={errors.password}
+              secureTextEntry
+              textContentType="password"
+            />
+
+            <Button
+              title="Giriş Yap"
+              onPress={handleSubmit}
+              loading={isSubmitting || isLoading}
+              disabled={isSubmitting || isLoading}
+              style={styles.submitButton}
+            />
+          </View>
           <View style={styles.footer}>
             <Button
               title="Şifremi Unuttum"
@@ -142,6 +225,15 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
               size="small"
             />
           </View>
+
+          <Button
+            title="Microsoft ile Giriş Yap"
+            onPress={handleMicrosoftLogin}
+            disabled={!request}
+            variant="outline"
+            style={styles.microsoftButton}
+          />
+          
         </Card>
       </ScrollView>
     </KeyboardAvoidingView>

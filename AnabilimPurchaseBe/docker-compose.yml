@@ -1,36 +1,6 @@
 version: '3.8'
 
 services:
-  anabilim-purchase-fe:
-    image: ysfaltn/anabilim-purchase-fe:latest
-    container_name: anabilim-purchase-fe
-    restart: unless-stopped
-    ports:
-      - "8080:80"
-    networks:
-      anabilim-network:
-        ipv4_address: 10.0.1.1
-
-  anabilim-purchase-be:
-    image: ysfaltn/anabilim-purchase-be:latest
-    container_name: anabilim-purchase-be
-    restart: unless-stopped
-    depends_on:
-      - postgres-db
-    ports:
-      - "8091:80"
-    environment:
-      - DB_HOST=10.0.1.2
-      - DB_PORT=5432
-      - DB_USERNAME=anabilim
-      - DB_PASSWORD=anabilimpass
-      - MAIL_USERNAME=your-email@example.com
-      - MAIL_PASSWORD=your-mail-password
-      - JWT_SECRET=your-super-secret-jwt-key-that-is-very-long-and-secure
-    networks:
-      anabilim-network:
-        ipv4_address: 10.0.1.3 
-
   postgres-db:
     image: postgres:15
     container_name: postgres-db
@@ -40,12 +10,40 @@ services:
       - POSTGRES_USER=anabilim
       - POSTGRES_PASSWORD=anabilimpass
     ports:
-      - "5432:5432"
+      - 5432:5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
+      - anabilim-network
+  anabilim-purchase-fe:
+    image: ysfaltn/anabilim-purchase-fe:latest
+    container_name: anabilim-purchase-fe
+    restart: unless-stopped
+    ports:
+      - 8080:80
+    networks:
       anabilim-network:
-        ipv4_address: 10.0.1.2
+        aliases:
+          - postgres-db
+
+  anabilim-purchase-be:
+    image: ysfaltn/anabilim-purchase-be:latest
+    container_name: anabilim-purchase-be
+    restart: unless-stopped
+    depends_on:
+      - postgres-db
+    ports:
+      - 8091:8080
+    environment:
+      - DB_HOST=10.0.1.2
+      - DB_PORT=5432
+      - DB_USERNAME=anabilim
+      - DB_PASSWORD=anabilimpass
+      - MAIL_USERNAME=your-email@example.com
+      - MAIL_PASSWORD=your-mail-password
+      - JWT_SECRET=your-super-secret-jwt-key-that-is-very-long-and-secure
+    networks:
+      - anabilim-network
 
 volumes:
   postgres_data:
@@ -53,6 +51,3 @@ volumes:
 networks:
   anabilim-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 10.0.1.0/24

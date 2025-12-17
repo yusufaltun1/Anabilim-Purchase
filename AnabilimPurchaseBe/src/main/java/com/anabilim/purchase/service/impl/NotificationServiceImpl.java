@@ -6,6 +6,7 @@ import com.anabilim.purchase.entity.PurchaseRequest;
 import com.anabilim.purchase.entity.User;
 import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.mapper.NotificationMapper;
+import com.anabilim.purchase.service.MailService;
 import com.anabilim.purchase.repository.NotificationRepository;
 import com.anabilim.purchase.repository.UserRepository;
 import com.anabilim.purchase.service.NotificationService;
@@ -22,6 +23,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final NotificationMapper notificationMapper;
+    private final MailService mailService;
 
     @Override
     @Transactional
@@ -31,7 +33,15 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setMessage(message);
         notification.setPurchaseRequest(request);
         notification.setRead(false);
-        notificationRepository.save(notification);
+        Notification saved = notificationRepository.save(notification);
+
+        // Bildirim oluşturulduğu anda e-posta gönder
+        try {
+            mailService.sendNotificationEmail(user, saved);
+        } catch (Exception e) {
+            // E-posta gönderimi başarısız olsa bile iş akışını bozmayalım
+            // Sadece log tarafında izleyelim.
+        }
     }
 
     @Override

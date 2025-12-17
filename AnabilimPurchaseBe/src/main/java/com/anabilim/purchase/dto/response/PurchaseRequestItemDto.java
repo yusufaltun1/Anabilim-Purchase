@@ -22,10 +22,10 @@ public class PurchaseRequestItemDto {
     private String notes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    
+    private Long productId;
     // Ürün bilgileri
     private String productName;
-    private String description;
+        private String description;
     private String imageBase64;
     private String productLink;
     

@@ -83,10 +83,7 @@ public class DataInitializer implements CommandLineRunner {
     }
     
     private void createRoles() {
-        if (roleRepository.count() > 0) {
-            log.info("Roles zaten mevcut, atlanıyor...");
-            return;
-        }
+
         
         // Employee role
         Role employeeRole = createRole("EMPLOYEE", "Çalışan", "Temel çalışan rolü");
@@ -119,13 +116,7 @@ public class DataInitializer implements CommandLineRunner {
     }
     
     private Role createRole(String name, String displayName, String description) {
-        Role role = new Role();
-        role.setName(name);
-        role.setDisplayName(displayName);
-        role.setDescription(description);
-        role.setIsActive(true);
-        role.setIsSystemRole(true);
-        return roleRepository.save(role);
+        return roleRepository.findByName(name).get();
     }
     
     private void assignPermissionsToRole(Role role, String... permissionNames) {
@@ -142,7 +133,7 @@ public class DataInitializer implements CommandLineRunner {
             log.info("Users zaten mevcut, atlanıyor...");
             return;
         }
-        
+
         // Admin user
         User adminUser = createUser("admin@anabilim.com", "Admin", "User", "Sistem Yöneticisi", "IT", "Sistem Yöneticisi");
         assignRoleToUser(adminUser, "SYSTEM_ADMIN");

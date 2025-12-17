@@ -85,7 +85,11 @@ public class PurchaseRequestMapper {
         item.setDescription(itemDto.getDescription());
         item.setImageBase64(itemDto.getImageBase64());
         item.setProductLink(itemDto.getProductLink());
-        
+
+        if(itemDto.getProductId() != null) {
+            item.setProduct(productRepository.findById(itemDto.getProductId()).get());
+        }
+
         if (itemDto.getPotentialSupplierIds() != null && !itemDto.getPotentialSupplierIds().isEmpty()) {
             // Önce Set'i temizle
             item.getPotentialSuppliers().clear();
@@ -177,7 +181,11 @@ public class PurchaseRequestMapper {
         dto.setDescription(item.getDescription());
         dto.setImageBase64(item.getImageBase64());
         dto.setProductLink(item.getProductLink());
-        
+
+        if(item.getProduct() != null)
+        {
+            dto.setProductId(item.getProduct().getId());
+        }
         return dto;
     }
     

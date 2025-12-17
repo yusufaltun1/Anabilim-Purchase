@@ -34,7 +34,7 @@ public class UpdatePurchaseRequestItemsDto {
         
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
         private LocalDateTime estimatedDeliveryDate;
-        
+        private Long productId;
         private String notes;
         
         // Ürün bilgileri

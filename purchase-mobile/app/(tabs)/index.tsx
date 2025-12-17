@@ -23,11 +23,18 @@ export default function HomeScreen() {
       'Çıkış yapmak istediğinizden emin misiniz?',
       [
         { text: 'İptal', style: 'cancel' },
-        { 
-          text: 'Çıkış Yap', 
+        {
+          text: 'Çıkış Yap',
           style: 'destructive',
-          onPress: logout
-        }
+          onPress: async () => {
+            try {
+              await logout();
+              router.replace('/login');
+            } catch (error) {
+              Alert.alert('Hata', 'Çıkış yapılırken bir sorun oluştu');
+            }
+          },
+        },
       ]
     );
   };
@@ -192,16 +199,16 @@ export default function HomeScreen() {
               </ThemedText>
               <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
                 {isAdmin ? 'Onaylanan' : 'Onaylanan'}
-              </ThemedText>
+        </ThemedText>
             </Card>
             
             <Card style={styles.statCard}>
               <ThemedText style={[styles.statNumber, { color: colors.primary }]}>
                 0
-              </ThemedText>
+        </ThemedText>
               <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
                 {isAdmin ? 'Reddedilen' : 'Bekleyen'}
-              </ThemedText>
+        </ThemedText>
             </Card>
           </View>
         </View>

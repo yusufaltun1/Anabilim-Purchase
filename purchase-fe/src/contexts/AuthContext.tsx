@@ -1,6 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useMsal } from '@azure/msal-react';
+import { EventType } from '@azure/msal-browser';
 import { authService } from '../services/auth.service';
+import { API_CONFIG } from '../config/api.config';
+import { loginRequest } from '../config/msalConfig';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -17,8 +20,67 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [hasRedirected, setHasRedirected] = useState(false);
   const { instance, accounts } = useMsal();
+
+  const verifyMicrosoftToken = async (activeAccount: any) => {
+    console.log('🔄 AuthContext - verifyMicrosoftToken called');
+    try {
+      const tokenResult = await instance.acquireTokenSilent({
+        ...loginRequest,
+        account: activeAccount
+      });
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/auth/microsoft/verify-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          accessToken: tokenResult.accessToken,
+          microsoftId: activeAccount.localAccountId,
+          email: activeAccount.username,
+          name: activeAccount.name || activeAccount.idTokenClaims?.name || activeAccount.username
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Microsoft token verification failed');
+      }
+
+      const data = await response.json();
+      if (data?.data?.token) {
+        localStorage.setItem('access_token', data.data.token);
+      }
+      if (data?.data?.userInfo) {
+        localStorage.setItem('user_info', JSON.stringify(data.data.userInfo));
+        setUser(data.data.userInfo);
+      }
+    } catch (err) {
+      console.error('❌ AuthContext - verifyMicrosoftToken error:', err);
+      throw err;
+    }
+  };
+
+  useEffect(() => {
+    const callbackId = instance.addEventCallback(async (event) => {
+      if (event.eventType === EventType.LOGIN_SUCCESS && event.payload && 'account' in event.payload) {
+        const account = event.payload.account;
+        try {
+          await verifyMicrosoftToken(account);
+          window.location.href = '/dashboard';
+        } catch (err) {
+          console.error('❌ AuthContext - verify after login error:', err);
+        }
+      }
+    });
+
+    return () => {
+      if (callbackId) {
+        instance.removeEventCallback(callbackId);
+      }
+    };
+  }, [instance]);
 
   // Check authentication status on mount and whenever accounts change
   useEffect(() => {
@@ -48,19 +110,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.log('🔍 AuthContext - activeAccount details:', activeAccount);
           
           if (activeAccount) {
-            console.log('✅ AuthContext - MSAL authentication found, setting authenticated');
-            // Microsoft login - önce MSAL ile authenticate et
-            setIsAuthenticated(true);
-            setUser(activeAccount);
-            setIsLoading(false);
-            
-            // Sadece login sayfasındaysak dashboard'a yönlendir
-            if (window.location.pathname === '/login') {
-              console.log('🚀 AuthContext - Microsoft login successful, redirecting to dashboard');
-              setTimeout(() => {
-                window.location.href = '/dashboard';
-              }, 500);
+            console.log('✅ AuthContext - MSAL authentication found, verifying with backend');
+            try {
+              if (!localStorage.getItem('access_token')) {
+                await verifyMicrosoftToken(activeAccount);
+              } else {
+                const cachedUser = localStorage.getItem('user_info');
+                if (cachedUser) {
+                  setUser(JSON.parse(cachedUser));
+                } else {
+                  setUser(activeAccount);
+                }
+              }
+              setIsAuthenticated(true);
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Microsoft doğrulaması başarısız');
+              setIsAuthenticated(false);
+            } finally {
+              setIsLoading(false);
             }
+
             return;
           }
         }

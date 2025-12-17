@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
+import { ProductLabelPrint } from '../components/ProductLabelPrint';
 import { productService } from '../services/product.service';
 import { Product, PRODUCT_TYPE_LABELS } from '../types/product';
 
@@ -10,6 +11,7 @@ export const ProductList = () => {
   const [error, setError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [printingProduct, setPrintingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     loadProducts();
@@ -154,6 +156,12 @@ export const ProductList = () => {
                               Düzenle
                             </button>
                             <button
+                              onClick={() => setPrintingProduct(product)}
+                              className="text-blue-600 hover:text-blue-900 font-medium"
+                            >
+                              Bas
+                            </button>
+                            <button
                               onClick={() => handleDelete(product.id)}
                               className="text-red-600 hover:text-red-900 font-medium"
                             >
@@ -199,6 +207,15 @@ export const ProductList = () => {
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
+          )}
+
+          {/* Yazdırma Component */}
+          {printingProduct && (
+            <ProductLabelPrint
+              productId={printingProduct.id}
+              productName={printingProduct.name}
+              onClose={() => setPrintingProduct(null)}
+            />
           )}
         </div>
       </div>

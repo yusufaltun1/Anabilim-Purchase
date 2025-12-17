@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +37,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     private final SupplierQuoteRepository supplierQuoteRepository;
     private final NotificationService notificationService;
     private final SupplierRepository supplierRepository; // Supplier'ı bulmak için eklendi
+    private final PurchaseRequestApprovalRepository purchaseRequestApprovalRepository;
 
     @Override
     public PurchaseRequestDto createPurchaseRequest(CreatePurchaseRequestDto createDto, String requesterEmail) {
@@ -182,7 +184,9 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         List<PurchaseRequestItem> newItems = purchaseRequestMapper.toItemEntityList(itemsDto.getItems());
         for (PurchaseRequestItem item : newItems) {
             item.setPurchaseRequest(request);
-            
+            Product p = new Product();
+            p.setId(item.getProduct().getId());
+            item.setProduct(p);
             // Teklif seçimi bildirimi
             if (item.getSelectedSupplierId() != null) {
                 Supplier selectedSupplier = supplierRepository.findById(item.getSelectedSupplierId())
@@ -244,13 +248,10 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     @Override
     public List<PurchaseRequestDto> getPendingApprovalsForUser(String approverEmail) {
         User approver = validateAndGetUser(approverEmail);
-        return purchaseRequestMapper.toDtoList(
-                purchaseRequestRepository.findAll().stream()
-                        .filter(request -> request.getApprovals().stream()
-                                .anyMatch(approval -> approval.getStatus() == ApprovalStatus.PENDING &&
-                                        approval.getApprover().getId().equals(approver.getId())))
-                        .toList()
-        );
+
+        List<PurchaseRequestApproval> approvals = purchaseRequestApprovalRepository.findByApproverAndStatus(approver, ApprovalStatus.PENDING);
+        List<PurchaseRequest> requests = approvals.stream().map(PurchaseRequestApproval::getPurchaseRequest).collect(Collectors.toCollection(ArrayList::new));
+        return purchaseRequestMapper.toDtoList(requests);
     }
     
     @Override

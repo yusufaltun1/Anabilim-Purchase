@@ -47,10 +47,20 @@ export const PurchaseRequestEdit = () => {
       if (response.success && response.data) {
         const purchaseRequest = response.data as PurchaseRequest;
         console.log('Setting form data with:', purchaseRequest);
+        const mappedItems: PurchaseRequestItem[] = (purchaseRequest.items || []).map((item) => ({
+          ...item,
+          productId: item.productId ?? item.product?.id ?? 0,
+          productName: item.productName ?? item.product?.name ?? '',
+          description: item.description ?? item.product?.description ?? '',
+          potentialSupplierIds: item.potentialSupplierIds ?? item.potentialSuppliers?.map((supplier) => supplier.id) ?? [],
+          productLink: item.productLink ?? '',
+          imageBase64: item.imageBase64 ?? ''
+        }));
+
         setFormData({
           title: purchaseRequest.title || '',
           description: purchaseRequest.description || '',
-          items: purchaseRequest.items || []
+          items: mappedItems
         });
       } else {
         console.error('Error in response:', response.message);
@@ -72,7 +82,22 @@ export const PurchaseRequestEdit = () => {
       setLoading(true);
       setError(null);
       
-      const response = await purchaseRequestService.updateItems(parseInt(id), formData);
+      // Items'ları API formatına çevir - productId'yi dahil et
+      const itemsToSend = formData.items.map(item => ({
+        ...item,
+        productId: item.productId || item.product?.id || 0,
+        potentialSupplierIds: item.potentialSupplierIds || item.potentialSuppliers?.map(s => s.id) || []
+      }));
+      
+      const requestData = {
+        title: formData.title,
+        description: formData.description,
+        items: itemsToSend
+      };
+      
+      console.log('Sending update request:', requestData);
+      
+      const response = await purchaseRequestService.updateItems(parseInt(id), requestData);
       
       if (response.success) {
         navigate('/purchase-requests');

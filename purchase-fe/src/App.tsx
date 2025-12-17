@@ -36,7 +36,7 @@ import { StockDetail } from './pages/StockDetail';
 import { SchoolList } from './pages/SchoolList';
 import { SchoolCreate } from './pages/SchoolCreate';
 import { SchoolDetail } from './pages/SchoolDetail';
-import SchoolEdit from './pages/SchoolEdit';
+import {SchoolEdit} from './pages/SchoolEdit';
 import { PersonnelList } from './pages/PersonnelList';
 import { PersonnelCreate } from './pages/PersonnelCreate';
 import { PersonnelDetail } from './pages/PersonnelDetail';
