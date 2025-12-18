@@ -29,7 +29,7 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   // Traditional auth kontrolü
   if (traditionalAuth) {
     console.log('✅ PrivateRoute - Traditional authenticated, allowing access');
-    return <>{children}</>;
+  return <>{children}</>;
   }
 
   console.log('❌ PrivateRoute - Not authenticated, redirecting to login');

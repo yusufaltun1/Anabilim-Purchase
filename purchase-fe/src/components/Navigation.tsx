@@ -9,12 +9,8 @@ export const Navigation = () => {
   const location = useLocation();
   const { logout } = useAuth();
   const userInfo = authService.getUserInfo();
-  const userRoles = userInfo?.roles || [];
   const [isSystemMenuOpen, setIsSystemMenuOpen] = useState(false);
   const [isTransferMenuOpen, setIsTransferMenuOpen] = useState(false);
-
-  const restrictedRoles = ['OGRETMEN', 'ZUMRE_BASKANI', 'OKUL_MUDURU'];
-  const hasRestrictedRole = userRoles.some(role => restrictedRoles.includes(role));
 
   const handleLogout = () => {
     logout();
@@ -50,58 +46,50 @@ export const Navigation = () => {
 
           <div className="flex items-center space-x-8">
             <div className="hidden md:flex space-x-4">
-              {!hasRestrictedRole && (
-                <>
-                  <button onClick={() => navigate('/dashboard')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/dashboard') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
-                    Dashboard
-                  </button>
-                  
-                  <div className="relative">
-                    <button onClick={() => setIsTransferMenuOpen(!isTransferMenuOpen)} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center ${isTransferRoute() ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
-                      <span>Transfer Yönetimi</span>
-                      <svg className={`ml-2 h-4 w-4 transition-transform ${isTransferMenuOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {isTransferMenuOpen && (
-                      <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5" onMouseLeave={() => setIsTransferMenuOpen(false)}>
-                        <div className="py-1">
-                          <button onClick={() => { navigate('/transfers'); setIsTransferMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${isActive('/transfers') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Transfer Listesi</button>
-                          <button onClick={() => { navigate('/transfers/create'); setIsTransferMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${isActive('/transfers/create') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Yeni Transfer</button>
-                        </div>
-                      </div>
-                    )}
+              <button onClick={() => navigate('/dashboard')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/dashboard') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+                Dashboard
+              </button>
+              
+              <div className="relative">
+                <button onClick={() => setIsTransferMenuOpen(!isTransferMenuOpen)} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center ${isTransferRoute() ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+                  <span>Transfer Yönetimi</span>
+                  <svg className={`ml-2 h-4 w-4 transition-transform ${isTransferMenuOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {isTransferMenuOpen && (
+                  <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5" onMouseLeave={() => setIsTransferMenuOpen(false)}>
+                    <div className="py-1">
+                      <button onClick={() => { navigate('/transfers'); setIsTransferMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${isActive('/transfers') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Transfer Listesi</button>
+                      <button onClick={() => { navigate('/transfers/create'); setIsTransferMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${isActive('/transfers/create') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Yeni Transfer</button>
+                    </div>
                   </div>
+                )}
+              </div>
 
-                  <div className="relative">
-                    <button onClick={() => setIsSystemMenuOpen(!isSystemMenuOpen)} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center ${isSystemRoute() ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
-                      <span>Sistem</span>
-                      <svg className={`ml-2 h-4 w-4 transition-transform ${isSystemMenuOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {isSystemMenuOpen && (
-                      <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5" onMouseLeave={() => setIsSystemMenuOpen(false)}>
-                        {/* Dropdown content here */}
-                      </div>
-                    )}
+              <div className="relative">
+                <button onClick={() => setIsSystemMenuOpen(!isSystemMenuOpen)} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center ${isSystemRoute() ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+                  <span>Sistem</span>
+                  <svg className={`ml-2 h-4 w-4 transition-transform ${isSystemMenuOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {isSystemMenuOpen && (
+                  <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5" onMouseLeave={() => setIsSystemMenuOpen(false)}>
+                    {/* Dropdown content here */}
                   </div>
-                </>
-              )}
+                )}
+              </div>
 
               <button onClick={() => navigate('/purchase-requests')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/purchase-requests') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
                 Satın Alma Talepleri
               </button>
 
-              {!hasRestrictedRole && (
-                <>
-                  <button onClick={() => navigate('/purchase-orders')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/purchase-orders') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
-                    Satın Alma Siparişleri
-                  </button>
-                  <button onClick={() => navigate('/stock-management')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/stock-management') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
-                    Stok Yönetimi
-                  </button>
-                  <button onClick={() => navigate('/warehouses')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/warehouses') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
-                    Depolar
-                  </button>
-                </>
-              )}
+              <button onClick={() => navigate('/purchase-orders')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/purchase-orders') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+                Satın Alma Siparişleri
+              </button>
+              <button onClick={() => navigate('/stock-management')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/stock-management') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+                Stok Yönetimi
+              </button>
+              <button onClick={() => navigate('/warehouses')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/warehouses') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+                Depolar
+              </button>
             </div>
 
             <div className="flex items-center space-x-4">

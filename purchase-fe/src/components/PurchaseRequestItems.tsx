@@ -320,13 +320,13 @@ export const PurchaseRequestItems: React.FC<PurchaseRequestItemsProps> = ({ item
             <div className="md:col-span-2">
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-medium text-gray-700">Potansiyel Tedarikçiler</label>
-                <button
-                  type="button"
-                  onClick={() => toggleSupplierView(index)}
-                  className="text-sm text-indigo-600 hover:text-indigo-800"
-                >
-                  {showAllSuppliers[index] ? 'Sadece Kategorideki Tedarikçileri Göster' : 'Tüm Tedarikçileri Göster'}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleSupplierView(index)}
+                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    {showAllSuppliers[index] ? 'Sadece Kategorideki Tedarikçileri Göster' : 'Tüm Tedarikçileri Göster'}
+                  </button>
               </div>
               <Select
                 isMulti

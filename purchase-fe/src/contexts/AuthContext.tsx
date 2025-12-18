@@ -153,13 +153,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.error('❌ AuthContext - Auth check error:', error);
         setIsAuthenticated(false);
         setUser(null);
-        setIsLoading(false);
+      setIsLoading(false);
       }
     };
 
     // Delay to ensure MSAL is fully initialized
     const timeoutId = setTimeout(() => {
-      checkAuthStatus();
+    checkAuthStatus();
     }, 100);
 
     // Listen for storage changes (logout from another tab)
@@ -202,8 +202,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error('Logout error:', err);
       // Fallback logout
-      authService.logout();
-      setIsAuthenticated(false);
+    authService.logout();
+    setIsAuthenticated(false);
       setUser(null);
     }
   };
