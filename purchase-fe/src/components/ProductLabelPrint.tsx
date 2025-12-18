@@ -49,7 +49,7 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productId,
       }
       
       // Print için yeni bir pencere aç
-      const printWindow = window.open('', '_blank', 'width=300,height=160');
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
       if (printWindow) {
         printWindow.document.write(`
           <!DOCTYPE html>
@@ -58,7 +58,7 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productId,
               <title>Etiket Yazdır</title>
               <style>
                 @page {
-                  size: 75mm 40mm;
+                  size: landscape;
                   margin: 0;
                 }
                 * {
@@ -282,7 +282,7 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productId,
 
       <style>{`
         @page {
-          size: 75mm 40mm;
+          size: landscape;
           margin: 0;
         }
 
