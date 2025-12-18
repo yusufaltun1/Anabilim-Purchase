@@ -72,7 +72,17 @@ export const Navigation = () => {
                 </button>
                 {isSystemMenuOpen && (
                   <div className="absolute z-10 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5" onMouseLeave={() => setIsSystemMenuOpen(false)}>
-                    {/* Dropdown content here */}
+                    <div className="py-1">
+                      <button onClick={() => { navigate('/workflows'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/workflows') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>İş Akışları</button>
+                      <button onClick={() => { navigate('/roles'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/roles') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Roller</button>
+                      <button onClick={() => { navigate('/users'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/users') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Kullanıcılar</button>
+                      <button onClick={() => { navigate('/products'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/products') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Ürünler</button>
+                      <button onClick={() => { navigate('/categories'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/categories') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Kategoriler</button>
+                      <button onClick={() => { navigate('/suppliers'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/suppliers') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Tedarikçiler</button>
+                      <button onClick={() => { navigate('/schools'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/schools') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Okullar</button>
+                      <button onClick={() => { navigate('/personnel'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/personnel') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Personel</button>
+                      <button onClick={() => { navigate('/locations'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/locations') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Lokasyonlar</button>
+                    </div>
                   </div>
                 )}
               </div>
