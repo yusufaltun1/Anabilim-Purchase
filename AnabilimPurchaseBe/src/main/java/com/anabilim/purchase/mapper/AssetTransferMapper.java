@@ -13,8 +13,14 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Collections;
+
 @Component
 public class AssetTransferMapper {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     
     public AssetTransfer toEntity(CreateAssetTransferDto createDto) {
         AssetTransfer transfer = new AssetTransfer();
@@ -50,8 +56,9 @@ public class AssetTransferMapper {
         dto.setNotes(transfer.getNotes());
         dto.setCreatedAt(transfer.getCreatedAt());
         dto.setUpdatedAt(transfer.getUpdatedAt());
+        dto.setSelfManaged(transfer.getSelfManaged());
         
-        // Warehouse bilgileri
+        // Kaynak depo bilgileri
         if (transfer.getSourceWarehouse() != null) {
             dto.setSourceWarehouse(new AssetTransferDto.WarehouseBasicDto(
                 transfer.getSourceWarehouse().getId(),
@@ -60,17 +67,18 @@ public class AssetTransferMapper {
                 transfer.getSourceWarehouse().getAddress()
             ));
         }
-        
-        // School bilgileri
-        if (transfer.getTargetSchool() != null) {
-            dto.setTargetSchool(new AssetTransferDto.SchoolBasicDto(
-                transfer.getTargetSchool().getId(),
-                transfer.getTargetSchool().getName(),
-                transfer.getTargetSchool().getCode(),
-                transfer.getTargetSchool().getCity(),
-                transfer.getTargetSchool().getDistrict()
+
+        // Hedef depo bilgileri (yeni alan)
+        if (transfer.getTargetWarehouse() != null) {
+            dto.setTargetWarehouse(new AssetTransferDto.WarehouseBasicDto(
+                transfer.getTargetWarehouse().getId(),
+                transfer.getTargetWarehouse().getName(),
+                transfer.getTargetWarehouse().getCode(),
+                transfer.getTargetWarehouse().getAddress()
             ));
         }
+
+
         
         // User bilgileri
         dto.setRequestedBy(toUserBasicDto(transfer.getRequestedBy()));
@@ -114,6 +122,8 @@ public class AssetTransferMapper {
         dto.setNotes(item.getNotes());
         dto.setSerialNumbers(item.getSerialNumbers());
         dto.setConditionNotes(item.getConditionNotes());
+        dto.setTransferImagesBase64(fromJsonList(item.getTransferImagesBase64()));
+        dto.setReceiveImagesBase64(fromJsonList(item.getReceiveImagesBase64()));
         dto.setFullyTransferred(item.isFullyTransferred());
         dto.setPartiallyTransferred(item.isPartiallyTransferred());
         dto.setCreatedAt(item.getCreatedAt());
@@ -142,6 +152,8 @@ public class AssetTransferMapper {
         item.setNotes(itemDto.getNotes());
         item.setSerialNumbers(itemDto.getSerialNumbers());
         item.setConditionNotes(itemDto.getConditionNotes());
+        item.setTransferImagesBase64(toJsonList(itemDto.getTransferImagesBase64()));
+        item.setReceiveImagesBase64(toJsonList(itemDto.getReceiveImagesBase64()));
         return item;
     }
     
@@ -168,5 +180,27 @@ public class AssetTransferMapper {
     private String generateTransferCode() {
         return "TR-" + LocalDateTime.now().getYear() + "-" + 
                String.format("%06d", (int)(Math.random() * 1000000));
+    }
+
+    public java.util.List<String> fromJsonList(String json) {
+        if (json == null || json.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return OBJECT_MAPPER.readValue(json, new TypeReference<java.util.List<String>>() {});
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+    }
+
+    public String toJsonList(java.util.List<String> list) {
+        if (list == null || list.isEmpty()) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(list);
+        } catch (Exception e) {
+            return null;
+        }
     }
 } 

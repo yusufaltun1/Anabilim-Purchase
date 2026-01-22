@@ -14,7 +14,8 @@ public class AssetTransferDto {
     private Long id;
     private String transferCode;
     private WarehouseBasicDto sourceWarehouse;
-    private SchoolBasicDto targetSchool;
+    private WarehouseBasicDto targetWarehouse;
+    private SchoolBasicDto targetSchool; // legacy alan, bazı eski kayıtlar için dolu olabilir
     private String status;
     private String statusDisplayName;
     private LocalDateTime transferDate;
@@ -24,6 +25,7 @@ public class AssetTransferDto {
     private UserBasicDto approvedBy;
     private UserBasicDto deliveredBy;
     private UserBasicDto receivedBy;
+    private Boolean selfManaged;
     private List<AssetTransferItemDto> items;
     private Integer totalItemCount; // Toplam kalem sayısı
     private Integer totalRequestedQuantity; // Toplam istenen miktar

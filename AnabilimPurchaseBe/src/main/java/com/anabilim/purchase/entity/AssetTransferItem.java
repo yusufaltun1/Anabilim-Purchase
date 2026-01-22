@@ -47,6 +47,18 @@ public class AssetTransferItem {
     
     @Column(name = "condition_notes", columnDefinition = "TEXT")
     private String conditionNotes; // Eşyanın durumu hakkında notlar
+
+    /**
+     * Transfer (yükleme) aşamasında çekilen resimler (base64, JSON dizi şeklinde tutulabilir)
+     */
+    @Column(name = "transfer_images_base64", columnDefinition = "TEXT")
+    private String transferImagesBase64;
+
+    /**
+     * Teslim alma aşamasında çekilen resimler (base64, JSON dizi şeklinde tutulabilir)
+     */
+    @Column(name = "receive_images_base64", columnDefinition = "TEXT")
+    private String receiveImagesBase64;
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

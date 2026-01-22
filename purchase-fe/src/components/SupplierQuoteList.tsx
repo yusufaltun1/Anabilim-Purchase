@@ -8,6 +8,7 @@ interface SupplierQuoteListProps {
   selectedQuoteId?: number | null;
   showActions?: boolean;
   onConvertToOrder?: (quote: SupplierQuote) => void; // Yeni prop
+  onEditQuote?: (quote: SupplierQuote) => void;
 }
 
 export const SupplierQuoteList: React.FC<SupplierQuoteListProps> = ({ 
@@ -15,7 +16,8 @@ export const SupplierQuoteList: React.FC<SupplierQuoteListProps> = ({
   onSelectQuote,
   selectedQuoteId,
   showActions = true,
-  onConvertToOrder // Yeni prop
+  onConvertToOrder,
+  onEditQuote
 }) => {
   const sortedQuotes = [...quotes].sort((a, b) => {
     if (a.id === selectedQuoteId) return -1;
@@ -99,6 +101,14 @@ export const SupplierQuoteList: React.FC<SupplierQuoteListProps> = ({
                     </td>
                     {showActions && (
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                        {onEditQuote && quote.status !== 'CONVERTED_TO_ORDER' && (
+                          <button
+                            onClick={() => onEditQuote(quote)}
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                          >
+                            {quote.status === 'PENDING' ? 'Teklif Gir' : 'Teklifi Güncelle'}
+                          </button>
+                        )}
                         {onConvertToOrder && quote.status === 'RESPONDED' && (
                           <button onClick={() => onConvertToOrder(quote)} className="text-indigo-600 hover:text-indigo-900">
                             Siparişe Dönüştür

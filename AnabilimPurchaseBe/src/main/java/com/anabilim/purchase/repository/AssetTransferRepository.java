@@ -25,15 +25,13 @@ public interface AssetTransferRepository extends JpaRepository<AssetTransfer, Lo
     List<AssetTransfer> findByStatus(TransferStatus status);
     
     List<AssetTransfer> findBySourceWarehouse(Warehouse warehouse);
-    
-    List<AssetTransfer> findByTargetSchool(School school);
+
     
     // Pageable versiyonlar
     Page<AssetTransfer> findByStatus(TransferStatus status, Pageable pageable);
     
     Page<AssetTransfer> findBySourceWarehouse(Warehouse warehouse, Pageable pageable);
-    
-    Page<AssetTransfer> findByTargetSchool(School school, Pageable pageable);
+
     
     // Tarih aralığı sorguları
     List<AssetTransfer> findByTransferDateBetween(LocalDateTime startDate, LocalDateTime endDate);
@@ -46,25 +44,12 @@ public interface AssetTransferRepository extends JpaRepository<AssetTransfer, Lo
     List<AssetTransfer> findByApprovedById(Long userId);
     
     // Kompleks sorgular
-    @Query("SELECT at FROM AssetTransfer at " +
-           "WHERE (:status IS NULL OR at.status = :status) " +
-           "AND (:warehouseId IS NULL OR at.sourceWarehouse.id = :warehouseId) " +
-           "AND (:schoolId IS NULL OR at.targetSchool.id = :schoolId) " +
-           "AND (:startDate IS NULL OR at.transferDate >= :startDate) " +
-           "AND (:endDate IS NULL OR at.transferDate <= :endDate)")
-    Page<AssetTransfer> findTransfersWithFilters(
-            @Param("status") TransferStatus status,
-            @Param("warehouseId") Long warehouseId,
-            @Param("schoolId") Long schoolId,
-            @Param("startDate") java.sql.Timestamp startDate,
-            @Param("endDate") java.sql.Timestamp endDate,
-            Pageable pageable);
+
     
     // Arama sorguları
     @Query("SELECT at FROM AssetTransfer at WHERE " +
            "LOWER(at.transferCode) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(at.sourceWarehouse.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(at.targetSchool.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(at.notes) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<AssetTransfer> searchTransfers(@Param("search") String search, Pageable pageable);
     
@@ -75,10 +60,7 @@ public interface AssetTransferRepository extends JpaRepository<AssetTransfer, Lo
     @Query("SELECT at.status, COUNT(at) FROM AssetTransfer at GROUP BY at.status")
     List<Object[]> countTransfersByStatus();
     
-    @Query("SELECT at.targetSchool.name, COUNT(at) FROM AssetTransfer at " +
-           "WHERE at.actualTransferDate >= :startDate " +
-           "GROUP BY at.targetSchool.name ORDER BY COUNT(at) DESC")
-    List<Object[]> getTopSchoolsByTransferCount(@Param("startDate") LocalDateTime startDate);
+
     
     // Bekleyen transferler
     @Query("SELECT at FROM AssetTransfer at WHERE at.status IN ('PENDING', 'APPROVED', 'PREPARING') " +

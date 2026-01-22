@@ -15,6 +15,7 @@ const TransferDetail: React.FC = () => {
   const [updating, setUpdating] = useState(false);
   const [showUpdateQuantity, setShowUpdateQuantity] = useState<number | null>(null);
   const [updateQuantity, setUpdateQuantity] = useState<number>(0);
+  const [itemImages, setItemImages] = useState<Record<number, { transferImagesBase64: string[]; receiveImagesBase64: string[] }>>({});
 
   useEffect(() => {
     loadTransfer();
@@ -36,10 +37,66 @@ const TransferDetail: React.FC = () => {
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+  const handleItemImagesChange = async (
+    itemId: number,
+    type: 'transfer' | 'receive',
+    fileList: FileList | null
+  ) => {
+    if (!fileList || fileList.length === 0) {
+      setItemImages(prev => ({
+        ...prev,
+        [itemId]: {
+          transferImagesBase64: prev[itemId]?.transferImagesBase64 || [],
+          receiveImagesBase64: prev[itemId]?.receiveImagesBase64 || [],
+          [type === 'transfer' ? 'transferImagesBase64' : 'receiveImagesBase64']: []
+        } as { transferImagesBase64: string[]; receiveImagesBase64: string[] }
+      }));
+      return;
+    }
+
+    const files = Array.from(fileList);
+    const base64List = await Promise.all(files.map(fileToBase64));
+    setItemImages(prev => ({
+      ...prev,
+      [itemId]: {
+        transferImagesBase64: type === 'transfer' ? base64List : (prev[itemId]?.transferImagesBase64 || []),
+        receiveImagesBase64: type === 'receive' ? base64List : (prev[itemId]?.receiveImagesBase64 || [])
+      }
+    }));
+  };
+
   const handleStatusUpdate = async (status: TransferStatus, reason?: string) => {
     if (!transfer?.id) return;
     try {
       setUpdating(true);
+      if (status === TransferStatus.APPROVED) {
+        const items = transfer.items.filter(item => item.id !== undefined);
+        const itemsWithLocalImages = items.filter((item) => {
+          const local = item.id ? itemImages[item.id] : undefined;
+          return (local?.transferImagesBase64?.length ?? 0) > 0 || (local?.receiveImagesBase64?.length ?? 0) > 0;
+        });
+
+        await Promise.all(itemsWithLocalImages.map(async (item) => {
+          const itemId = item.id as number;
+          const local = itemImages[itemId];
+          await AssetTransferService.updateTransferItemImages(transfer.id!, itemId, {
+            transferImagesBase64: (local?.transferImagesBase64?.length ?? 0) > 0 ? local!.transferImagesBase64 : null,
+            receiveImagesBase64: (local?.receiveImagesBase64?.length ?? 0) > 0 ? local!.receiveImagesBase64 : null
+          });
+        }));
+      }
+
       const updatedTransfer = await AssetTransferService.updateStatus(transfer.id, status, reason);
       setTransfer(updatedTransfer);
       // TODO: Show success notification
@@ -141,8 +198,8 @@ const TransferDetail: React.FC = () => {
                   <p className="font-medium">Depo {transfer.sourceWarehouseId}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Hedef Okul</p>
-                  <p className="font-medium">Okul {transfer.targetSchoolId}</p>
+                  <p className="text-sm text-gray-500">Hedef Depo</p>
+                  <p className="font-medium">Depo {transfer.targetWarehouseId}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Transfer Tarihi</p>
@@ -282,6 +339,77 @@ const TransferDetail: React.FC = () => {
                         <div>
                           <p className="text-sm text-gray-500">Durum Notları</p>
                           <p className="font-medium">{item.conditionNotes}</p>
+                        </div>
+                      )}
+                      {(item.transferImagesBase64?.length ?? 0) > 0 && (
+                        <div className="md:col-span-2">
+                          <p className="text-sm text-gray-500">Transfer Görselleri</p>
+                          <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {item.transferImagesBase64?.map((img, idx) => (
+                              <img
+                                key={`transfer-${item.id ?? 'item'}-${idx}`}
+                                src={`data:image/*;base64,${img}`}
+                                alt={`Transfer görseli ${idx + 1}`}
+                                className="h-24 w-full object-cover rounded border"
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(item.receiveImagesBase64?.length ?? 0) > 0 && (
+                        <div className="md:col-span-2">
+                          <p className="text-sm text-gray-500">Teslim Görselleri</p>
+                          <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {item.receiveImagesBase64?.map((img, idx) => (
+                              <img
+                                key={`receive-${item.id ?? 'item'}-${idx}`}
+                                src={`data:image/*;base64,${img}`}
+                                alt={`Teslim görseli ${idx + 1}`}
+                                className="h-24 w-full object-cover rounded border"
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {transfer.status === TransferStatus.PENDING && item.id !== undefined && (
+                        <div className="md:col-span-2">
+                          <p className="text-sm text-gray-500">Onay Görselleri</p>
+                          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Transfer Görselleri (zorunlu)
+                              </label>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                onChange={(e) => handleItemImagesChange(item.id!, 'transfer', e.target.files)}
+                              />
+                              <p className="mt-1 text-xs text-gray-500">
+                                {(itemImages[item.id]?.transferImagesBase64?.length ?? item.transferImagesBase64?.length ?? 0) > 0
+                                  ? `${(itemImages[item.id]?.transferImagesBase64?.length ?? item.transferImagesBase64?.length ?? 0)} görsel seçildi`
+                                  : 'Henüz görsel seçilmedi'}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Teslim Görselleri (opsiyonel)
+                              </label>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                onChange={(e) => handleItemImagesChange(item.id!, 'receive', e.target.files)}
+                              />
+                              <p className="mt-1 text-xs text-gray-500">
+                                {(itemImages[item.id]?.receiveImagesBase64?.length ?? item.receiveImagesBase64?.length ?? 0) > 0
+                                  ? `${(itemImages[item.id]?.receiveImagesBase64?.length ?? item.receiveImagesBase64?.length ?? 0)} görsel seçildi`
+                                  : 'Henüz görsel seçilmedi'}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       )}
                       {item.notes && (

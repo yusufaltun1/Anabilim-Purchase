@@ -18,6 +18,14 @@ public class AssetTransferItemDto {
     private String notes;
     private String serialNumbers;
     private String conditionNotes;
+    /**
+     * Transfer (yükleme) aşamasındaki resimler (base64 listesi)
+     */
+    private java.util.List<String> transferImagesBase64;
+    /**
+     * Teslim alma aşamasındaki resimler (base64 listesi)
+     */
+    private java.util.List<String> receiveImagesBase64;
     private boolean isFullyTransferred; // Tam transfer edildi mi
     private boolean isPartiallyTransferred; // Kısmen transfer edildi mi
     private LocalDateTime createdAt;

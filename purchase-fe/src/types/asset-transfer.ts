@@ -18,13 +18,17 @@ export interface TransferItem {
   notes?: string;
   serialNumbers?: string;
   conditionNotes?: string;
+  transferImagesBase64?: string[] | null;
+  receiveImagesBase64?: string[] | null;
 }
 
 export interface AssetTransfer {
   id?: number;
   transferCode?: string;
   sourceWarehouseId: number;
-  targetSchoolId: number;
+  targetWarehouseId: number;
+  selfManaged: boolean;
+  receiverUserId?: number | null;
   transferDate: string;
   notes?: string;
   status: TransferStatus;
@@ -39,7 +43,9 @@ export interface AssetTransfer {
 
 export interface CreateTransferRequest {
   sourceWarehouseId: number;
-  targetSchoolId: number;
+  targetWarehouseId: number;
+  selfManaged: boolean;
+  receiverUserId?: number | null;
   transferDate: string;
   notes?: string;
   items: Omit<TransferItem, 'id'>[];

@@ -80,6 +80,14 @@ public class SupplierQuote {
 
     @Column(name = "is_selected")
     private Boolean isSelected = false;
+
+    /**
+     * Bu teklifi sisteme fiilen kim girdi? (Satın almacı veya iç kullanıcı)
+     * Tedarikçi linkten girerse genelde null kalır.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "entered_by_user_id")
+    private User enteredByUser;
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -10,6 +10,8 @@ import { formatDate } from '../utils/date';
 import { SupplierQuoteList } from '../components/SupplierQuoteList';
 import { ConvertRequestToOrderModal } from '../components/ConvertRequestToOrderModal';
 import { useNotification } from '../contexts/NotificationContext';
+import { supplierQuoteService } from '../services/supplier-quote.service';
+import { UpdateSupplierQuoteRequest } from '../types/supplier-quote';
 
 export const PurchaseRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +26,18 @@ export const PurchaseRequestDetail = () => {
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionComment, setRejectionComment] = useState('');
+  const [editingQuote, setEditingQuote] = useState<any>(null);
+  const [quoteFormData, setQuoteFormData] = useState<UpdateSupplierQuoteRequest>({
+    unitPrice: 0,
+    quantity: 0,
+    currency: 'TRY',
+    deliveryDate: '',
+    validityDate: '',
+    notes: '',
+    supplierReference: ''
+  });
+  const [quoteSaving, setQuoteSaving] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRequestData();
@@ -173,7 +187,11 @@ export const PurchaseRequestDetail = () => {
             <div key={item.id} className="mb-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
               <div className="bg-white px-4 py-5 sm:p-6">
                 <h3 className="text-lg font-medium leading-6 text-gray-900">{item.product?.name}</h3>
-                <SupplierQuoteList quotes={item.supplierQuotes} onConvertToOrder={(quote) => { setSelectedQuote(quote); setShowConvertModal(true); }} />
+                <SupplierQuoteList
+                  quotes={item.supplierQuotes}
+                  onConvertToOrder={(quote) => { setSelectedQuote(quote); setShowConvertModal(true); }}
+                  onEditQuote={(quote) => handleEditQuoteOpen(quote)}
+                />
               </div>
             </div>
           ))}
@@ -184,6 +202,79 @@ export const PurchaseRequestDetail = () => {
 
   const handleConvertSuccess = () => {
     loadRequestData();
+  };
+
+  const handleEditQuoteOpen = (quote: any) => {
+    setEditingQuote(quote);
+    setQuoteError(null);
+    setQuoteFormData({
+      unitPrice: quote.unitPrice || 0,
+      quantity: quote.quantity || 0,
+      currency: quote.currency || 'TRY',
+      deliveryDate: quote.deliveryDate?.split('T')[0] || '',
+      validityDate: quote.validityDate?.split('T')[0] || '',
+      notes: quote.notes || '',
+      supplierReference: quote.supplierReference || ''
+    });
+  };
+
+  const handleQuoteChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setQuoteFormData(prev => ({
+      ...prev,
+      [name]: ['unitPrice', 'quantity'].includes(name) ? parseFloat(value) : value
+    }));
+  };
+
+  const handleQuoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuote?.quoteUid) {
+      setQuoteError('Geçersiz teklif bilgisi');
+      return;
+    }
+
+    if (quoteFormData.unitPrice <= 0) {
+      setQuoteError('Birim fiyat 0\'dan büyük olmalıdır');
+      return;
+    }
+    if (quoteFormData.quantity <= 0) {
+      setQuoteError('Miktar 0\'dan büyük olmalıdır');
+      return;
+    }
+    if (!quoteFormData.deliveryDate) {
+      setQuoteError('Teslim tarihi zorunludur');
+      return;
+    }
+    if (!quoteFormData.validityDate) {
+      setQuoteError('Geçerlilik tarihi zorunludur');
+      return;
+    }
+
+    try {
+      setQuoteSaving(true);
+      setQuoteError(null);
+      const request: UpdateSupplierQuoteRequest = {
+        ...quoteFormData,
+        deliveryDate: quoteFormData.deliveryDate + 'T00:00:00',
+        validityDate: quoteFormData.validityDate + 'T00:00:00'
+      };
+      const response = await supplierQuoteService.updateQuote(editingQuote.quoteUid, request);
+      if (!response.success) {
+        setQuoteError(response.message);
+        return;
+      }
+      showNotification('Teklif başarıyla kaydedildi', 'success');
+      setEditingQuote(null);
+      await loadRequestData();
+    } catch (err) {
+      console.error('Error updating quote:', err);
+      setQuoteError('Teklif güncellenirken hata oluştu');
+      showNotification('Teklif güncellenirken hata oluştu', 'error');
+    } finally {
+      setQuoteSaving(false);
+    }
   };
 
   if (loading && !request) {
@@ -321,6 +412,150 @@ export const PurchaseRequestDetail = () => {
           supplierQuoteId={selectedQuote.id}
           requestedQuantity={selectedQuote.quantity}
         />
+      )}
+
+      {editingQuote && (
+        <div className="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                      Teklif Gir / Güncelle
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {editingQuote?.supplier?.name} için teklif bilgilerini girin.
+                    </p>
+                    {quoteError && (
+                      <div className="mt-3 text-sm text-red-600">{quoteError}</div>
+                    )}
+                    <form onSubmit={handleQuoteSubmit} className="mt-4 space-y-4">
+                      <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2">
+                        <div>
+                          <label htmlFor="unitPrice" className="block text-sm font-medium text-gray-700">
+                            Birim Fiyat
+                          </label>
+                          <input
+                            type="number"
+                            name="unitPrice"
+                            id="unitPrice"
+                            min="0.01"
+                            step="0.01"
+                            value={quoteFormData.unitPrice}
+                            onChange={handleQuoteChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
+                            Miktar
+                          </label>
+                          <input
+                            type="number"
+                            name="quantity"
+                            id="quantity"
+                            min="1"
+                            value={quoteFormData.quantity}
+                            onChange={handleQuoteChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="currency" className="block text-sm font-medium text-gray-700">
+                            Para Birimi
+                          </label>
+                          <select
+                            name="currency"
+                            id="currency"
+                            value={quoteFormData.currency}
+                            onChange={handleQuoteChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                          >
+                            <option value="TRY">TRY</option>
+                            <option value="USD">USD</option>
+                            <option value="EUR">EUR</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="supplierReference" className="block text-sm font-medium text-gray-700">
+                            Tedarikçi Referans No
+                          </label>
+                          <input
+                            type="text"
+                            name="supplierReference"
+                            id="supplierReference"
+                            value={quoteFormData.supplierReference}
+                            onChange={handleQuoteChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="deliveryDate" className="block text-sm font-medium text-gray-700">
+                            Teslim Tarihi
+                          </label>
+                          <input
+                            type="date"
+                            name="deliveryDate"
+                            id="deliveryDate"
+                            value={quoteFormData.deliveryDate}
+                            onChange={handleQuoteChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="validityDate" className="block text-sm font-medium text-gray-700">
+                            Geçerlilik Tarihi
+                          </label>
+                          <input
+                            type="date"
+                            name="validityDate"
+                            id="validityDate"
+                            value={quoteFormData.validityDate}
+                            onChange={handleQuoteChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                            Notlar
+                          </label>
+                          <textarea
+                            name="notes"
+                            id="notes"
+                            rows={3}
+                            value={quoteFormData.notes}
+                            onChange={handleQuoteChange}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end space-x-3">
+                        <button
+                          type="button"
+                          onClick={() => setEditingQuote(null)}
+                          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                          disabled={quoteSaving}
+                        >
+                          İptal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+                          disabled={quoteSaving}
+                        >
+                          {quoteSaving ? 'Kaydediliyor...' : 'Kaydet'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

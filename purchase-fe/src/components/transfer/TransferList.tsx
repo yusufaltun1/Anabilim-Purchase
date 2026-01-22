@@ -111,7 +111,7 @@ const TransferList: React.FC = () => {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Transfer kodu, okul veya depo ara..."
+                    placeholder="Transfer kodu veya depo ara..."
                     className="w-full pl-10 pr-4 py-2 border rounded-lg"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -196,7 +196,7 @@ const TransferList: React.FC = () => {
                       Kaynak Depo
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Hedef Okul
+                      Hedef Depo
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Transfer Tarihi
@@ -234,7 +234,7 @@ const TransferList: React.FC = () => {
                           Depo {transfer.sourceWarehouseId}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          Okul {transfer.targetSchoolId}
+                          Depo {transfer.targetWarehouseId}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {format(new Date(transfer.transferDate), 'dd.MM.yyyy')}

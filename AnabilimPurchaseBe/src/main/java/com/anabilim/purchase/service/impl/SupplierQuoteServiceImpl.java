@@ -5,13 +5,17 @@ import com.anabilim.purchase.dto.response.SupplierQuoteDto;
 import com.anabilim.purchase.entity.PurchaseRequestItem;
 import com.anabilim.purchase.entity.Supplier;
 import com.anabilim.purchase.entity.SupplierQuote;
+import com.anabilim.purchase.entity.User;
 import com.anabilim.purchase.entity.enums.QuoteStatus;
 import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.repository.PurchaseRequestItemRepository;
 import com.anabilim.purchase.repository.SupplierQuoteRepository;
 import com.anabilim.purchase.repository.SupplierRepository;
+import com.anabilim.purchase.repository.UserRepository;
 import com.anabilim.purchase.service.SupplierQuoteService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +32,7 @@ public class SupplierQuoteServiceImpl implements SupplierQuoteService {
     private final SupplierQuoteRepository supplierQuoteRepository;
     private final PurchaseRequestItemRepository requestItemRepository;
     private final SupplierRepository supplierRepository;
+    private final UserRepository userRepository;
     
     @Override
     public SupplierQuoteDto getQuoteByUid(String quoteUid) {
@@ -56,6 +61,18 @@ public class SupplierQuoteServiceImpl implements SupplierQuoteService {
         quote.setSupplierReference(updateDto.getSupplierReference());
         quote.setStatus(QuoteStatus.RESPONDED);
         quote.setRespondedAt(LocalDateTime.now());
+
+        // Eğer iç sistemden (login olmuş kullanıcı) bu teklif güncelleniyorsa,
+        // teklifi kimin girdiğini kaydet.
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getName() != null
+                && !"anonymousUser".equals(auth.getName())) {
+            String email = auth.getName();
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user != null) {
+                quote.setEnteredByUser(user);
+            }
+        }
         
         return toDto(supplierQuoteRepository.save(quote));
     }
@@ -126,6 +143,11 @@ public class SupplierQuoteServiceImpl implements SupplierQuoteService {
         dto.setCreatedAt(quote.getCreatedAt());
         dto.setUpdatedAt(quote.getUpdatedAt());
         dto.setRespondedAt(quote.getRespondedAt());
+
+        if (quote.getEnteredByUser() != null) {
+            dto.setEnteredByUserId(quote.getEnteredByUser().getId());
+            dto.setEnteredByUserName(quote.getEnteredByUser().getFullName());
+        }
         
         return dto;
     }

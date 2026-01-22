@@ -35,18 +35,9 @@ public interface AssetTransferService {
     Page<AssetTransferDto> getTransfersByStatus(TransferStatus status, Pageable pageable);
     
     Page<AssetTransferDto> getTransfersByWarehouse(Long warehouseId, Pageable pageable);
-    
-    Page<AssetTransferDto> getTransfersBySchool(Long schoolId, Pageable pageable);
+
     
     Page<AssetTransferDto> searchTransfers(String search, Pageable pageable);
-    
-    Page<AssetTransferDto> getTransfersWithFilters(
-            TransferStatus status, 
-            Long warehouseId, 
-            Long schoolId, 
-            LocalDateTime startDate, 
-            LocalDateTime endDate, 
-            Pageable pageable);
     
     List<AssetTransferDto> getPendingTransfers();
     
@@ -54,6 +45,13 @@ public interface AssetTransferService {
     
     // Transfer item işlemleri
     AssetTransferDto updateTransferItem(Long transferId, Long itemId, Integer transferredQuantity);
+
+    /**
+     * Transfer kalemi için transfer / teslim alma resimlerini günceller
+     */
+    AssetTransferDto updateTransferItemImages(Long transferId, Long itemId,
+                                              java.util.List<String> transferImagesBase64,
+                                              java.util.List<String> receiveImagesBase64);
     
     // Entity dönüş metodları (internal kullanım için)
     AssetTransfer findTransferEntityById(Long id);
@@ -64,8 +62,6 @@ public interface AssetTransferService {
     long getTransferCountByStatus(TransferStatus status);
     
     List<Object[]> getTransferCountsByStatus();
-    
-    List<Object[]> getTopSchoolsByTransferCount(LocalDateTime startDate);
-    
+
     Page<AssetTransferDto> getAllTransfersSortedByDate(Pageable pageable);
 } 

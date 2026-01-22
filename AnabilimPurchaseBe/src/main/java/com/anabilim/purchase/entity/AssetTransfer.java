@@ -31,14 +31,23 @@ public class AssetTransfer {
     
     @Column(name = "transfer_code", unique = true, nullable = false)
     private String transferCode;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_warehouse_id", nullable = false)
     private Warehouse sourceWarehouse; // Kaynak depo
-    
+
+    /**
+     * Hedef depo (artık hedef okul yerine depo seçiliyor)
+     */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "target_school_id", nullable = false)
-    private School targetSchool; // Hedef okul
+    @JoinColumn(name = "target_warehouse_id")
+    private Warehouse targetWarehouse; // Hedef depo
+
+    /**
+     * Eski alan: hedef okul.
+     * Şimdilik geriye dönük uyumluluk için tutuluyor, yeni geliştirmelerde kullanılmamalı.
+     */
+
     
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -68,6 +77,13 @@ public class AssetTransfer {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "received_by_user_id")
     private User receivedBy; // Transfer alan kişi (okul personeli)
+
+    /**
+     * Kendim yöneteceğim flag'i.
+     * true ise alıcı kullanıcı seçilmeden transfer oluşturulabilir.
+     */
+    @Column(name = "self_managed")
+    private Boolean selfManaged = false;
     
     @OneToMany(mappedBy = "assetTransfer", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<AssetTransferItem> transferItems = new HashSet<>();

@@ -156,7 +156,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 supplierQuote.getRejectionReason(),
                 supplierQuote.getCreatedAt(),
                 supplierQuote.getUpdatedAt(),
-                supplierQuote.getRespondedAt()
+                supplierQuote.getRespondedAt(),
+                supplierQuote.getEnteredByUser() != null ? supplierQuote.getEnteredByUser().getId() : null,
+                supplierQuote.getEnteredByUser() != null ? supplierQuote.getEnteredByUser().getFullName() : null
         );
     }
 

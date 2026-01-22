@@ -12,7 +12,8 @@ import {
   UpdateTransferRequest
 } from '../types/asset-transfer';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://testsatinalmaapi.anabilim.k12.tr/api';
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://testsatinalmaapi.anabilim.k12.tr/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 // Create axios instance with auth token
 const axiosInstance: AxiosInstance = axios.create({
@@ -152,6 +153,16 @@ export const AssetTransferService = {
     const response = await axiosInstance.put(`/asset-transfers/${transferId}/items/${itemId}`, null, {
       params: update
     });
+    return response.data;
+  },
+
+  // Update transfer item images
+  updateTransferItemImages: async (
+    transferId: number,
+    itemId: number,
+    images: { transferImagesBase64?: string[] | null; receiveImagesBase64?: string[] | null }
+  ): Promise<AssetTransfer> => {
+    const response = await axiosInstance.put(`/asset-transfers/${transferId}/items/${itemId}/images`, images);
     return response.data;
   },
 

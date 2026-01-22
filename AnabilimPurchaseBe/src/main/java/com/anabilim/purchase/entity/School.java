@@ -63,9 +63,6 @@ public class School {
     @OneToMany(mappedBy = "school", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<User> employees = new HashSet<>(); // Okul personelleri
     
-    @OneToMany(mappedBy = "targetSchool", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Set<AssetTransfer> assetTransfers = new HashSet<>(); // Okula yapılan transferler
-    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

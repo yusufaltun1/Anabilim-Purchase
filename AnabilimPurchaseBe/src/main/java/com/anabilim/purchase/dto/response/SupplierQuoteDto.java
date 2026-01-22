@@ -30,6 +30,11 @@ public class SupplierQuoteDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime respondedAt;
+    /**
+     * Teklifi sisteme hangi kullanıcı girdiyse onun bilgisi (iç kullanıcı).
+     */
+    private Long enteredByUserId;
+    private String enteredByUserName;
     
     @Data
     @NoArgsConstructor

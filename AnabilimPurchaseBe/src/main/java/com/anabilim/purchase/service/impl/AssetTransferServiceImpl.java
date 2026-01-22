@@ -35,22 +35,40 @@ public class AssetTransferServiceImpl implements AssetTransferService {
 
     @Override
     public AssetTransferDto createTransfer(CreateAssetTransferDto createDto) {
-        log.info("Creating new asset transfer from warehouse {} to school {}", 
-            createDto.getSourceWarehouseId(), createDto.getTargetSchoolId());
+        log.info("Creating new asset transfer from warehouse {} to warehouse {}", 
+            createDto.getSourceWarehouseId(), createDto.getTargetWarehouseId());
         
         // Validation
         Warehouse sourceWarehouse = warehouseRepository.findById(createDto.getSourceWarehouseId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
                     "Kaynak depo bulunamadı: " + createDto.getSourceWarehouseId()));
-        
-        School targetSchool = schoolRepository.findById(createDto.getTargetSchoolId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Hedef okul bulunamadı: " + createDto.getTargetSchoolId()));
+
+        Warehouse targetWarehouse = warehouseRepository.findById(createDto.getTargetWarehouseId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Hedef depo bulunamadı: " + createDto.getTargetWarehouseId()));
+
+        // Kendim yöneteceğim / alıcı kullanıcı kontrolü
+        boolean selfManaged = Boolean.TRUE.equals(createDto.getSelfManaged());
+        if (!selfManaged && createDto.getReceiverUserId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Alıcı kullanıcı seçilmelidir veya 'Kendim yöneteceğim' işaretlenmelidir");
+        }
+
+        User receiverUser = null;
+        if (!selfManaged && createDto.getReceiverUserId() != null) {
+            receiverUser = userRepository.findById(createDto.getReceiverUserId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Alıcı kullanıcı bulunamadı: " + createDto.getReceiverUserId()));
+        }
 
         // Create transfer
         AssetTransfer transfer = assetTransferMapper.toEntity(createDto);
         transfer.setSourceWarehouse(sourceWarehouse);
-        transfer.setTargetSchool(targetSchool);
+        transfer.setTargetWarehouse(targetWarehouse);
+        transfer.setSelfManaged(selfManaged);
+        if (receiverUser != null) {
+            transfer.setReceivedBy(receiverUser);
+        }
         
         // Generate unique transfer code if needed
         String transferCode = transfer.getTransferCode();
@@ -217,16 +235,7 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         return transfers.map(assetTransferMapper::toDto);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public Page<AssetTransferDto> getTransfersBySchool(Long schoolId, Pageable pageable) {
-        School school = schoolRepository.findById(schoolId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "Okul bulunamadı: " + schoolId));
-        
-        Page<AssetTransfer> transfers = assetTransferRepository.findByTargetSchool(school, pageable);
-        return transfers.map(assetTransferMapper::toDto);
-    }
+
 
     @Override
     @Transactional(readOnly = true)
@@ -235,25 +244,7 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         return transfers.map(assetTransferMapper::toDto);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public Page<AssetTransferDto> getTransfersWithFilters(
-            TransferStatus status,
-            Long warehouseId,
-            Long schoolId,
-            LocalDateTime startDate,
-            LocalDateTime endDate,
-            Pageable pageable) {
-        
-        // Tarihleri PostgreSQL'in anlayacağı formata dönüştür
-        java.sql.Timestamp sqlStartDate = startDate != null ? java.sql.Timestamp.valueOf(startDate) : null;
-        java.sql.Timestamp sqlEndDate = endDate != null ? java.sql.Timestamp.valueOf(endDate) : null;
-        
-        Page<AssetTransfer> transfers = assetTransferRepository.findTransfersWithFilters(
-                status, warehouseId, schoolId, sqlStartDate, sqlEndDate, pageable);
-                
-        return transfers.map(assetTransferMapper::toDto);
-    }
+
 
     @Override
     @Transactional(readOnly = true)
@@ -292,6 +283,35 @@ public class AssetTransferServiceImpl implements AssetTransferService {
     }
 
     @Override
+    public AssetTransferDto updateTransferItemImages(Long transferId, Long itemId,
+                                                     java.util.List<String> transferImagesBase64,
+                                                     java.util.List<String> receiveImagesBase64) {
+        log.info("Updating transfer item {} images in transfer {}", itemId, transferId);
+
+        AssetTransferItem item = assetTransferItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Transfer kalemi bulunamadı: " + itemId));
+
+        if (!item.getAssetTransfer().getId().equals(transferId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Transfer kalemi belirtilen transfere ait değil");
+        }
+
+        if (transferImagesBase64 != null) {
+            item.setTransferImagesBase64(assetTransferMapper.toJsonList(transferImagesBase64));
+        }
+        if (receiveImagesBase64 != null) {
+            item.setReceiveImagesBase64(assetTransferMapper.toJsonList(receiveImagesBase64));
+        }
+
+        assetTransferItemRepository.save(item);
+
+        AssetTransfer transfer = item.getAssetTransfer();
+        log.info("Transfer item images updated successfully");
+        return assetTransferMapper.toDto(transfer);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public AssetTransfer findTransferEntityById(Long id) {
         return assetTransferRepository.findById(id)
@@ -319,12 +339,7 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         return assetTransferRepository.countTransfersByStatus();
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<Object[]> getTopSchoolsByTransferCount(LocalDateTime startDate) {
-        return assetTransferRepository.getTopSchoolsByTransferCount(startDate);
-    }
-    
+
     @Override
     @Transactional(readOnly = true)
     public Page<AssetTransferDto> getAllTransfersSortedByDate(Pageable pageable) {

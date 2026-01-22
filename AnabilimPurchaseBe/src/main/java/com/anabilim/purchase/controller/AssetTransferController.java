@@ -1,6 +1,7 @@
 package com.anabilim.purchase.controller;
 
 import com.anabilim.purchase.dto.request.CreateAssetTransferDto;
+import com.anabilim.purchase.dto.request.UpdateAssetTransferItemImagesDto;
 import com.anabilim.purchase.dto.response.AssetTransferDto;
 import com.anabilim.purchase.entity.enums.TransferStatus;
 import com.anabilim.purchase.service.AssetTransferService;
@@ -111,13 +112,7 @@ public class AssetTransferController {
         return ResponseEntity.ok(transfers);
     }
 
-    @GetMapping("/school/{schoolId}")
-    public ResponseEntity<Page<AssetTransferDto>> getTransfersBySchool(
-            @PathVariable Long schoolId,
-            Pageable pageable) {
-        Page<AssetTransferDto> transfers = assetTransferService.getTransfersBySchool(schoolId, pageable);
-        return ResponseEntity.ok(transfers);
-    }
+
 
     @GetMapping("/search")
     public ResponseEntity<Page<AssetTransferDto>> searchTransfers(
@@ -127,19 +122,7 @@ public class AssetTransferController {
         return ResponseEntity.ok(transfers);
     }
 
-    @GetMapping("/filter")
-    public ResponseEntity<Page<AssetTransferDto>> getTransfersWithFilters(
-            @RequestParam(required = false) TransferStatus status,
-            @RequestParam(required = false) Long warehouseId,
-            @RequestParam(required = false) Long schoolId,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime startDate,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime endDate,
-            Pageable pageable) {
-        
-        Page<AssetTransferDto> transfers = assetTransferService.getTransfersWithFilters(
-                status, warehouseId, schoolId, startDate, endDate, pageable);
-        return ResponseEntity.ok(transfers);
-    }
+
 
     @GetMapping("/pending")
     public ResponseEntity<List<AssetTransferDto>> getPendingTransfers() {
@@ -162,18 +145,31 @@ public class AssetTransferController {
         return ResponseEntity.ok(transfer);
     }
 
+    /**
+     * Transfer kaleminin transfer / teslim alma resimlerini günceller.
+     * - Transfer aşamasında sadece transferImagesBase64 gönderilebilir.
+     * - Teslim alma aşamasında sadece receiveImagesBase64 gönderilebilir.
+     */
+    @PutMapping("/{transferId}/items/{itemId}/images")
+    public ResponseEntity<AssetTransferDto> updateTransferItemImages(
+            @PathVariable Long transferId,
+            @PathVariable Long itemId,
+            @RequestBody UpdateAssetTransferItemImagesDto dto) {
+        AssetTransferDto transfer = assetTransferService.updateTransferItemImages(
+                transferId,
+                itemId,
+                dto.getTransferImagesBase64(),
+                dto.getReceiveImagesBase64()
+        );
+        return ResponseEntity.ok(transfer);
+    }
+
     @GetMapping("/statistics/count-by-status")
     public ResponseEntity<List<Object[]>> getTransferCountsByStatus() {
         List<Object[]> statistics = assetTransferService.getTransferCountsByStatus();
         return ResponseEntity.ok(statistics);
     }
 
-    @GetMapping("/statistics/top-schools")
-    public ResponseEntity<List<Object[]>> getTopSchoolsByTransferCount(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate) {
-        List<Object[]> statistics = assetTransferService.getTopSchoolsByTransferCount(startDate);
-        return ResponseEntity.ok(statistics);
-    }
 
     @GetMapping("/statistics/count/{status}")
     public ResponseEntity<Long> getTransferCountByStatus(@PathVariable TransferStatus status) {

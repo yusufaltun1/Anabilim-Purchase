@@ -67,11 +67,7 @@ public class SchoolMapper {
             dto.setEmployeeCount(0);
         }
         
-        if (school.getAssetTransfers() != null) {
-            dto.setTransferCount(school.getAssetTransfers().size());
-        } else {
-            dto.setTransferCount(0);
-        }
+
         
         return dto;
     }

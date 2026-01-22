@@ -16,9 +16,24 @@ public class CreateAssetTransferDto {
     
     @NotNull(message = "Kaynak depo ID'si boş olamaz")
     private Long sourceWarehouseId;
-    
-    @NotNull(message = "Hedef okul ID'si boş olamaz")
-    private Long targetSchoolId;
+
+    /**
+     * Hedef depo ID'si (artık okul yerine depo seçilecek)
+     */
+    @NotNull(message = "Hedef depo ID'si boş olamaz")
+    private Long targetWarehouseId;
+
+    /**
+     * Kendim yöneteceğim mi?
+     * true ise alıcı kullanıcı seçilmez, false ise alıcı kullanıcı zorunlu
+     */
+    private Boolean selfManaged = false;
+
+    /**
+     * Alıcı kullanıcı ID'si.
+     * selfManaged = false ise zorunlu, selfManaged = true ise boş bırakılabilir.
+     */
+    private Long receiverUserId;
     
     @Future(message = "Transfer tarihi gelecekte olmalıdır")
     private LocalDate transferDate;
@@ -50,5 +65,15 @@ public class CreateAssetTransferDto {
         
         @Size(max = 500, message = "Durum notları en fazla 500 karakter olabilir")
         private String conditionNotes; // Eşyanın durumu hakkında notlar
+
+        /**
+         * Transfer (yükleme) aşamasındaki resimler (base64 listesi)
+         */
+        private java.util.List<String> transferImagesBase64;
+
+        /**
+         * Teslim alma aşamasındaki resimler (çoğunlukla daha sonra ayrı endpoint ile güncellenecek)
+         */
+        private java.util.List<String> receiveImagesBase64;
     }
 } 
