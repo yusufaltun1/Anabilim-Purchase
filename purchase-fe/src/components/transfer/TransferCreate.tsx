@@ -220,7 +220,7 @@ const TransferCreate: React.FC = () => {
 
   const normalizeProductType = (value?: string | ProductType): ProductType | null => {
     if (!value) return null;
-    const rawValue = typeof value === 'string' ? value : value.toString();
+    const rawValue = typeof value === 'string' ? value : String(value);
     const trimmed = rawValue.trim();
     const match = (Object.values(ProductType) as string[]).find((type) => type.trim() === trimmed);
     return match ? (match as ProductType) : null;
