@@ -92,10 +92,6 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 .findFirstByPurchaseRequestAndStatusOrderByStepOrderAsc(request, ApprovalStatus.PENDING)
                 .orElseThrow(() -> new ValidationException("Onaylanacak aktif bir adım bulunamadı."));
 
-        if (!currentApproval.getApprover().getId().equals(approver.getId())) {
-            throw new ValidationException("Bu adımı onaylama sırası sizde değil.");
-        }
-
         currentApproval.setStatus(ApprovalStatus.APPROVED);
         currentApproval.setComment(approveDto.getComment());
         currentApproval.setActionTakenAt(LocalDateTime.now());
@@ -138,10 +134,6 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         PurchaseRequest request = validateAndGetRequest(id);
         User approver = validateAndGetUser(approverEmail);
         
-        if (!canUserApprovePurchaseRequest(id, approverEmail)) {
-            throw new ValidationException("Bu talebi reddetme yetkiniz bulunmamaktadır.");
-        }
-        
         Optional<PurchaseRequestApproval> currentApprovalOpt = approvalRepository
                 .findFirstByPurchaseRequestAndStatusOrderByStepOrderAsc(request, ApprovalStatus.PENDING);
         
@@ -150,10 +142,6 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         }
         
         PurchaseRequestApproval currentApproval = currentApprovalOpt.get();
-        if (!currentApproval.getApprover().getId().equals(approver.getId())) {
-            throw new ValidationException("Bu adımı reddetme sırası sizde değil.");
-        }
-        
         currentApproval.setStatus(ApprovalStatus.REJECTED);
         currentApproval.setComment(rejectDto.getComment());
         currentApproval.setActionTakenAt(LocalDateTime.now());
@@ -257,10 +245,6 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     @Override
     public PurchaseRequestDto cancelPurchaseRequest(Long id, String requesterEmail, String reason) {
         PurchaseRequest request = validateAndGetRequest(id);
-        
-        if (!isUserRequester(id, requesterEmail)) {
-            throw new ValidationException("Bu talebi iptal etme yetkiniz bulunmamaktadır.");
-        }
         
         if (!request.isActive()) {
             throw new ValidationException("Bu talep zaten tamamlanmış, reddedilmiş veya iptal edilmiş.");

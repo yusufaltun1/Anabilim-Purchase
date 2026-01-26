@@ -1,9 +1,9 @@
 import axios from 'axios';
+import { API_CONFIG } from '../config/api.config';
 import { authService } from './auth.service';
 
 export const axiosInstance = axios.create({
-  baseURL: 'https://testsatinalmaapi.anabilim.k12.tr',
-  // baseURL: 'http://localhost:8080',
+  baseURL: API_CONFIG.BASE_URL,
   headers: {
     'Content-Type': 'application/json'
   }

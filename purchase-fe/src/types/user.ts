@@ -27,7 +27,6 @@ export interface CreateUserRequest {
   manager?: {
     id: number;
   };
-  microsoft365Id?: string;
 }
 
 export interface UpdateUserRequest {
@@ -42,7 +41,6 @@ export interface UpdateUserRequest {
   manager?: {
     id: number;
   };
-  microsoft365Id?: string;
 }
 
 export interface UserResponse {

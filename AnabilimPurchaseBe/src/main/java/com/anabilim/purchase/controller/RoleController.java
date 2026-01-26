@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,7 +27,6 @@ public class RoleController {
      * Tüm rolleri getir
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('WORKFLOW_READ') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<List<RoleDto>> getAllRoles() {
         log.info("Tüm roller getiriliyor");
         List<Role> roles = roleService.getAllRoles();
@@ -42,7 +40,6 @@ public class RoleController {
      * ID'ye göre rol getir
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('WORKFLOW_READ') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<RoleDto> getRoleById(@PathVariable Long id) {
         log.info("Rol getiriliyor, ID: {}", id);
         Role role = roleService.getRoleById(id);
@@ -53,7 +50,6 @@ public class RoleController {
      * İsme göre rol getir
      */
     @GetMapping("/name/{name}")
-    @PreAuthorize("hasAuthority('WORKFLOW_READ') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<RoleDto> getRoleByName(@PathVariable String name) {
         log.info("Rol getiriliyor, isim: {}", name);
         Role role = roleService.getRoleByName(name);
@@ -64,7 +60,6 @@ public class RoleController {
      * Aktif rolleri getir
      */
     @GetMapping("/active")
-    @PreAuthorize("hasAuthority('WORKFLOW_READ') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<List<RoleDto>> getActiveRoles() {
         log.info("Aktif roller getiriliyor");
         List<Role> roles = roleService.getActiveRoles();
@@ -78,7 +73,6 @@ public class RoleController {
      * Sistem rollerini getir
      */
     @GetMapping("/system")
-    @PreAuthorize("hasAuthority('WORKFLOW_READ') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<List<RoleDto>> getSystemRoles() {
         log.info("Sistem rolleri getiriliyor");
         List<Role> roles = roleService.getSystemRoles();
@@ -92,7 +86,6 @@ public class RoleController {
      * Yeni rol oluştur
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('WORKFLOW_CREATE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<RoleDto> createRole(@RequestBody RoleDto roleDto) {
         log.info("Yeni rol oluşturuluyor: {}", roleDto.getName());
         Role role = convertToEntity(roleDto);
@@ -104,7 +97,6 @@ public class RoleController {
      * Rol güncelle
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('WORKFLOW_UPDATE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<RoleDto> updateRole(@PathVariable Long id, @RequestBody RoleDto roleDto) {
         log.info("Rol güncelleniyor, ID: {}", id);
         Role role = convertToEntity(roleDto);
@@ -117,7 +109,6 @@ public class RoleController {
      * Rol sil
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('WORKFLOW_DELETE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<Void> deleteRole(@PathVariable Long id) {
         log.info("Rol siliniyor, ID: {}", id);
         roleService.deleteRole(id);
@@ -128,7 +119,6 @@ public class RoleController {
      * Role permission ekle
      */
     @PostMapping("/{id}/permissions")
-    @PreAuthorize("hasAuthority('WORKFLOW_UPDATE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<RoleDto> addPermissionToRole(@PathVariable Long id, @RequestParam String permissionName) {
         log.info("Role permission ekleniyor, Role ID: {}, Permission: {}", id, permissionName);
         Role updatedRole = roleService.addPermissionToRole(id, permissionName);
@@ -139,7 +129,6 @@ public class RoleController {
      * Role'dan permission kaldır
      */
     @DeleteMapping("/{id}/permissions")
-    @PreAuthorize("hasAuthority('WORKFLOW_UPDATE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<RoleDto> removePermissionFromRole(@PathVariable Long id, @RequestParam String permissionName) {
         log.info("Role'dan permission kaldırılıyor, Role ID: {}, Permission: {}", id, permissionName);
         Role updatedRole = roleService.removePermissionFromRole(id, permissionName);

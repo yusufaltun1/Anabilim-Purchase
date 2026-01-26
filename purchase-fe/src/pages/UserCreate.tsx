@@ -21,7 +21,6 @@ export const UserCreate = () => {
     position: '',
     phone: '',
     roles: [],
-    microsoft365Id: '',
   });
 
   useEffect(() => {
@@ -231,20 +230,6 @@ export const UserCreate = () => {
                   onChange={handleInputChange}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="Yazılım Geliştirici, Muhasebe Uzmanı vb."
-                />
-              </div>
-
-              <div>
-                <label htmlFor="microsoft365Id" className="block text-sm font-medium text-gray-700">
-                  Microsoft 365 ID
-                </label>
-                <input
-                  type="text"
-                  id="microsoft365Id"
-                  name="microsoft365Id"
-                  value={formData.microsoft365Id}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
 

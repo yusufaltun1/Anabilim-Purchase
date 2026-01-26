@@ -11,10 +11,9 @@ import {
   TransferStatus,
   UpdateTransferRequest
 } from '../types/asset-transfer';
+import { API_CONFIG } from '../config/api.config';
 
-// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://testsatinalmaapi.anabilim.k12.tr/api';
-// const API_BASE_URL = 'http://localhost:8080/api';
-const API_BASE_URL = 'https://testsatinalmaapi.anabilim.k12.tr/api';
+const API_BASE_URL = `${API_CONFIG.BASE_URL}/api`;
 
 // Create axios instance with auth token
 const axiosInstance: AxiosInstance = axios.create({

@@ -89,14 +89,17 @@ export const UserList = () => {
     }
   };
 
+  const toSearchText = (value: unknown) => (value ?? '').toString().toLowerCase();
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+
   const filteredUsers = users.filter(user => {
     // Arama filtresi
     const matchesSearch = 
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.position.toLowerCase().includes(searchTerm.toLowerCase());
+      toSearchText(user.email).includes(normalizedSearchTerm) ||
+      toSearchText(user.firstName).includes(normalizedSearchTerm) ||
+      toSearchText(user.lastName).includes(normalizedSearchTerm) ||
+      toSearchText(user.department).includes(normalizedSearchTerm) ||
+      toSearchText(user.position).includes(normalizedSearchTerm);
     
     // Durum filtresi
     const matchesStatus = filter === 'all' || (filter === 'active' && user.isActive);
@@ -105,7 +108,7 @@ export const UserList = () => {
     const matchesDepartment = !departmentFilter || user.department === departmentFilter;
     
     // Rol filtresi
-    const matchesRole = !roleFilter || user.roles.includes(roleFilter);
+    const matchesRole = !roleFilter || (user.roles ?? []).includes(roleFilter);
     
     return matchesSearch && matchesStatus && matchesDepartment && matchesRole;
   }).sort((a, b) => {
@@ -130,8 +133,8 @@ export const UserList = () => {
     currentPage * itemsPerPage
   );
 
-  const departments = Array.from(new Set(users.map(user => user.department)));
-  const roles = Array.from(new Set(users.flatMap(user => user.roles)));
+  const departments = Array.from(new Set(users.map(user => user.department).filter(Boolean)));
+  const roles = Array.from(new Set(users.flatMap(user => user.roles ?? [])));
 
   const SortIcon = ({ field }: { field: keyof User }) => (
     <span className="ml-1">

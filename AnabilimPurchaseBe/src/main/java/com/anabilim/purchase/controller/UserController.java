@@ -8,7 +8,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -37,7 +36,6 @@ public class UserController {
      * Aktif kullanıcıları getir
      */
     @GetMapping("/active")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<List<UserDto>>> getActiveUsers() {
         log.info("Aktif kullanıcılar getiriliyor");
         List<UserDto> users = userService.getActiveUsers();
@@ -59,7 +57,6 @@ public class UserController {
      * Email'e göre kullanıcı getir
      */
     @GetMapping("/email/{email}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<UserDto>> getUserByEmail(@PathVariable String email) {
         log.info("Kullanıcı getiriliyor, email: {}", email);
         UserDto user = userService.getUserByEmail(email);
@@ -70,7 +67,6 @@ public class UserController {
      * Departmana göre kullanıcıları getir
      */
     @GetMapping("/department/{department}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<List<UserDto>>> getUsersByDepartment(@PathVariable String department) {
         log.info("Departmana göre kullanıcılar getiriliyor, departman: {}", department);
         List<UserDto> users = userService.getUsersByDepartment(department);
@@ -81,7 +77,6 @@ public class UserController {
      * Role göre kullanıcıları getir
      */
     @GetMapping("/role/{roleName}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<List<UserDto>>> getUsersByRole(@PathVariable String roleName) {
         log.info("Role göre kullanıcılar getiriliyor, rol: {}", roleName);
         List<UserDto> users = userService.getUsersByRole(roleName);
@@ -92,7 +87,6 @@ public class UserController {
      * Yöneticiye göre kullanıcıları getir
      */
     @GetMapping("/manager/{managerId}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<List<UserDto>>> getUsersByManager(@PathVariable Long managerId) {
         log.info("Yöneticiye göre kullanıcılar getiriliyor, yönetici ID: {}", managerId);
         List<UserDto> users = userService.getUsersByManager(managerId);
@@ -103,7 +97,6 @@ public class UserController {
      * Yeni kullanıcı oluştur
      */
     @PostMapping
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<UserDto>> createUser(@Valid @RequestBody UserDto userDto) {
         log.info("Yeni kullanıcı oluşturuluyor: {}", userDto.getEmail());
         UserDto createdUser = userService.createUser(userDto);
@@ -114,7 +107,6 @@ public class UserController {
      * Kullanıcı güncelle
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<UserDto>> updateUser(@PathVariable Long id, @Valid @RequestBody UserDto userDto) {
         log.info("Kullanıcı güncelleniyor, ID: {}", id);
         userDto.setId(id);
@@ -126,7 +118,6 @@ public class UserController {
      * Kullanıcı sil (soft delete)
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Long id) {
         log.info("Kullanıcı siliniyor, ID: {}", id);
         userService.deleteUser(id);
@@ -137,7 +128,6 @@ public class UserController {
      * Kullanıcıya rol ekle
      */
     @PostMapping("/{id}/roles/{roleName}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<UserDto>> addRoleToUser(@PathVariable Long id, @PathVariable String roleName) {
         log.info("Kullanıcıya rol ekleniyor, ID: {}, Rol: {}", id, roleName);
         UserDto updatedUser = userService.addRoleToUser(id, roleName);
@@ -148,7 +138,6 @@ public class UserController {
      * Kullanıcıdan rol kaldır
      */
     @DeleteMapping("/{id}/roles/{roleName}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<UserDto>> removeRoleFromUser(@PathVariable Long id, @PathVariable String roleName) {
         log.info("Kullanıcıdan rol kaldırılıyor, ID: {}, Rol: {}", id, roleName);
         UserDto updatedUser = userService.removeRoleFromUser(id, roleName);

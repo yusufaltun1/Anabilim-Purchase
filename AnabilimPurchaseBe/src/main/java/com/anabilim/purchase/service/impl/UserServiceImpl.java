@@ -122,7 +122,6 @@ public class UserServiceImpl implements UserService {
         existingUser.setPosition(userDto.getPosition());
         existingUser.setPhone(userDto.getPhone());
         existingUser.setIsActive(userDto.getIsActive());
-        existingUser.setMicrosoft365Id(userDto.getMicrosoft365Id());
 
         // Manager'ı güncelle
         if (userDto.getManager() != null && userDto.getManager().getId() != null) {
@@ -250,7 +249,6 @@ public class UserServiceImpl implements UserService {
         user.setPosition(dto.getPosition());
         user.setPhone(dto.getPhone());
         user.setIsActive(dto.getIsActive());
-        user.setMicrosoft365Id(dto.getMicrosoft365Id());
         
         // Manager'ı ayarla
         if (dto.getManager() != null && dto.getManager().getId() != null) {

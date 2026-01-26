@@ -58,10 +58,6 @@ public class NotificationServiceImpl implements NotificationService {
         User user = findUserByEmail(userEmail);
         Notification notification = findNotificationById(notificationId);
 
-        if (!notification.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Bu bildirimi düzenleme yetkiniz yok.");
-        }
-
         notification.setRead(true);
         notificationRepository.save(notification);
     }
@@ -71,10 +67,6 @@ public class NotificationServiceImpl implements NotificationService {
     public void deleteNotification(Long notificationId, String userEmail) {
         User user = findUserByEmail(userEmail);
         Notification notification = findNotificationById(notificationId);
-
-        if (!notification.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Bu bildirimi silme yetkiniz yok.");
-        }
 
         notificationRepository.delete(notification);
     }
