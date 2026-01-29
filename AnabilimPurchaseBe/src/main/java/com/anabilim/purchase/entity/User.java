@@ -55,6 +55,9 @@ public class User {
     
     @Column(name = "phone")
     private String phone;
+
+    @Column(name = "expo_push_token", columnDefinition = "TEXT")
+    private String expoPushToken;
     
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;

@@ -17,4 +17,5 @@ public interface UserService {
     void deleteUser(Long id);
     UserDto addRoleToUser(Long userId, String roleName);
     UserDto removeRoleFromUser(Long userId, String roleName);
+    void updateExpoPushToken(String userEmail, String token);
 } 

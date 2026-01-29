@@ -2,12 +2,15 @@ package com.anabilim.purchase.controller;
 
 import com.anabilim.purchase.dto.ApiResponse;
 import com.anabilim.purchase.dto.UserDto;
+import com.anabilim.purchase.dto.request.UpdateExpoPushTokenDto;
 import com.anabilim.purchase.entity.User;
 import com.anabilim.purchase.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -142,5 +145,16 @@ public class UserController {
         log.info("Kullanıcıdan rol kaldırılıyor, ID: {}, Rol: {}", id, roleName);
         UserDto updatedUser = userService.removeRoleFromUser(id, roleName);
         return ResponseEntity.ok(ApiResponse.success("Rol başarıyla kaldırıldı", updatedUser));
+    }
+
+    /**
+     * Giriş yapan kullanıcının Expo push token'ını günceller
+     */
+    @PostMapping("/me/expo-push-token")
+    public ResponseEntity<ApiResponse<Void>> updateExpoPushToken(
+            @Valid @RequestBody UpdateExpoPushTokenDto request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        userService.updateExpoPushToken(userDetails.getUsername(), request.getToken());
+        return ResponseEntity.ok(ApiResponse.success("Push token güncellendi", null));
     }
 } 

@@ -13,7 +13,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 // *** DÜZELTME BAŞLANGICI ***
 // Endpoint'ler artık Tenant ID'nizi içeriyor
-const tenantId = '3cad0dae-4bbe-4cbc-9abb-b2b3a8462fe1';
+const tenantId = '017ec079-9cf9-46f1-9a2d-e79f5de0b461';
 const discovery = {
   authorizationEndpoint: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
   tokenEndpoint: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
@@ -51,7 +51,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
 
   const [request, response, promptAsync] = useAuthRequest(
     {
-      clientId: '0fdaa90a-9f9f-4a7f-a4f5-7e1a7dffa769',
+      clientId: '7d4f3af4-febb-414e-a451-0099d9c9045f',
       scopes: ['openid', 'profile', 'email', 'offline_access'],
       redirectUri,
       responseType: 'token',

@@ -178,6 +178,14 @@ public class UserServiceImpl implements UserService {
         return convertToDto(updatedUser);
     }
 
+    @Override
+    public void updateExpoPushToken(String userEmail, String token) {
+        User user = userRepository.findByEmailAndIsActiveTrue(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Kullanıcı bulunamadı: " + userEmail));
+        user.setExpoPushToken(token);
+        userRepository.save(user);
+    }
+
     private UserDto convertToDto(User user) {
         if (user == null) {
             return null;

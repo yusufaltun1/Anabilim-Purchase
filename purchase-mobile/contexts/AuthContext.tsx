@@ -1,4 +1,5 @@
 import { authService } from '@/services/api/auth.service';
+import { registerDeviceForPushNotifications } from '@/services/notifications/push-token.service';
 import { storageService } from '@/services/storage/storage.service';
 import { AuthState, LoginRequest, UserInfo, MicrosoftLoginRequest } from '@/services/types/auth.types';
 import React, { createContext, ReactNode, useContext, useEffect, useReducer } from 'react';
@@ -126,6 +127,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           type: 'LOGIN_SUCCESS',
           payload: { user: userInfo, token, refreshToken },
         });
+        void registerDeviceForPushNotifications(token);
       } else {
         throw new Error(response.message || 'Giriş başarısız');
       }
@@ -148,6 +150,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           type: 'LOGIN_SUCCESS',
           payload: { user: userInfo, token, refreshToken },
         });
+        void registerDeviceForPushNotifications(token);
       } else {
         throw new Error(response.message || 'Microsoft ile giriş başarısız');
       }
@@ -190,6 +193,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           type: 'REFRESH_SUCCESS',
           payload: { user: userInfo, token, refreshToken },
         });
+        void registerDeviceForPushNotifications(token);
       } else {
         throw new Error(response.message || 'Token yenileme başarısız');
       }
