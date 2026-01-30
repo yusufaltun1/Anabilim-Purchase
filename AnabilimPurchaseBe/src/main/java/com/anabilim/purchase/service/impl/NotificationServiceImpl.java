@@ -11,13 +11,22 @@ import com.anabilim.purchase.repository.NotificationRepository;
 import com.anabilim.purchase.repository.UserRepository;
 import com.anabilim.purchase.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
@@ -42,6 +51,9 @@ public class NotificationServiceImpl implements NotificationService {
             // E-posta gönderimi başarısız olsa bile iş akışını bozmayalım
             // Sadece log tarafında izleyelim.
         }
+
+        // Expo Push Notification gönderimi (token varsa)
+        sendExpoPushNotification(user, message, request);
     }
 
     @Override
@@ -86,5 +98,48 @@ public class NotificationServiceImpl implements NotificationService {
     private Notification findNotificationById(Long id) {
         return notificationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bildirim bulunamadı: " + id));
+    }
+
+    private void sendExpoPushNotification(User user, String message, PurchaseRequest request) {
+        String expoPushToken = user.getExpoPushToken();
+        if (expoPushToken == null || expoPushToken.isBlank()) {
+            return;
+        }
+
+        // Expo token formatını kontrol et (yanlış token'ı sessizce yoksay)
+        if (!expoPushToken.startsWith("ExponentPushToken[")) {
+            log.warn("Expo push token formatı hatalı: {}", expoPushToken);
+            return;
+        }
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("to", expoPushToken);
+        payload.put("title", "Anabilim");
+        payload.put("body", message);
+        payload.put("sound", "default");
+
+        Map<String, Object> data = new HashMap<>();
+        if (request != null) {
+            data.put("purchaseRequestId", request.getId());
+        }
+        payload.put("data", data);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    "https://exp.host/--/api/v2/push/send",
+                    entity,
+                    String.class
+            );
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                log.warn("Expo push gönderimi başarısız: {}", response.getBody());
+            }
+        } catch (Exception e) {
+            log.warn("Expo push gönderim hatası: {}", e.getMessage());
+        }
     }
 }

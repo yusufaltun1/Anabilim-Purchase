@@ -23,9 +23,9 @@ const discovery = {
 
 // Expo Auth Proxy kullanarak stabil bir redirect URI oluştur
 const redirectUri = makeRedirectUri({
-  useProxy: true,
+  scheme: 'purchasemobile',
+  path: 'redirect',
 });
-console.log('Your new Redirect URI is: ', redirectUri);
 
 
 interface LoginFormProps {
@@ -48,6 +48,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    
+  }, []);
 
   const [request, response, promptAsync] = useAuthRequest(
     {
