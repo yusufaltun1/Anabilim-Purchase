@@ -347,6 +347,19 @@ public class AssetTransferServiceImpl implements AssetTransferService {
         return transfers.map(assetTransferMapper::toDto);
     }
     
+    @Override
+    @Transactional(readOnly = true)
+    public List<AssetTransferDto> getAssignedTransfersByUserId(Long userId) {
+        List<AssetTransfer> transfers = assetTransferRepository.findAssignedTransfersByUserId(userId);
+        return assetTransferMapper.toDtoList(transfers);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public long getAssignedTransferCountByUserId(Long userId) {
+        return assetTransferRepository.countAssignedTransfersByUserId(userId);
+    }
+    
     private String generateTransferCode() {
         return "TR-" + LocalDateTime.now().getYear() + "-" + 
                String.format("%06d", (int)(Math.random() * 1000000));

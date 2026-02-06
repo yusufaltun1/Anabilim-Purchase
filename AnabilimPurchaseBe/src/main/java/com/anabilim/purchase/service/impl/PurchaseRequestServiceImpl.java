@@ -2,6 +2,7 @@ package com.anabilim.purchase.service.impl;
 
 import com.anabilim.purchase.dto.request.ApprovePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.CreatePurchaseRequestDto;
+import com.anabilim.purchase.dto.request.UpdatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestItemsDto;
 import com.anabilim.purchase.dto.response.PurchaseRequestDto;
 import com.anabilim.purchase.entity.*;
@@ -13,6 +14,7 @@ import com.anabilim.purchase.mapper.PurchaseRequestMapper;
 import com.anabilim.purchase.repository.*;
 import com.anabilim.purchase.service.NotificationService;
 import com.anabilim.purchase.service.PurchaseRequestService;
+import com.anabilim.purchase.entity.Product;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     private final NotificationService notificationService;
     private final SupplierRepository supplierRepository; // Supplier'ı bulmak için eklendi
     private final PurchaseRequestApprovalRepository purchaseRequestApprovalRepository;
+    private final ProductRepository productRepository;
 
     @Override
     public PurchaseRequestDto createPurchaseRequest(CreatePurchaseRequestDto createDto, String requesterEmail) {
@@ -75,10 +78,11 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         approval.setStepOrder(1);
         approval.setStatus(ApprovalStatus.PENDING);
         
-        List<PurchaseRequestApproval> approvals = new ArrayList<>();
-        approvals.add(approval);
-        
-        request.setApprovals(approvals);
+        // Mevcut collection'ı kullan (yeni ArrayList oluşturma - Hibernate referansını korumak için)
+        if (request.getApprovals() == null) {
+            request.setApprovals(new ArrayList<>());
+        }
+        request.getApprovals().add(approval);
         request.setStatus(RequestStatus.IN_APPROVAL);
     }
 
@@ -285,6 +289,123 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     private PurchaseRequest validateAndGetRequest(Long id) {
         return purchaseRequestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Satın alma talebi bulunamadı: " + id));
+    }
+    
+    @Override
+    @Transactional
+    public PurchaseRequestDto resubmitPurchaseRequest(Long id, String requesterEmail) {
+        PurchaseRequest request = validateAndGetRequest(id);
+        User requester = validateAndGetUser(requesterEmail);
+        
+        // Sadece talep sahibi tekrar gönderebilir
+        if (!request.getRequester().getId().equals(requester.getId())) {
+            throw new ValidationException("Bu talebi sadece talep sahibi tekrar gönderebilir.");
+        }
+        
+        // Sadece reddedilmiş talepler tekrar gönderilebilir
+        if (request.getStatus() != RequestStatus.REJECTED) {
+            throw new ValidationException("Sadece reddedilmiş talepler tekrar gönderilebilir.");
+        }
+        
+        // Eski approval'ları repository üzerinden sil (orphan removal sorununu önlemek için)
+        List<PurchaseRequestApproval> existingApprovals = approvalRepository.findByPurchaseRequest(request);
+        if (!existingApprovals.isEmpty()) {
+            approvalRepository.deleteAll(existingApprovals);
+        }
+        
+        // Entity'yi yeniden yükle ve collection'ı temizle
+        purchaseRequestRepository.flush();
+        request = purchaseRequestRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Satın alma talebi bulunamadı: " + id));
+        
+        // Collection'ı temizle (artık boş olmalı)
+        if (request.getApprovals() != null) {
+            request.getApprovals().clear();
+        }
+        
+        // Rejection reason'ı temizle
+        request.setRejectionReason(null);
+        
+        // Yeni approval step'i oluştur
+        createInitialApprovalStep(request, requester);
+        
+        PurchaseRequest savedRequest = purchaseRequestRepository.save(request);
+        
+        // İlk onaylayıcıya bildirim gönder
+        savedRequest.getApprovals().stream()
+            .filter(approval -> approval.getStatus() == ApprovalStatus.PENDING)
+            .findFirst()
+            .ifPresent(approval -> {
+                String message = String.format("'%s' başlıklı satın alma talebi tekrar onayınızı bekliyor.", savedRequest.getTitle());
+                notificationService.createNotification(approval.getApprover(), message, savedRequest);
+            });
+        
+        // Talep sahibine bildirim gönder
+        String requesterMessage = String.format("'%s' başlıklı talebiniz tekrar onay sürecine gönderildi.", savedRequest.getTitle());
+        notificationService.createNotification(requester, requesterMessage, savedRequest);
+        
+        return purchaseRequestMapper.toDto(savedRequest);
+    }
+    
+    @Override
+    @Transactional
+    public PurchaseRequestDto updatePurchaseRequest(Long id, UpdatePurchaseRequestDto updateDto, String requesterEmail) {
+        PurchaseRequest request = validateAndGetRequest(id);
+        User requester = validateAndGetUser(requesterEmail);
+        
+        // Sadece talep sahibi güncelleyebilir
+        if (!request.getRequester().getId().equals(requester.getId())) {
+            throw new ValidationException("Bu talebi sadece talep sahibi güncelleyebilir.");
+        }
+        
+        // Sadece reddedilmiş talepler güncellenebilir
+        if (request.getStatus() != RequestStatus.REJECTED) {
+            throw new ValidationException("Sadece reddedilmiş talepler güncellenebilir.");
+        }
+        
+        // Title ve description güncelle
+        request.setTitle(updateDto.getTitle());
+        request.setDescription(updateDto.getDescription());
+        
+        // Items'ı güncelle
+        request.getItems().forEach(item -> {
+            supplierQuoteRepository.deleteAll(item.getSupplierQuotes());
+            item.getSupplierQuotes().clear();
+            item.getPotentialSuppliers().clear();
+        });
+        request.getItems().clear();
+        
+        // Yeni items'ı ekle
+        for (UpdatePurchaseRequestDto.UpdatePurchaseRequestItemDto itemDto : updateDto.getItems()) {
+            PurchaseRequestItem item = new PurchaseRequestItem();
+            item.setPurchaseRequest(request);
+            item.setProductName(itemDto.getProductName());
+            item.setDescription(itemDto.getDescription());
+            item.setImageBase64(itemDto.getImageBase64());
+            item.setProductLink(itemDto.getProductLink());
+            item.setQuantity(itemDto.getQuantity());
+            item.setNotes(itemDto.getNotes());
+            item.setEstimatedDeliveryDate(itemDto.getEstimatedDeliveryDate());
+            
+            if (itemDto.getProductId() != null) {
+                Product product = productRepository.findById(itemDto.getProductId())
+                    .orElse(null);
+                item.setProduct(product);
+            }
+            
+            if (itemDto.getPotentialSupplierIds() != null && !itemDto.getPotentialSupplierIds().isEmpty()) {
+                for (Long supplierId : itemDto.getPotentialSupplierIds()) {
+                    Supplier supplier = supplierRepository.findById(supplierId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Tedarikçi bulunamadı: " + supplierId));
+                    item.getPotentialSuppliers().add(supplier);
+                }
+            }
+            
+            request.getItems().add(item);
+        }
+        
+        PurchaseRequest updatedRequest = purchaseRequestRepository.save(request);
+        return purchaseRequestMapper.toDto(updatedRequest);
     }
     
     private User validateAndGetUser(String email) {

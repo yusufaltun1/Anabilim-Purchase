@@ -50,7 +50,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    
+    console.log('Redirect URI', redirectUri);
   }, []);
 
   const [request, response, promptAsync] = useAuthRequest(

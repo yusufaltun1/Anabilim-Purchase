@@ -1,7 +1,7 @@
 const defaultBaseUrl = __DEV__
-  ? 'https://testsatinalmaapi.anabilim.k12.tr'
+  ? 'http://localhost:8080'
   : 'https://testsatinalmaapi.anabilim.k12.tr';
-const rawBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? defaultBaseUrl;
+const rawBaseUrl = defaultBaseUrl;
 const BASE_URL = rawBaseUrl.replace(/\/$/, '');
 
 export const API_CONFIG = {

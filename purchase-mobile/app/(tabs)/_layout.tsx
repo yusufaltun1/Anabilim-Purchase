@@ -37,6 +37,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="pending-approvals"
+        options={{
+          title: 'Onay Bekleyen',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'checkmark-circle' : 'checkmark-circle-outline'} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
           title: 'Bildirimler',

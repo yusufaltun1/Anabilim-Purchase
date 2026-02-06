@@ -4,6 +4,39 @@ import { API_CONFIG, getAuthHeaders } from './api.config';
 class PurchaseService {
   private baseUrl = API_CONFIG.BASE_URL;
 
+  private normalizePagedResponse<T>(data: any, page: number, size: number) {
+    if (data && Array.isArray(data.items)) {
+      return {
+        items: data.items as T[],
+        page: data.page ?? page,
+        size: data.size ?? size,
+        totalElements: data.totalElements ?? data.items.length,
+        totalPages: data.totalPages ?? 1,
+        hasNext: data.hasNext ?? false,
+      };
+    }
+
+    if (Array.isArray(data)) {
+      return {
+        items: data as T[],
+        page,
+        size,
+        totalElements: data.length,
+        totalPages: 1,
+        hasNext: false,
+      };
+    }
+
+    return {
+      items: [] as T[],
+      page,
+      size,
+      totalElements: 0,
+      totalPages: 0,
+      hasNext: false,
+    };
+  }
+
   async createPurchaseRequest(
     requestData: CreatePurchaseRequestDto,
     token: string
@@ -51,7 +84,14 @@ class PurchaseService {
         throw new Error(`HTTP hatası! Durum: ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data && Array.isArray(data.data)) {
+        return data.data;
+      }
+      return [];
     } catch (error) {
       console.error('Taleplerim yüklenirken hata:', error);
       throw error;
@@ -89,11 +129,52 @@ class PurchaseService {
         throw new Error(`HTTP hatası! Durum: ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data && Array.isArray(data.data)) {
+        return data.data;
+      }
+      return [];
     } catch (error) {
       console.error('Bekleyen onaylar yüklenirken hata:', error);
       throw error;
     }
+  }
+
+  async getMyRequestsPage(token: string, page = 0, size = 20) {
+    const response = await fetch(
+      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.MY_REQUESTS}/paged?page=${page}&size=${size}`,
+      {
+        method: 'GET',
+        headers: getAuthHeaders(token),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP hatası! Durum: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return this.normalizePagedResponse<PurchaseRequest>(data, page, size);
+  }
+
+  async getPendingApprovalsPage(token: string, page = 0, size = 20) {
+    const response = await fetch(
+      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.PENDING_APPROVALS}/paged?page=${page}&size=${size}`,
+      {
+        method: 'GET',
+        headers: getAuthHeaders(token),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP hatası! Durum: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return this.normalizePagedResponse<PurchaseRequest>(data, page, size);
   }
 
   async approveRequest(id: number, token: string): Promise<void> {
@@ -134,6 +215,53 @@ class PurchaseService {
       }
     } catch (error) {
       console.error('Talep reddedilirken hata:', error);
+      throw error;
+    }
+  }
+
+  async resubmitRequest(id: number, token: string): Promise<PurchaseRequest> {
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.BASE}/${id}/resubmit`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP hatası! Durum: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Talep tekrar gönderilirken hata:', error);
+      throw error;
+    }
+  }
+
+  async updatePurchaseRequest(
+    id: number,
+    updateData: {
+      title: string;
+      description: string;
+      items: any[];
+    },
+    token: string
+  ): Promise<PurchaseRequest> {
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.BASE}/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP hatası! Durum: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Talep güncellenirken hata:', error);
       throw error;
     }
   }

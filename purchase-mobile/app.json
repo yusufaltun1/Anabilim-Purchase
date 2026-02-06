@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "tr.anabilim.purchase",
-      "buildNumber": "8",
+      "buildNumber": "14",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -44,7 +44,13 @@
           }
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Uygulamanın barkod taramak için kameraya erişmesine izin verin."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

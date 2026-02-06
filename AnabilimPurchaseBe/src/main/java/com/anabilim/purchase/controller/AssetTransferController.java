@@ -183,4 +183,16 @@ public class AssetTransferController {
         Page<AssetTransferDto> transfers = assetTransferService.getAllTransfersSortedByDate(pageable);
         return ResponseEntity.ok(transfers);
     }
+    
+    @GetMapping("/assigned/{userId}")
+    public ResponseEntity<List<AssetTransferDto>> getAssignedTransfers(@PathVariable Long userId) {
+        List<AssetTransferDto> transfers = assetTransferService.getAssignedTransfersByUserId(userId);
+        return ResponseEntity.ok(transfers);
+    }
+    
+    @GetMapping("/assigned/{userId}/count")
+    public ResponseEntity<Long> getAssignedTransferCount(@PathVariable Long userId) {
+        long count = assetTransferService.getAssignedTransferCountByUserId(userId);
+        return ResponseEntity.ok(count);
+    }
 } 

@@ -43,6 +43,19 @@ public interface AssetTransferRepository extends JpaRepository<AssetTransfer, Lo
     
     List<AssetTransfer> findByApprovedById(Long userId);
     
+    // Kullanıcıya atanmış transferler (teslim alması gerekenler)
+    @Query("SELECT at FROM AssetTransfer at WHERE " +
+           "(at.receivedBy.id = :userId OR at.deliveredBy.id = :userId) " +
+           "AND at.status IN ('IN_TRANSIT', 'DELIVERED', 'PREPARING', 'APPROVED', 'PENDING') " +
+           "ORDER BY at.transferDate ASC")
+    List<AssetTransfer> findAssignedTransfersByUserId(@Param("userId") Long userId);
+    
+    // Kullanıcıya atanmış transferler sayısı
+    @Query("SELECT COUNT(at) FROM AssetTransfer at WHERE " +
+           "(at.receivedBy.id = :userId OR at.deliveredBy.id = :userId) " +
+           "AND at.status IN ('IN_TRANSIT', 'DELIVERED', 'PREPARING', 'APPROVED', 'PENDING')")
+    long countAssignedTransfersByUserId(@Param("userId") Long userId);
+    
     // Kompleks sorgular
 
     

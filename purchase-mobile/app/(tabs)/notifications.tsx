@@ -15,8 +15,9 @@ export default function NotificationsScreen() {
 
   const handleNotificationPress = (notificationId: number, purchaseRequestId: number) => {
     markNotificationAsRead(notificationId);
-    // İlgili talep detay sayfasına yönlendirme (bu sayfanın var olduğunu varsayıyoruz)
-    // router.push(`/requests/${purchaseRequestId}`);
+    if (purchaseRequestId) {
+      router.push(`/request-detail/${purchaseRequestId}`);
+    }
   };
 
   const renderEmptyComponent = () => (

@@ -7,4 +7,4 @@ const BASE_URL = rawBaseUrl.replace(/\/$/, '');
 
 export const API_CONFIG = {
   BASE_URL,
-};
+}; 

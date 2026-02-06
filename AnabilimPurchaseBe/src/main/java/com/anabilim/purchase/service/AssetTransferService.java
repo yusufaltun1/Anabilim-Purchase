@@ -64,4 +64,9 @@ public interface AssetTransferService {
     List<Object[]> getTransferCountsByStatus();
 
     Page<AssetTransferDto> getAllTransfersSortedByDate(Pageable pageable);
+    
+    // Kullanıcıya atanmış transferler
+    List<AssetTransferDto> getAssignedTransfersByUserId(Long userId);
+    
+    long getAssignedTransferCountByUserId(Long userId);
 } 

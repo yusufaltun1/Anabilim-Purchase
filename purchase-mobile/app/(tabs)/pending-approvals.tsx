@@ -4,21 +4,21 @@ import { Stack, useRouter } from 'expo-router';
 import { RequestList } from '@/components/requests/RequestList';
 import { purchaseService } from '@/services/api/purchase.service';
 
-export default function MyRequestsScreen() {
+export default function PendingApprovalsScreen() {
   const router = useRouter();
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: 'Taleplerim',
+          title: 'Onay Bekleyenler',
           headerBackTitleVisible: false,
         }}
       />
       <RequestList
-        listKey="my"
-        fetchFunction={purchaseService.getMyRequests}
-        onNav={(id) => router.push(`/request-detail/${id}`)}
+        listKey="pending"
+        fetchFunction={purchaseService.getPendingApprovals}
+        onNav={(id) => router.push(`/approval-detail/${id}`)}
       />
     </>
   );

@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 import { notificationService } from '@/services/api/notification.service';
 import { Notification } from '@/services/types/notification.types';
 import { useAuth } from './AuthContext';
@@ -45,6 +47,23 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       return () => clearInterval(interval);
     }
   }, [isAuthenticated, fetchNotifications]);
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as {
+        purchaseRequestId?: number | string;
+      };
+
+      if (data?.purchaseRequestId) {
+        router.push(`/request-detail/${data.purchaseRequestId}`);
+        return;
+      }
+
+      router.push('/(tabs)/notifications');
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   const markNotificationAsRead = async (notificationId: number) => {
     if (!token) return;

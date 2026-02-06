@@ -33,15 +33,22 @@ public class ProductServiceImpl implements ProductService {
     
     @Override
     public ProductDto createProduct(CreateProductDto createDto) {
-        if (productRepository.existsByCode(createDto.getCode())) {
-            throw new ValidationException("Bu kod ile zaten bir ürün mevcut: " + createDto.getCode());
-        }
-        
         Category category = categoryRepository.findById(createDto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı: " + createDto.getCategoryId()));
         
         Product product = productMapper.toEntity(createDto);
         product.setCategory(category);
+        
+        // Ürün kodu otomatik oluştur (eğer boşsa)
+        if (createDto.getCode() == null || createDto.getCode().trim().isEmpty()) {
+            String generatedCode = generateProductCode(createDto.getName(), category);
+            product.setCode(generatedCode);
+        } else {
+            // Manuel kod girilmişse kontrol et
+            if (productRepository.existsByCode(createDto.getCode())) {
+                throw new ValidationException("Bu kod ile zaten bir ürün mevcut: " + createDto.getCode());
+            }
+        }
         
         if (createDto.getSupplierIds() != null && !createDto.getSupplierIds().isEmpty()) {
             Set<Supplier> suppliers = new HashSet<>();
@@ -55,6 +62,41 @@ public class ProductServiceImpl implements ProductService {
         
         product = productRepository.save(product);
         return productMapper.toDto(product);
+    }
+    
+    /**
+     * Ürün kodu otomatik oluşturma metodu
+     * Format: KATEGORI_KODU-URUN_ADI_BAS_HARFLERI-SAYI
+     */
+    private String generateProductCode(String productName, Category category) {
+        String categoryCode = category.getCode() != null ? category.getCode().toUpperCase() : "PRD";
+        
+        // Ürün adından ilk harfleri al (maksimum 5 karakter)
+        String namePrefix = "PRD";
+        if (productName != null && !productName.trim().isEmpty()) {
+            String cleanedName = productName.trim().toUpperCase().replaceAll("[^A-Z0-9]", "");
+            if (!cleanedName.isEmpty()) {
+                int length = Math.min(5, cleanedName.length());
+                namePrefix = cleanedName.substring(0, length);
+            }
+        }
+        
+        // Benzersiz kod oluştur
+        String baseCode = categoryCode + "-" + namePrefix;
+        String finalCode = baseCode;
+        int counter = 1;
+        
+        while (productRepository.existsByCode(finalCode)) {
+            finalCode = baseCode + "-" + counter;
+            counter++;
+            // Sonsuz döngüyü önlemek için maksimum deneme sayısı
+            if (counter > 9999) {
+                finalCode = baseCode + "-" + System.currentTimeMillis();
+                break;
+            }
+        }
+        
+        return finalCode;
     }
     
     @Override

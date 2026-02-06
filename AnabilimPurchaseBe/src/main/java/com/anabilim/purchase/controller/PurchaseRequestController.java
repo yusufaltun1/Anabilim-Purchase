@@ -2,6 +2,7 @@ package com.anabilim.purchase.controller;
 
 import com.anabilim.purchase.dto.request.ApprovePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.CreatePurchaseRequestDto;
+import com.anabilim.purchase.dto.request.UpdatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestItemsDto;
 import com.anabilim.purchase.dto.response.PurchaseRequestDto;
 import com.anabilim.purchase.entity.enums.RequestStatus;
@@ -97,6 +98,15 @@ public class PurchaseRequestController {
         return ResponseEntity.ok(purchaseRequestService.updatePurchaseRequestItems(id, itemsDto));
     }
     
+    @PutMapping("/{id}")
+    public ResponseEntity<PurchaseRequestDto> updatePurchaseRequest(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdatePurchaseRequestDto updateDto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(purchaseRequestService.updatePurchaseRequest(
+                id, updateDto, userDetails.getUsername()));
+    }
+    
     @PostMapping("/{id}/cancel")
     public ResponseEntity<PurchaseRequestDto> cancelPurchaseRequest(
             @PathVariable Long id,
@@ -104,5 +114,13 @@ public class PurchaseRequestController {
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(purchaseRequestService.cancelPurchaseRequest(
                 id, userDetails.getUsername(), reason));
+    }
+    
+    @PostMapping("/{id}/resubmit")
+    public ResponseEntity<PurchaseRequestDto> resubmitPurchaseRequest(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(purchaseRequestService.resubmitPurchaseRequest(
+                id, userDetails.getUsername()));
     }
 } 

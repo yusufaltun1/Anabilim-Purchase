@@ -2,6 +2,7 @@ package com.anabilim.purchase.service;
 
 import com.anabilim.purchase.dto.request.ApprovePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.CreatePurchaseRequestDto;
+import com.anabilim.purchase.dto.request.UpdatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestItemsDto;
 import com.anabilim.purchase.dto.response.PurchaseRequestDto;
 import com.anabilim.purchase.entity.enums.RequestStatus;
@@ -29,8 +30,14 @@ public interface PurchaseRequestService {
     // Ürün işlemleri
     PurchaseRequestDto updatePurchaseRequestItems(Long id, UpdatePurchaseRequestItemsDto itemsDto);
     
+    // Talep güncelleme (sadece reddedilmiş talepler için)
+    PurchaseRequestDto updatePurchaseRequest(Long id, UpdatePurchaseRequestDto updateDto, String requesterEmail);
+    
     // İptal işlemleri
     PurchaseRequestDto cancelPurchaseRequest(Long id, String requesterEmail, String reason);
+    
+    // Tekrar onaya gönderme
+    PurchaseRequestDto resubmitPurchaseRequest(Long id, String requesterEmail);
     
     // Diğer işlemler
     boolean canUserApprovePurchaseRequest(Long requestId, String userEmail);
