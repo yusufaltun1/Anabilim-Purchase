@@ -1,21 +1,66 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { ProductLabelPrint } from '../components/ProductLabelPrint';
 import { productService } from '../services/product.service';
-import { Product, PRODUCT_TYPE_LABELS } from '../types/product';
+import { categoryService } from '../services/category.service';
+import { Product, PRODUCT_TYPE_LABELS, ProductType } from '../types/product';
+import { Category } from '../types/category';
+
+interface Filters {
+  search: string;
+  categoryId: number | null;
+  productType: ProductType | 'ALL';
+  activeStatus: 'ALL' | 'ACTIVE' | 'INACTIVE';
+  minPrice: string;
+  maxPrice: string;
+  unitOfMeasure: string;
+  sortBy: 'name' | 'code' | 'price' | 'createdAt';
+  sortOrder: 'asc' | 'desc';
+}
 
 export const ProductList = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [printingProduct, setPrintingProduct] = useState<Product | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  
+  const [filters, setFilters] = useState<Filters>({
+    search: '',
+    categoryId: null,
+    productType: 'ALL',
+    activeStatus: 'ALL',
+    minPrice: '',
+    maxPrice: '',
+    unitOfMeasure: '',
+    sortBy: 'name',
+    sortOrder: 'asc',
+  });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
+
+  const loadCategories = async () => {
+    try {
+      const response = await categoryService.getActiveCategories();
+      if (response.success) {
+        const categoriesData = Array.isArray(response.data) ? response.data : [response.data];
+        setCategories(categoriesData);
+      }
+    } catch (err) {
+      console.error('Error loading categories:', err);
+    }
+  };
 
   const loadProducts = async () => {
     try {
@@ -26,6 +71,7 @@ export const ProductList = () => {
       if (response.success && response.data) {
         const productsData = Array.isArray(response.data) ? response.data : [response.data];
         console.log('Loaded products:', productsData);
+        setAllProducts(productsData);
         setProducts(productsData);
       } else {
         setError(response.message);
@@ -36,6 +82,136 @@ export const ProductList = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Filtreleme ve sıralama
+  const filteredAndSortedProducts = useMemo(() => {
+    let filtered = [...allProducts];
+
+    // Arama filtresi
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchLower) ||
+          p.code.toLowerCase().includes(searchLower) ||
+          (p.description && p.description.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Kategori filtresi
+    if (filters.categoryId) {
+      filtered = filtered.filter((p) => p.category?.id === filters.categoryId);
+    }
+
+    // Ürün tipi filtresi
+    if (filters.productType !== 'ALL') {
+      filtered = filtered.filter((p) => p.productType === filters.productType);
+    }
+
+    // Aktif/Pasif filtresi
+    if (filters.activeStatus !== 'ALL') {
+      filtered = filtered.filter((p) => {
+        const isActive = p.active !== undefined ? p.active : p.isActive !== false;
+        return filters.activeStatus === 'ACTIVE' ? isActive : !isActive;
+      });
+    }
+
+    // Fiyat aralığı filtresi
+    if (filters.minPrice) {
+      const minPrice = parseFloat(filters.minPrice);
+      filtered = filtered.filter((p) => (p.estimatedUnitPrice || 0) >= minPrice);
+    }
+    if (filters.maxPrice) {
+      const maxPrice = parseFloat(filters.maxPrice);
+      filtered = filtered.filter((p) => (p.estimatedUnitPrice || 0) <= maxPrice);
+    }
+
+    // Birim filtresi
+    if (filters.unitOfMeasure) {
+      filtered = filtered.filter((p) => p.unitOfMeasure === filters.unitOfMeasure);
+    }
+
+    // Sıralama
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      switch (filters.sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name, 'tr');
+          break;
+        case 'code':
+          comparison = a.code.localeCompare(b.code, 'tr');
+          break;
+        case 'price':
+          comparison = (a.estimatedUnitPrice || 0) - (b.estimatedUnitPrice || 0);
+          break;
+        case 'createdAt':
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          comparison = dateA - dateB;
+          break;
+      }
+      return filters.sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+  }, [allProducts, filters]);
+
+  // Pagination hesaplamaları
+  const totalPages = Math.ceil(filteredAndSortedProducts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedProducts = filteredAndSortedProducts.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setProducts(paginatedProducts);
+  }, [startIndex, endIndex, filteredAndSortedProducts.length]);
+
+  useEffect(() => {
+    // Sayfa değiştiğinde veya filtre değiştiğinde ilk sayfaya dön
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (value: number) => {
+    setItemsPerPage(value);
+    setCurrentPage(1);
+  };
+
+  const handleFilterChange = (key: keyof Filters, value: any) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      search: '',
+      categoryId: null,
+      productType: 'ALL',
+      activeStatus: 'ALL',
+      minPrice: '',
+      maxPrice: '',
+      unitOfMeasure: '',
+      sortBy: 'name',
+      sortOrder: 'asc',
+    });
+  };
+
+  const hasActiveFilters = () => {
+    return (
+      filters.search !== '' ||
+      filters.categoryId !== null ||
+      filters.productType !== 'ALL' ||
+      filters.activeStatus !== 'ALL' ||
+      filters.minPrice !== '' ||
+      filters.maxPrice !== '' ||
+      filters.unitOfMeasure !== ''
+    );
   };
 
   const handleDelete = async (id: number) => {
@@ -77,13 +253,312 @@ export const ProductList = () => {
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-900">Ürünler</h1>
-            <button
-              onClick={() => navigate('/products/create')}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Yeni Ürün
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`px-4 py-2 border rounded-md shadow-sm text-sm font-medium ${
+                  showFilters || hasActiveFilters()
+                    ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  Filtrele
+                  {hasActiveFilters() && (
+                    <span className="bg-indigo-600 text-white rounded-full px-2 py-0.5 text-xs">
+                      {[
+                        filters.search && 1,
+                        filters.categoryId && 1,
+                        filters.productType !== 'ALL' && 1,
+                        filters.activeStatus !== 'ALL' && 1,
+                        filters.minPrice && 1,
+                        filters.maxPrice && 1,
+                        filters.unitOfMeasure && 1,
+                      ].filter(Boolean).length}
+                    </span>
+                  )}
+                </span>
+              </button>
+              <button
+                onClick={() => navigate('/products/create')}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Yeni Ürün
+              </button>
+            </div>
           </div>
+
+          {/* Filtre Paneli */}
+          {showFilters && (
+            <div className="mb-6 bg-white shadow rounded-lg p-6 border border-gray-200">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Filtreler</h2>
+                <div className="flex gap-2">
+                  {hasActiveFilters() && (
+                    <button
+                      onClick={resetFilters}
+                      className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                    >
+                      Filtreleri Temizle
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowFilters(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {/* Arama */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Arama</label>
+                  <input
+                    type="text"
+                    placeholder="Ürün adı, kod..."
+                    value={filters.search}
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+
+                {/* Kategori */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                  <select
+                    value={filters.categoryId || ''}
+                    onChange={(e) => handleFilterChange('categoryId', e.target.value ? parseInt(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">Tümü</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Ürün Tipi */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ürün Tipi</label>
+                  <select
+                    value={filters.productType}
+                    onChange={(e) => handleFilterChange('productType', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="ALL">Tümü</option>
+                    <option value={ProductType.CONSUMABLE}>Sarf Malzemesi</option>
+                    <option value={ProductType.SEMI_FIXED_ASSET}>Yarı Sabit Kıymet</option>
+                    <option value={ProductType.FIXED_ASSET}>Sabit Kıymet</option>
+                  </select>
+                </div>
+
+                {/* Aktif/Pasif */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Durum</label>
+                  <select
+                    value={filters.activeStatus}
+                    onChange={(e) => handleFilterChange('activeStatus', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="ALL">Tümü</option>
+                    <option value="ACTIVE">Aktif</option>
+                    <option value="INACTIVE">Pasif</option>
+                  </select>
+                </div>
+
+                {/* Min Fiyat */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Min. Fiyat (₺)</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={filters.minPrice}
+                    onChange={(e) => handleFilterChange('minPrice', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+
+                {/* Max Fiyat */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max. Fiyat (₺)</label>
+                  <input
+                    type="number"
+                    placeholder="∞"
+                    value={filters.maxPrice}
+                    onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+
+                {/* Birim */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Birim</label>
+                  <select
+                    value={filters.unitOfMeasure}
+                    onChange={(e) => handleFilterChange('unitOfMeasure', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">Tümü</option>
+                    <option value="PIECE">Adet</option>
+                    <option value="METER">Metre</option>
+                    <option value="LITER">Litre</option>
+                    <option value="KILOGRAM">Kilogram</option>
+                    <option value="BOX">Kutu</option>
+                    <option value="PACKAGE">Paket</option>
+                    <option value="SET">Takım</option>
+                    <option value="PAIR">Çift</option>
+                  </select>
+                </div>
+
+                {/* Sıralama */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sırala</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={filters.sortBy}
+                      onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="name">Ad</option>
+                      <option value="code">Kod</option>
+                      <option value="price">Fiyat</option>
+                      <option value="createdAt">Tarih</option>
+                    </select>
+                    <button
+                      onClick={() => handleFilterChange('sortOrder', filters.sortOrder === 'asc' ? 'desc' : 'asc')}
+                      className="px-3 py-2 border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      title={filters.sortOrder === 'asc' ? 'Artan' : 'Azalan'}
+                    >
+                      {filters.sortOrder === 'asc' ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sonuç Sayısı ve Sayfa Başına Öğe */}
+              <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
+                <p className="text-sm text-gray-600">
+                  <span className="font-semibold">{filteredAndSortedProducts.length}</span> ürün bulundu
+                  {hasActiveFilters() && (
+                    <span className="ml-2 text-indigo-600">
+                      ({allProducts.length} toplam üründen)
+                    </span>
+                  )}
+                </p>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600">Sayfa başına:</label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                    className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 bg-white shadow rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-700">
+                    Sayfa <span className="font-semibold">{currentPage}</span> / <span className="font-semibold">{totalPages}</span>
+                    {' '}({startIndex + 1}-{Math.min(endIndex, filteredAndSortedProducts.length)} / {filteredAndSortedProducts.length})
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border-t border-b border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  
+                  {/* Sayfa Numaraları */}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`px-4 py-2 text-sm font-medium border border-gray-300 ${
+                          currentPage === pageNum
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border-t border-b border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
@@ -106,7 +581,7 @@ export const ProductList = () => {
             </div>
           ) : products.length === 0 ? (
             <div className="bg-white shadow rounded-lg p-6 text-center text-gray-500">
-              Henüz hiç ürün bulunmuyor.
+              {hasActiveFilters() ? 'Filtre kriterlerinize uygun ürün bulunamadı.' : 'Henüz hiç ürün bulunmuyor.'}
             </div>
           ) : (
             <div className="bg-white shadow overflow-hidden sm:rounded-md">

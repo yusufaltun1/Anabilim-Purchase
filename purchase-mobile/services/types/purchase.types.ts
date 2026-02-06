@@ -30,18 +30,37 @@ export interface CreatePurchaseRequestDto {
   items: Omit<PurchaseRequestItem, 'id' | 'potentialSuppliers' | 'supplierQuotes' | 'selectedSupplierId' | 'createdAt' | 'updatedAt'>[];
 }
 
+export interface PurchaseRequestApproval {
+  id: number;
+  approver: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  roleName: string;
+  stepOrder: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  comment?: string;
+  createdAt: string;
+  updatedAt: string;
+  actionTakenAt?: string;
+}
+
 export interface PurchaseRequest {
   id: number;
   title: string;
   description: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'IN_APPROVAL';
   requester: {
     id: number;
     fullName: string;
     email: string;
+    firstName?: string;
+    lastName?: string;
   };
   items: PurchaseRequestItem[];
-  approvals: any[];
+  approvals: PurchaseRequestApproval[];
   createdAt: string;
   updatedAt: string;
   completedAt?: string;

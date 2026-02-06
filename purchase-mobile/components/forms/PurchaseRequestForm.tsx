@@ -7,30 +7,61 @@ import { AppColors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { purchaseService } from '@/services/api/purchase.service';
-import { CreatePurchaseRequestDto, PurchaseRequestItem } from '@/services/types/purchase.types';
+import { CreatePurchaseRequestDto, PurchaseRequest, PurchaseRequestItem } from '@/services/types/purchase.types';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface PurchaseRequestFormProps {
   onSuccess?: (request: any) => void;
   onCancel?: () => void;
+  initialData?: PurchaseRequest; // Edit modu için
+  requestId?: number; // Edit modu için
 }
 
 export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
   onSuccess,
   onCancel,
+  initialData,
+  requestId,
 }) => {
   const { token } = useAuth();
   const colorScheme = useColorScheme();
   const colors = AppColors[colorScheme ?? 'light'];
+  const isEditMode = !!initialData && !!requestId;
 
   const [formData, setFormData] = useState<CreatePurchaseRequestDto>({
-    title: '',
-    description: '',
-    items: [],
+    title: initialData?.title || '',
+    description: initialData?.description || '',
+    items: initialData?.items?.map(item => ({
+      productName: item.productName || '',
+      description: item.description || '',
+      quantity: item.quantity || 1,
+      imageUrl: item.imageBase64 || '',
+      productLink: item.productLink || '',
+      estimatedDeliveryDate: item.estimatedDeliveryDate || '',
+      notes: item.notes || '',
+    })) || [],
   });
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        title: initialData.title || '',
+        description: initialData.description || '',
+        items: initialData.items?.map(item => ({
+          productName: item.productName || '',
+          description: item.description || '',
+          quantity: item.quantity || 1,
+          imageUrl: item.imageBase64 || '',
+          productLink: item.productLink || '',
+          estimatedDeliveryDate: item.estimatedDeliveryDate || '',
+          notes: item.notes || '',
+        })) || [],
+      });
+    }
+  }, [initialData]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState<{ itemIndex: number; show: boolean }>({
@@ -189,21 +220,48 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
 
     try {
       setIsSubmitting(true);
-      const response = await purchaseService.createPurchaseRequest(formData, token);
       
-      // Response başarılı ise (success true veya data varsa)
-      if (response.success || response.data) {
-        Alert.alert('Başarılı', response.message || 'Talep başarıyla oluşturuldu', [
-          { text: 'Tamam', onPress: () => onSuccess?.(response.data) }
+      if (isEditMode && requestId) {
+        // Edit modu - güncelleme
+        const updateData = {
+          title: formData.title,
+          description: formData.description,
+          items: formData.items.map(item => ({
+            id: null, // Yeni item için null
+            productName: item.productName,
+            description: item.description,
+            quantity: item.quantity,
+            imageBase64: item.imageUrl,
+            productLink: item.productLink,
+            estimatedDeliveryDate: item.estimatedDeliveryDate,
+            notes: item.notes,
+            potentialSupplierIds: [],
+            productId: null,
+          })),
+        };
+        
+        const updatedRequest = await purchaseService.updatePurchaseRequest(requestId, updateData, token);
+        Alert.alert('Başarılı', 'Talep başarıyla güncellendi', [
+          { text: 'Tamam', onPress: () => onSuccess?.(updatedRequest) }
         ]);
       } else {
-        throw new Error(response.message || 'Talep oluşturulamadı');
+        // Create modu - oluşturma
+        const response = await purchaseService.createPurchaseRequest(formData, token);
+        
+        // Response başarılı ise (success true veya data varsa)
+        if (response.success || response.data) {
+          Alert.alert('Başarılı', response.message || 'Talep başarıyla oluşturuldu', [
+            { text: 'Tamam', onPress: () => onSuccess?.(response.data) }
+          ]);
+        } else {
+          throw new Error(response.message || 'Talep oluşturulamadı');
+        }
       }
     } catch (error) {
       console.error('Submit error:', error);
       Alert.alert(
         'Hata',
-        error instanceof Error ? error.message : 'Talep oluşturulurken bir hata oluştu'
+        error instanceof Error ? error.message : (isEditMode ? 'Talep güncellenirken bir hata oluştu' : 'Talep oluşturulurken bir hata oluştu')
       );
     } finally {
       setIsSubmitting(false);
@@ -375,7 +433,7 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
             style={styles.cancelButton}
           />
           <Button
-            title="Talep Oluştur"
+            title={isEditMode ? 'Güncelle' : 'Talep Oluştur'}
             onPress={handleSubmit}
             loading={isSubmitting}
             disabled={isSubmitting}
