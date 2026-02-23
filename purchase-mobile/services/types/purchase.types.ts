@@ -13,6 +13,7 @@ export interface PurchaseRequestItem {
   description?: string;
   quantity: number;
   imageUrl?: string;
+  imageBase64?: string;
   productLink?: string;
   potentialSupplierIds?: number[];
   potentialSuppliers?: Supplier[];
@@ -24,10 +25,23 @@ export interface PurchaseRequestItem {
   updatedAt?: string;
 }
 
+export interface ParentApproverCandidate {
+  userId: number | null;
+  userName: string;
+  groupName: string;
+}
+
+export interface SendDownCandidate {
+  userId: number;
+  userName: string;
+  label: string;
+}
+
 export interface CreatePurchaseRequestDto {
   title: string;
   description: string;
   items: Omit<PurchaseRequestItem, 'id' | 'potentialSuppliers' | 'supplierQuotes' | 'selectedSupplierId' | 'createdAt' | 'updatedAt'>[];
+  firstApproverUserId?: number | null;
 }
 
 export interface PurchaseRequestApproval {
@@ -66,6 +80,9 @@ export interface PurchaseRequest {
   completedAt?: string;
   cancelledAt?: string;
   rejectionReason?: string;
+  nextApproverCandidates?: ParentApproverCandidate[];
+  hasNoNextApprover?: boolean;
+  sendDownCandidates?: SendDownCandidate[];
 }
 
 export interface CreatePurchaseRequestResponse {

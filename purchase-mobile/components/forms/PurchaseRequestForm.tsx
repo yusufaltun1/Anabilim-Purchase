@@ -7,11 +7,12 @@ import { AppColors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { purchaseService } from '@/services/api/purchase.service';
-import { CreatePurchaseRequestDto, PurchaseRequest, PurchaseRequestItem } from '@/services/types/purchase.types';
+import { CreatePurchaseRequestDto, ParentApproverCandidate, PurchaseRequest, PurchaseRequestItem } from '@/services/types/purchase.types';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 
 interface PurchaseRequestFormProps {
   onSuccess?: (request: any) => void;
@@ -63,11 +64,24 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
     }
   }, [initialData]);
 
+  useEffect(() => {
+    if (!isEditMode && token) {
+      purchaseService.getFirstApproverCandidates(token).then((list) => {
+        setFirstApproverCandidates(list);
+        const selectable = list.filter((c) => c.userId != null);
+        if (selectable.length === 1) setFirstApproverUserId(selectable[0].userId!);
+      }).catch(() => setFirstApproverCandidates([]));
+    }
+  }, [isEditMode, token]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState<{ itemIndex: number; show: boolean }>({
     itemIndex: -1,
     show: false,
   });
+  const [firstApproverCandidates, setFirstApproverCandidates] = useState<ParentApproverCandidate[]>([]);
+  const [firstApproverUserId, setFirstApproverUserId] = useState<number | ''>('');
+  const [firstApproverPickVisible, setFirstApproverPickVisible] = useState(false);
 
   const addNewItem = () => {
     const newItem: Omit<PurchaseRequestItem, 'id' | 'potentialSuppliers' | 'supplierQuotes' | 'selectedSupplierId' | 'createdAt' | 'updatedAt'> = {
@@ -215,9 +229,13 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
     }
   };
 
+  const selectableFirstApprovers = firstApproverCandidates.filter((c) => c.userId != null);
   const handleSubmit = async () => {
     if (!validateForm() || !token) return;
-
+    if (!isEditMode && selectableFirstApprovers.length > 1 && (firstApproverUserId === '' || firstApproverUserId == null)) {
+      Alert.alert('Uyarı', 'Lütfen talebin gideceği ilk onaycıyı seçin.');
+      return;
+    }
     try {
       setIsSubmitting(true);
       
@@ -246,7 +264,13 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
         ]);
       } else {
         // Create modu - oluşturma
-        const response = await purchaseService.createPurchaseRequest(formData, token);
+        const createPayload: CreatePurchaseRequestDto = {
+          ...formData,
+          firstApproverUserId: selectableFirstApprovers.length >= 1
+            ? (firstApproverUserId === '' ? (selectableFirstApprovers[0].userId ?? undefined) : firstApproverUserId)
+            : undefined,
+        };
+        const response = await purchaseService.createPurchaseRequest(createPayload, token);
         
         // Response başarılı ise (success true veya data varsa)
         if (response.success || response.data) {
@@ -293,6 +317,31 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
             multiline
             numberOfLines={3}
           />
+
+          {!isEditMode && firstApproverCandidates.length > 0 && (
+            <View style={styles.firstApproverSection}>
+              <ThemedText style={styles.inputLabel}>Talebin gideceği ilk onaycı</ThemedText>
+              <TouchableOpacity
+                style={[styles.pickerTouch, { borderColor: colors.border }]}
+                onPress={() => setFirstApproverPickVisible(true)}
+                disabled={selectableFirstApprovers.length <= 1}
+              >
+                <ThemedText style={{ color: colors.text }}>
+                  {selectableFirstApprovers.length <= 1 && selectableFirstApprovers[0]
+                    ? `${selectableFirstApprovers[0].userName} (${selectableFirstApprovers[0].groupName})`
+                    : firstApproverUserId
+                      ? firstApproverCandidates.find((c) => c.userId === firstApproverUserId)
+                        ? `${firstApproverCandidates.find((c) => c.userId === firstApproverUserId)!.userName} (${firstApproverCandidates.find((c) => c.userId === firstApproverUserId)!.groupName})`
+                        : 'Seçin'
+                      : '— Seçin —'}
+                </ThemedText>
+                <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+              {selectableFirstApprovers.length <= 1 && (
+                <ThemedText style={[styles.hint, { color: colors.textSecondary }]}>Tek üst grubunuz var; talep bu kişiye iletilecek.</ThemedText>
+              )}
+            </View>
+          )}
         </Card>
 
         {/* Ürünler */}
@@ -436,7 +485,7 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
             title={isEditMode ? 'Güncelle' : 'Talep Oluştur'}
             onPress={handleSubmit}
             loading={isSubmitting}
-            disabled={isSubmitting}
+            disabled={isSubmitting || (!isEditMode && selectableFirstApprovers.length > 1 && (firstApproverUserId === '' || firstApproverUserId == null))}
             style={styles.submitButton}
           />
         </View>
@@ -498,6 +547,37 @@ export const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({
           </View>
         </Modal>
       )}
+
+      {/* İlk onaycı seçim modal */}
+      <Modal visible={firstApproverPickVisible} transparent animationType="slide">
+        <TouchableOpacity style={styles.pickerModalOverlay} activeOpacity={1} onPress={() => setFirstApproverPickVisible(false)}>
+          <View style={[styles.pickerModalContent, { backgroundColor: colors.background }]}>
+            <FlatList
+              data={firstApproverCandidates}
+              keyExtractor={(item) => (item.userId != null ? `u-${item.userId}` : `g-${item.groupName}`)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.pickerItem, item.userId == null && styles.pickerItemDisabled]}
+                  onPress={() => {
+                    if (item.userId != null) {
+                      setFirstApproverUserId(item.userId);
+                      setFirstApproverPickVisible(false);
+                    }
+                  }}
+                  disabled={item.userId == null}
+                >
+                  <ThemedText style={[styles.pickerItemText, item.userId == null && { color: colors.textSecondary }]}>
+                    {item.userId != null ? `${item.userName} (${item.groupName})` : item.userName}
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={[styles.pickerCancel, { borderColor: colors.border }]} onPress={() => setFirstApproverPickVisible(false)}>
+              <ThemedText style={[styles.pickerCancelText, { color: colors.text }]}>İptal</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 };
@@ -651,5 +731,60 @@ const styles = StyleSheet.create({
   removeFileText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  firstApproverSection: {
+    marginTop: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  pickerTouch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 44,
+  },
+  hint: {
+    fontSize: 12,
+    marginTop: 6,
+  },
+  pickerModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  pickerModalContent: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+    maxHeight: '50%',
+  },
+  pickerItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  pickerItemDisabled: {
+    opacity: 0.6,
+  },
+  pickerItemText: {
+    fontSize: 16,
+  },
+  pickerCancel: {
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  pickerCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

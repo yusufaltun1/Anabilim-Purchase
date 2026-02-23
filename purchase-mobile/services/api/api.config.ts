@@ -14,6 +14,7 @@ export const API_CONFIG = {
       BASE: '/api/purchase-requests',
       MY_REQUESTS: '/api/purchase-requests/my-requests',
       PENDING_APPROVALS: '/api/purchase-requests/pending-approvals',
+      FIRST_APPROVER_CANDIDATES: '/api/purchase-requests/first-approver-candidates',
       APPROVE: (id: number) => `/api/purchase-requests/${id}/approve`,
       REJECT: (id: number) => `/api/purchase-requests/${id}/reject`,
       DETAIL: (id: number) => `/api/purchase-requests/${id}`,

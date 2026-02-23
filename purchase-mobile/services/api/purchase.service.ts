@@ -1,4 +1,4 @@
-import { CreatePurchaseRequestDto, CreatePurchaseRequestResponse, PurchaseRequest } from '../types/purchase.types';
+import { CreatePurchaseRequestDto, CreatePurchaseRequestResponse, ParentApproverCandidate, PurchaseRequest } from '../types/purchase.types';
 import { API_CONFIG, getAuthHeaders } from './api.config';
 
 class PurchaseService {
@@ -116,6 +116,24 @@ class PurchaseService {
     }
   }
 
+  async getFirstApproverCandidates(token: string): Promise<ParentApproverCandidate[]> {
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.FIRST_APPROVER_CANDIDATES}`, {
+        method: 'GET',
+        headers: getAuthHeaders(token),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP hatası! Durum: ${response.status}`);
+      }
+      const data = await response.json();
+      return Array.isArray(data) ? data : data?.data ?? [];
+    } catch (error) {
+      console.error('İlk onaycı adayları yüklenirken hata:', error);
+      throw error;
+    }
+  }
+
   async getPendingApprovals(token: string): Promise<PurchaseRequest[]> {
     try {
       console.log(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.PENDING_APPROVALS}`);
@@ -177,20 +195,27 @@ class PurchaseService {
     return this.normalizePagedResponse<PurchaseRequest>(data, page, size);
   }
 
-  async approveRequest(id: number, token: string): Promise<void> {
+  async approveRequest(
+    id: number,
+    token: string,
+    payload: { comment?: string; nextApproverUserId?: number | null; sendToUserId?: number | null } = {}
+  ): Promise<void> {
     try {
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.APPROVE(id)}`, {
         method: 'POST',
         headers: getAuthHeaders(token),
         body: JSON.stringify({
-          comment: '',
+          comment: payload.comment ?? '',
           rejectionReason: '',
           approved: true,
+          nextApproverUserId: payload.nextApproverUserId ?? undefined,
+          sendToUserId: payload.sendToUserId ?? undefined,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP hatası! Durum: ${response.status}`);
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP hatası! Durum: ${response.status}`);
       }
     } catch (error) {
       console.error('Talep onaylanırken hata:', error);
@@ -198,20 +223,26 @@ class PurchaseService {
     }
   }
 
-  async rejectRequest(id: number, reason: string, token: string): Promise<void> {
+  async rejectRequest(
+    id: number,
+    token: string,
+    payload: { comment: string; rejectionReason?: string; returnToUserId?: number | null }
+  ): Promise<void> {
     try {
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.REJECT(id)}`, {
         method: 'POST',
         headers: getAuthHeaders(token),
         body: JSON.stringify({
-          comment: reason,
-          rejectionReason: reason,
+          comment: payload.comment,
+          rejectionReason: payload.rejectionReason ?? payload.comment,
           approved: false,
+          returnToUserId: payload.returnToUserId ?? undefined,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP hatası! Durum: ${response.status}`);
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP hatası! Durum: ${response.status}`);
       }
     } catch (error) {
       console.error('Talep reddedilirken hata:', error);

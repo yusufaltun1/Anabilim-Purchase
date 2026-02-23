@@ -26,7 +26,10 @@ import type { User } from '../types/user';
 
 const NODE_TYPE_GROUP = 'group';
 
-function GroupNode({ data, selected }: NodeProps<{ label: string; memberCount: number; description?: string }>) {
+export type GroupNodeData = { label: string; memberCount: number; description?: string };
+export type GroupNode = Node<GroupNodeData, typeof NODE_TYPE_GROUP>;
+
+function GroupNodeComponent({ data, selected }: NodeProps<GroupNode>) {
   return (
     <div
       className={`relative px-4 py-3 rounded-xl border-2 shadow-lg min-w-[160px] transition-all ${
@@ -44,10 +47,10 @@ function GroupNode({ data, selected }: NodeProps<{ label: string; memberCount: n
   );
 }
 
-const nodeTypes = { [NODE_TYPE_GROUP]: GroupNode };
+const nodeTypes = { [NODE_TYPE_GROUP]: GroupNodeComponent };
 
-function whiteboardToFlow(data: WhiteboardData): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = (data.groups || []).map((g: UserGroup) => ({
+function whiteboardToFlow(data: WhiteboardData): { nodes: GroupNode[]; edges: Edge[] } {
+  const nodes: GroupNode[] = (data.groups || []).map((g: UserGroup) => ({
     id: String(g.id),
     type: NODE_TYPE_GROUP,
     position: { x: g.positionX ?? 0, y: g.positionY ?? 0 },
@@ -67,7 +70,7 @@ function whiteboardToFlow(data: WhiteboardData): { nodes: Node[]; edges: Edge[] 
 }
 
 function UserGroupWhiteboardInner() {
-  const [nodes, setNodes] = useState<Node[]>([]);
+  const [nodes, setNodes] = useState<GroupNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +86,7 @@ function UserGroupWhiteboardInner() {
   const [savingPositions, setSavingPositions] = useState(false);
   const [positionSaveMessage, setPositionSaveMessage] = useState<'success' | 'error' | null>(null);
   const [memberSaveMessage, setMemberSaveMessage] = useState<'success' | 'error' | null>(null);
-  const selectedGroupName = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId)?.data?.label : null;
+  const selectedGroupName: string | null = selectedNodeId ? (nodes.find((n) => n.id === selectedNodeId)?.data?.label ?? null) : null;
   const lastLoadedGroupIdRef = useRef<string | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userListPage, setUserListPage] = useState(1);
@@ -165,7 +168,7 @@ function UserGroupWhiteboardInner() {
         userGroupService.deleteGroup(Number(c.id)).catch((err) => console.error('Grup silinemedi:', err));
       }
     });
-    setNodes((nds) => applyNodeChanges(changes, nds));
+    setNodes((nds) => applyNodeChanges(changes, nds) as GroupNode[]);
   }, []);
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     changes.forEach((c) => {
@@ -198,7 +201,7 @@ function UserGroupWhiteboardInner() {
   );
 
   const onNodeDragStop = useCallback(
-    async (_: React.MouseEvent, __: Node, node: Node) => {
+    async (_: React.MouseEvent, node: GroupNode, _nodes: GroupNode[]) => {
       const id = Number(node.id);
       if (Number.isNaN(id)) return;
       const pos = node.position ?? { x: 0, y: 0 };

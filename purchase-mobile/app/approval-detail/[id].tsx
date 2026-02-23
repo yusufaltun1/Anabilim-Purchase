@@ -10,6 +10,7 @@ import {
   Alert,
   Image,
   RefreshControl,
+  FlatList,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ import { AppColors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { purchaseService } from '@/services/api/purchase.service';
-import { PurchaseRequest } from '@/services/types/purchase.types';
+import { ParentApproverCandidate, PurchaseRequest, SendDownCandidate } from '@/services/types/purchase.types';
 
 type StatusStyle = {
   text: string;
@@ -39,21 +40,43 @@ export default function ApprovalDetailScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [returnToUserId, setReturnToUserId] = useState<number | ''>('');
   const [refreshing, setRefreshing] = useState(false);
+  const [nextApproverCandidatesList, setNextApproverCandidatesList] = useState<ParentApproverCandidate[]>([]);
+  const [nextApproverUserId, setNextApproverUserId] = useState<number | ''>('');
+  const [sendToUserId, setSendToUserId] = useState<number | ''>('');
+  const [pickModal, setPickModal] = useState<'nextApprover' | 'sendDown' | 'returnTo' | null>(null);
 
-      const fetchRequest = async () => {
+  const fetchRequest = async () => {
     if (!id || !token) return;
-        setLoading(true);
-        try {
-          const data = await purchaseService.getRequestById(Number(id), token);
-          setRequest(data);
-        } catch (error) {
-          console.error('Failed to fetch request details:', error);
-          Alert.alert('Hata', 'Talep detayları alınamadı.');
-        } finally {
-          setLoading(false);
+    setLoading(true);
+    try {
+      const data = await purchaseService.getRequestById(Number(id), token);
+      setRequest(data);
+      if (data?.status === 'IN_APPROVAL' && data?.approvals?.some((a: any) => a.status === 'PENDING')) {
+        if (data.nextApproverCandidates && data.nextApproverCandidates.length > 0) {
+          setNextApproverCandidatesList(data.nextApproverCandidates);
+          const one = data.nextApproverCandidates.filter((c: ParentApproverCandidate) => c.userId != null);
+          if (one.length === 1) setNextApproverUserId(one[0].userId!);
+        } else {
+          purchaseService.getFirstApproverCandidates(token).then((list) => {
+            setNextApproverCandidatesList(list);
+            const one = list.filter((c) => c.userId != null);
+            if (one.length === 1) setNextApproverUserId(one[0].userId!);
+          }).catch(() => setNextApproverCandidatesList([]));
         }
-      };
+      } else {
+        setNextApproverCandidatesList([]);
+        setNextApproverUserId('');
+        setSendToUserId('');
+      }
+    } catch (error) {
+      console.error('Failed to fetch request details:', error);
+      Alert.alert('Hata', 'Talep detayları alınamadı.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (id && token) {
@@ -67,16 +90,47 @@ export default function ApprovalDetailScreen() {
     setRefreshing(false);
   };
 
+  const selectableNext = nextApproverCandidatesList.filter((c) => c.userId != null);
+  const getReturnToCandidates = (): { id: number; label: string }[] => {
+    if (!request) return [];
+    const pending = request.approvals?.find((a: any) => a.status === 'PENDING');
+    const currentStep = pending?.stepOrder ?? 0;
+    const list: { id: number; label: string }[] = [];
+    const seen = new Set<number>();
+    if (request.requester?.id && !seen.has(request.requester.id)) {
+      seen.add(request.requester.id);
+      const name = [request.requester.firstName, request.requester.lastName].filter(Boolean).join(' ') || (request.requester as any).fullName || '';
+      list.push({ id: request.requester.id, label: `${name || 'Talep sahibi'} (Talep sahibi)` });
+    }
+    request.approvals?.filter((a: any) => a.stepOrder < currentStep && a.approver?.id).forEach((a: any) => {
+      if (a.approver && !seen.has(a.approver.id)) {
+        seen.add(a.approver.id);
+        const name = [a.approver.firstName, a.approver.lastName].filter(Boolean).join(' ');
+        list.push({ id: a.approver.id, label: `${name || 'Onaycı'} (Adım ${a.stepOrder})` });
+      }
+    });
+    return list;
+  };
+
   const handleApprove = async () => {
+    if (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) {
+      Alert.alert('Uyarı', 'Birden fazla üst grubunuz var. Lütfen onayı hangi üst gruba ileteceğinizi seçin.');
+      return;
+    }
     setIsSubmitting(true);
     try {
-      await purchaseService.approveRequest(Number(id), token!);
+      const payload: { comment?: string; nextApproverUserId?: number; sendToUserId?: number | null } = {
+        comment: '',
+        nextApproverUserId: selectableNext.length >= 1 ? (nextApproverUserId === '' ? selectableNext[0].userId! : nextApproverUserId) : undefined,
+        sendToUserId: request?.hasNoNextApprover ? (sendToUserId === '' ? null : sendToUserId) : undefined,
+      };
+      await purchaseService.approveRequest(Number(id), token!, payload);
       Alert.alert('Başarılı', 'Talep onaylandı.', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error) {
       console.error('Failed to approve request:', error);
-      Alert.alert('Hata', 'Talep onaylanırken bir sorun oluştu.');
+      Alert.alert('Hata', (error as Error).message || 'Talep onaylanırken bir sorun oluştu.');
     } finally {
       setIsSubmitting(false);
     }
@@ -89,14 +143,19 @@ export default function ApprovalDetailScreen() {
     }
     setIsSubmitting(true);
     try {
-      await purchaseService.rejectRequest(Number(id), rejectionReason, token!);
+      await purchaseService.rejectRequest(Number(id), token!, {
+        comment: rejectionReason,
+        rejectionReason: rejectionReason,
+        returnToUserId: returnToUserId === '' ? null : returnToUserId,
+      });
       setModalVisible(false);
-      Alert.alert('Başarılı', 'Talep reddedildi.', [
+      setReturnToUserId('');
+      Alert.alert('Başarılı', returnToUserId ? 'Talep seçtiğiniz kişiye geri gönderildi.' : 'Talep reddedildi.', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error) {
       console.error('Failed to reject request:', error);
-      Alert.alert('Hata', 'Talep reddedilirken bir sorun oluştu.');
+      Alert.alert('Hata', (error as Error).message || 'Talep reddedilirken bir sorun oluştu.');
     } finally {
       setIsSubmitting(false);
     }
@@ -279,6 +338,62 @@ export default function ApprovalDetailScreen() {
         ))}
           </Card>
         </View>
+
+        {/* Onay: Üst grup / Alt kırılım seçimi */}
+        {canApproveOrReject && nextApproverCandidatesList.length > 0 && (
+          <Card style={[styles.infoCard, { backgroundColor: colors.background }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="arrow-up-circle" size={18} color={colors.primary} />
+              <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Onayı hangi üst gruba ileteceksiniz?</ThemedText>
+            </View>
+            <TouchableOpacity
+              style={[styles.pickerTouch, { borderColor: colors.border }]}
+              onPress={() => setPickModal('nextApprover')}
+              disabled={selectableNext.length <= 1}
+            >
+              <ThemedText style={{ color: colors.text }}>
+                {selectableNext.length <= 1 && nextApproverCandidatesList.length > 0
+                  ? (nextApproverCandidatesList.find((c) => c.userId != null)
+                      ? `${nextApproverCandidatesList.find((c) => c.userId != null)!.userName} (${nextApproverCandidatesList.find((c) => c.userId != null)!.groupName})`
+                      : 'Tek üst grup')
+                  : nextApproverUserId
+                    ? nextApproverCandidatesList.find((c) => c.userId === nextApproverUserId)
+                      ? `${nextApproverCandidatesList.find((c) => c.userId === nextApproverUserId)!.userName} (${nextApproverCandidatesList.find((c) => c.userId === nextApproverUserId)!.groupName})`
+                      : 'Seçin'
+                    : '— Seçin —'}
+              </ThemedText>
+              <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            {selectableNext.length <= 1 && (
+              <ThemedText style={[styles.hint, { color: colors.textSecondary }]}>Tek üst grubunuz var; onay bu kişiye iletilecek.</ThemedText>
+            )}
+          </Card>
+        )}
+
+        {canApproveOrReject && request.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0 && (
+          <Card style={[styles.infoCard, { backgroundColor: colors.background }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="arrow-down-circle" size={18} color={colors.primary} />
+              <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Üst onaycı bulunmuyor</ThemedText>
+            </View>
+            <ThemedText style={[styles.hint, { color: colors.textSecondary, marginBottom: 8 }]}>
+              Talebi aşağıdaki kişilere iletebilir veya tamamen onaylayabilirsiniz.
+            </ThemedText>
+            <TouchableOpacity
+              style={[styles.pickerTouch, { borderColor: colors.border }]}
+              onPress={() => setPickModal('sendDown')}
+            >
+              <ThemedText style={{ color: colors.text }}>
+                {sendToUserId === ''
+                  ? 'Tamamen onayla'
+                  : request.sendDownCandidates?.find((c) => c.userId === sendToUserId)
+                    ? `${request.sendDownCandidates.find((c) => c.userId === sendToUserId)!.userName} (${request.sendDownCandidates.find((c) => c.userId === sendToUserId)!.label})`
+                    : 'Tamamen onayla'}
+              </ThemedText>
+              <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </Card>
+        )}
       </ScrollView>
 
       {/* Action Buttons */}
@@ -293,9 +408,9 @@ export default function ApprovalDetailScreen() {
             <ThemedText style={styles.buttonText}>Reddet</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.approveButton, { backgroundColor: colors.primary }]}
+            style={[styles.approveButton, { backgroundColor: colors.primary }, (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ? styles.buttonDisabled : undefined]}
             onPress={handleApprove}
-            disabled={isSubmitting}
+            disabled={isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))}
           >
             <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
             <ThemedText style={styles.buttonText}>Onayla</ThemedText>
@@ -326,6 +441,20 @@ export default function ApprovalDetailScreen() {
               placeholder="Neden reddediyorsunuz?"
               placeholderTextColor={colors.textSecondary}
             />
+            {getReturnToCandidates().length > 0 && (
+              <>
+                <ThemedText style={[styles.modalLabel, { color: colors.text }]}>Geri gönderilecek kişi</ThemedText>
+                <TouchableOpacity
+                  style={[styles.pickerTouch, { borderColor: colors.border, marginBottom: 12 }]}
+                  onPress={() => { setPickModal('returnTo'); }}
+                >
+                  <ThemedText style={{ color: colors.text }}>
+                    {returnToUserId === '' ? 'Tamamen reddet (talep kapanır)' : getReturnToCandidates().find((c) => c.id === returnToUserId)?.label ?? 'Seçin'}
+                  </ThemedText>
+                  <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </>
+            )}
             <View style={styles.modalButtonContainer}>
               <TouchableOpacity
                 style={[styles.modalCancelButton, { borderColor: colors.border }]}
@@ -347,6 +476,64 @@ export default function ApprovalDetailScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Picker modal (üst grup / alt kırılım / geri gönder) */}
+      <Modal visible={!!pickModal} transparent animationType="slide">
+        <TouchableOpacity style={styles.pickerModalOverlay} activeOpacity={1} onPress={() => setPickModal(null)}>
+          <View style={[styles.pickerModalContent, { backgroundColor: colors.background }]}>
+            {pickModal === 'nextApprover' && (
+              <FlatList
+                data={nextApproverCandidatesList}
+                keyExtractor={(item) => (item.userId != null ? `u-${item.userId}` : `g-${item.groupName}`)}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.pickerItem, item.userId == null && styles.pickerItemDisabled]}
+                    onPress={() => { if (item.userId != null) { setNextApproverUserId(item.userId); setPickModal(null); } }}
+                    disabled={item.userId == null}
+                  >
+                    <ThemedText style={[styles.pickerItemText, item.userId == null && { color: colors.textSecondary }]}>
+                      {item.userId != null ? `${item.userName} (${item.groupName})` : item.userName}
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+            {pickModal === 'sendDown' && request?.sendDownCandidates && (
+              <FlatList
+                data={[{ userId: 0, userName: 'Tamamen onayla', label: '' }, ...request.sendDownCandidates]}
+                keyExtractor={(item) => item.userId === 0 ? 'full' : `s-${item.userId}`}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.pickerItem}
+                    onPress={() => { setSendToUserId(item.userId === 0 ? '' : item.userId); setPickModal(null); }}
+                  >
+                    <ThemedText style={styles.pickerItemText}>
+                      {item.userId === 0 ? 'Tamamen onayla' : `${item.userName} (${item.label})`}
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+            {pickModal === 'returnTo' && (
+              <FlatList
+                data={[{ id: 0, label: 'Tamamen reddet (talep kapanır)' }, ...getReturnToCandidates()]}
+                keyExtractor={(item) => item.id === 0 ? 'reject' : `r-${item.id}`}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.pickerItem}
+                    onPress={() => { setReturnToUserId(item.id === 0 ? '' : item.id); setPickModal(null); }}
+                  >
+                    <ThemedText style={styles.pickerItemText}>{item.label}</ThemedText>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+            <TouchableOpacity style={[styles.pickerCancel, { borderColor: colors.border }]} onPress={() => setPickModal(null)}>
+              <ThemedText style={[styles.pickerCancelText, { color: colors.text }]}>İptal</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </ThemedView>
   );
@@ -608,5 +795,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  pickerTouch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 44,
+  },
+  hint: {
+    fontSize: 12,
+    marginTop: 6,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  pickerModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  pickerModalContent: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+    maxHeight: '50%',
+  },
+  pickerItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  pickerItemDisabled: {
+    opacity: 0.6,
+  },
+  pickerItemText: {
+    fontSize: 16,
+  },
+  pickerCancel: {
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  pickerCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
 });
