@@ -1,19 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { purchaseRequestService } from '../services/purchase-request.service';
-import { CreatePurchaseRequest, CreatePurchaseRequestItem } from '../types/purchase-request';
+import { CreatePurchaseRequest, CreatePurchaseRequestItem, ParentApproverCandidate } from '../types/purchase-request';
 
 export const PurchaseRequestCreate = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [firstApproverCandidates, setFirstApproverCandidates] = useState<ParentApproverCandidate[]>([]);
+  const [firstApproverUserId, setFirstApproverUserId] = useState<number | ''>('');
   const [formData, setFormData] = useState<CreatePurchaseRequest>({
     title: '',
     description: '',
     items: []
   });
+
+  useEffect(() => {
+    purchaseRequestService.getFirstApproverCandidates().then(setFirstApproverCandidates).catch(() => setFirstApproverCandidates([]));
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -72,14 +78,30 @@ export const PurchaseRequestCreate = () => {
     updateItem(index, 'imageBase64', '');
   };
 
+  const selectableFirstApprovers = firstApproverCandidates.filter((c) => c.userId != null);
+  useEffect(() => {
+    const selectable = firstApproverCandidates.filter((c) => c.userId != null);
+    if (selectable.length === 1 && firstApproverUserId === '') {
+      setFirstApproverUserId(selectable[0].userId!);
+    }
+  }, [firstApproverCandidates]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectableFirstApprovers.length > 1 && (firstApproverUserId === '' || firstApproverUserId == null)) {
+      setError('Lütfen talebin gideceği ilk onaycıyı seçin.');
+      return;
+    }
     setLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      const response = await purchaseRequestService.createRequest(formData);
+      const payload: CreatePurchaseRequest = {
+        ...formData,
+        firstApproverUserId: selectableFirstApprovers.length >= 1 ? (firstApproverUserId === '' ? selectableFirstApprovers[0].userId ?? undefined : firstApproverUserId) : undefined,
+      };
+      const response = await purchaseRequestService.createRequest(payload);
       if (response.success) {
         setSuccess('Satın alma talebi başarıyla oluşturuldu!');
         setTimeout(() => {
@@ -187,6 +209,41 @@ export const PurchaseRequestCreate = () => {
                   placeholder="Talep detaylarını açıklayın..."
                 />
               </div>
+
+              {(firstApproverCandidates.length > 0) && (
+                <div>
+                  <label htmlFor="firstApprover" className="block text-sm font-medium text-gray-700">
+                    Talebin gideceği ilk onaycı
+                  </label>
+                  <select
+                    id="firstApprover"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    value={firstApproverUserId}
+                    onChange={(e) => setFirstApproverUserId(e.target.value === '' ? '' : Number(e.target.value))}
+                    disabled={selectableFirstApprovers.length <= 1}
+                  >
+                    {selectableFirstApprovers.length > 1 && <option value="">— Seçin —</option>}
+                    {firstApproverCandidates.map((c, idx) => (
+                      <option
+                        key={c.userId != null ? `u-${c.userId}` : `g-${idx}-${c.groupName}`}
+                        value={c.userId != null ? c.userId : ''}
+                        disabled={c.userId == null}
+                      >
+                        {c.userId != null ? `${c.userName} (${c.groupName})` : c.userName}
+                      </option>
+                    ))}
+                  </select>
+                  {selectableFirstApprovers.length === 1 && (
+                    <p className="mt-1 text-xs text-gray-500">Seçilebilir tek üst grubunuz var; talep bu kişiye iletilecek.</p>
+                  )}
+                  {selectableFirstApprovers.length > 1 && (
+                    <p className="mt-1 text-xs text-gray-500">Birden fazla üst grubunuz var; talebin gideceği ilk onaycıyı seçin. Üye atanmamış gruplar seçilemez.</p>
+                  )}
+                  {selectableFirstApprovers.length === 0 && firstApproverCandidates.length > 0 && (
+                    <p className="mt-1 text-xs text-amber-600">Tüm üst gruplarınızda henüz üye atanmamış. Talep yöneticinize (manager) iletilecek.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Ürün Listesi */}
@@ -375,9 +432,15 @@ export const PurchaseRequestCreate = () => {
               </button>
               <button
                 type="submit"
-                disabled={loading || formData.items.length === 0}
+                disabled={
+                  loading ||
+                  formData.items.length === 0 ||
+                  (selectableFirstApprovers.length > 1 && (firstApproverUserId === '' || firstApproverUserId == null))
+                }
                 className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                  loading || formData.items.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                  loading || formData.items.length === 0 || (selectableFirstApprovers.length > 1 && (firstApproverUserId === '' || firstApproverUserId == null))
+                    ? 'opacity-50 cursor-not-allowed'
+                    : ''
                 }`}
               >
                 {loading ? (

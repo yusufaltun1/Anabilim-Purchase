@@ -8,7 +8,8 @@ import {
   ApprovalAction,
   PurchaseRequestHistory,
   UpdatePurchaseRequestItemsRequest,
-  PurchaseRequestItemsResponse
+  PurchaseRequestItemsResponse,
+  ParentApproverCandidate
 } from '../types/purchase-request';
 
 class PurchaseRequestService {
@@ -18,6 +19,18 @@ class PurchaseRequestService {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     };
+  }
+
+  async getFirstApproverCandidates(): Promise<ParentApproverCandidate[]> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/first-approver-candidates`, {
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'İlk onaycı adayları alınamadı');
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data.data ?? data ?? []);
   }
 
   async createRequest(request: CreatePurchaseRequest): Promise<PurchaseRequestResponse> {
