@@ -4,6 +4,7 @@ import com.anabilim.purchase.dto.request.ApprovePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.CreatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestItemsDto;
+import com.anabilim.purchase.dto.response.ParentApproverCandidateDto;
 import com.anabilim.purchase.dto.response.PurchaseRequestDto;
 import com.anabilim.purchase.entity.enums.RequestStatus;
 import com.anabilim.purchase.service.PurchaseRequestService;
@@ -24,6 +25,12 @@ public class PurchaseRequestController {
     
     private final PurchaseRequestService purchaseRequestService;
     
+    @GetMapping("/first-approver-candidates")
+    public ResponseEntity<List<ParentApproverCandidateDto>> getFirstApproverCandidates(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(purchaseRequestService.getFirstApproverCandidatesForUser(userDetails.getUsername()));
+    }
+
     @PostMapping
     public ResponseEntity<PurchaseRequestDto> createPurchaseRequest(
             @Valid @RequestBody CreatePurchaseRequestDto createDto,

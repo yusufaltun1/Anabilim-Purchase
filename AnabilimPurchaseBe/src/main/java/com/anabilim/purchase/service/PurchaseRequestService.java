@@ -4,6 +4,7 @@ import com.anabilim.purchase.dto.request.ApprovePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.CreatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestItemsDto;
+import com.anabilim.purchase.dto.response.ParentApproverCandidateDto;
 import com.anabilim.purchase.dto.response.PurchaseRequestDto;
 import com.anabilim.purchase.entity.enums.RequestStatus;
 
@@ -39,6 +40,9 @@ public interface PurchaseRequestService {
     // Tekrar onaya gönderme
     PurchaseRequestDto resubmitPurchaseRequest(Long id, String requesterEmail);
     
+    /** Talep oluştururken ilk onaycı adayları (giriş yapan kullanıcının üst gruplarına göre). */
+    List<ParentApproverCandidateDto> getFirstApproverCandidatesForUser(String userEmail);
+
     // Diğer işlemler
     boolean canUserApprovePurchaseRequest(Long requestId, String userEmail);
     boolean isUserRequester(Long requestId, String userEmail);

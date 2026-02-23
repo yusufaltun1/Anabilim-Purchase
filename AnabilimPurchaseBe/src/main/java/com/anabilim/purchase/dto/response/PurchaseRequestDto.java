@@ -1,6 +1,8 @@
 package com.anabilim.purchase.dto.response;
 
 import com.anabilim.purchase.dto.UserDto;
+import com.anabilim.purchase.dto.response.ParentApproverCandidateDto;
+import com.anabilim.purchase.dto.response.SendDownCandidateDto;
 import com.anabilim.purchase.entity.enums.RequestStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -25,7 +27,15 @@ public class PurchaseRequestDto {
     private LocalDateTime completedAt;
     private LocalDateTime cancelledAt;
     private String rejectionReason;
-    
+
+    /** Sadece bekleyen onaycı (giriş yapan kullanıcı) için doldurulur; birden fazla üst grup varsa seçim yapması için. */
+    private List<ParentApproverCandidateDto> nextApproverCandidates;
+
+    /** Üst onaycı olmadığında (ağaçta en üstte) true; talebi alt kırılıma iletebilir veya tamamen onaylayabilir. */
+    private Boolean hasNoNextApprover;
+    /** hasNoNextApprover true iken talebi iletebileceği kişiler (talep sahibi + önceki onaycılar). */
+    private List<SendDownCandidateDto> sendDownCandidates;
+
     // Yardımcı metodlar
     public boolean isPending() {
         return status == RequestStatus.PENDING;

@@ -53,8 +53,7 @@ import { LocationCreate } from './pages/LocationCreate';
 import { LocationList } from './pages/LocationList';
 import { LocationDetail } from './pages/LocationDetail';
 import { LocationEdit } from './pages/LocationEdit';
-// import { LocationDetail } from './pages/LocationDetail';
-// import { LocationEdit } from './pages/LocationEdit';
+import UserGroupWhiteboard from './pages/UserGroupWhiteboard';
 
 interface AppProps {
   instance: PublicClientApplication;
@@ -374,6 +373,7 @@ function App({ instance }: AppProps) {
               <Route path="/locations/create" element={<PrivateRoute><LocationCreate /></PrivateRoute>} />
               <Route path="/locations/:id" element={<PrivateRoute><LocationDetail /></PrivateRoute>} />
               <Route path="/locations/edit/:id" element={<PrivateRoute><LocationEdit /></PrivateRoute>} />
+              <Route path="/user-groups/whiteboard" element={<PrivateRoute><UserGroupWhiteboard /></PrivateRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

@@ -28,6 +28,9 @@ public class CreatePurchaseRequestDto {
     
 
     private List<@Valid PurchaseRequestItemDto> items;
+
+    /** Birden fazla üst gruba bağlıysanız, talebin gideceği ilk onaycı (userId). Tek üst grup varsa boş bırakılabilir. */
+    private Long firstApproverUserId;
     
     @Data
     @NoArgsConstructor

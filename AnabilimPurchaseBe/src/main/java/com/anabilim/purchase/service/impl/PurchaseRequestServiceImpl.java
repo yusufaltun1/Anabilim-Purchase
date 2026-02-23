@@ -5,6 +5,8 @@ import com.anabilim.purchase.dto.request.CreatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestItemsDto;
 import com.anabilim.purchase.dto.response.PurchaseRequestDto;
+import com.anabilim.purchase.dto.response.ParentApproverCandidateDto;
+import com.anabilim.purchase.dto.response.SendDownCandidateDto;
 import com.anabilim.purchase.entity.*;
 import com.anabilim.purchase.entity.enums.ApprovalStatus;
 import com.anabilim.purchase.entity.enums.RequestStatus;
@@ -14,9 +16,11 @@ import com.anabilim.purchase.mapper.PurchaseRequestMapper;
 import com.anabilim.purchase.repository.*;
 import com.anabilim.purchase.service.NotificationService;
 import com.anabilim.purchase.service.PurchaseRequestService;
+import com.anabilim.purchase.service.UserGroupService;
 import com.anabilim.purchase.entity.Product;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +45,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     private final SupplierRepository supplierRepository; // Supplier'ı bulmak için eklendi
     private final PurchaseRequestApprovalRepository purchaseRequestApprovalRepository;
     private final ProductRepository productRepository;
+    private final UserGroupService userGroupService;
 
     @Override
     public PurchaseRequestDto createPurchaseRequest(CreatePurchaseRequestDto createDto, String requesterEmail) {
@@ -49,7 +54,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         
         PurchaseRequest request = purchaseRequestMapper.toEntity(createDto, requester);
         
-        createInitialApprovalStep(request, requester);
+        createInitialApprovalStep(request, requester, createDto.getFirstApproverUserId());
         
         final PurchaseRequest savedRequest = purchaseRequestRepository.save(request);
         
@@ -64,15 +69,40 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         return purchaseRequestMapper.toDto(savedRequest);
     }
     
-    private void createInitialApprovalStep(PurchaseRequest request, User requester) {
-        User manager = requester.getManager();
-        if (manager == null) {
-            throw new ValidationException("Kullanıcının bir yöneticisi atanmamış. Talep oluşturulamaz.");
+    private void createInitialApprovalStep(PurchaseRequest request, User requester, Long firstApproverUserIdFromDto) {
+        List<ParentApproverCandidateDto> candidates = userGroupService.findParentApproverCandidatesForUser(requester);
+        long selectableCount = candidates.stream().filter(c -> c.getUserId() != null).count();
+        User firstApprover;
+        if (selectableCount > 1) {
+            if (firstApproverUserIdFromDto != null) {
+                firstApprover = candidates.stream()
+                        .filter(c -> c.getUserId() != null && c.getUserId().equals(firstApproverUserIdFromDto))
+                        .findFirst()
+                        .map(c -> userRepository.findById(c.getUserId()).orElseThrow())
+                        .orElseThrow(() -> new ValidationException("Seçilen ilk onaycı geçerli değil."));
+            } else {
+                firstApprover = candidates.stream()
+                        .filter(c -> c.getUserId() != null)
+                        .findFirst()
+                        .map(c -> userRepository.findById(c.getUserId()).orElseThrow())
+                        .orElseThrow();
+            }
+        } else if (selectableCount == 1) {
+            firstApprover = candidates.stream()
+                    .filter(c -> c.getUserId() != null)
+                    .findFirst()
+                    .map(c -> userRepository.findById(c.getUserId()).orElse(null))
+                    .orElse(null);
+        } else {
+            firstApprover = requester.getManager();
         }
-        
+        if (firstApprover == null) {
+            throw new ValidationException("Ağaçta üst onaycı veya yönetici atanmamış. Talep oluşturulamaz.");
+        }
+
         PurchaseRequestApproval approval = new PurchaseRequestApproval();
         approval.setPurchaseRequest(request);
-        approval.setApprover(manager);
+        approval.setApprover(firstApprover);
         approval.setRoleName("MANAGER");
         approval.setRequiredRole("MANAGER");
         approval.setStepOrder(1);
@@ -104,7 +134,27 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         String intermediateMessage = String.format("'%s' başlıklı talebiniz %s tarafından onaylandı ve bir sonraki adıma geçti.", request.getTitle(), approver.getFirstName());
         notificationService.createNotification(request.getRequester(), intermediateMessage, request);
 
-        User nextApprover = currentApproval.getApprover().getManager();
+        List<ParentApproverCandidateDto> candidates = userGroupService.findParentApproverCandidatesForUser(currentApproval.getApprover());
+        long selectableCount = candidates.stream().filter(c -> c.getUserId() != null).count();
+        User nextApprover;
+        if (selectableCount > 1) {
+            if (approveDto.getNextApproverUserId() == null) {
+                throw new ValidationException("Birden fazla üst grubunuz var. Lütfen onayı hangi üst gruba ileteceğinizi seçin.");
+            }
+            nextApprover = candidates.stream()
+                    .filter(c -> c.getUserId() != null && c.getUserId().equals(approveDto.getNextApproverUserId()))
+                    .findFirst()
+                    .map(c -> userRepository.findById(c.getUserId()).orElseThrow())
+                    .orElseThrow(() -> new ValidationException("Seçilen üst onaycı geçerli değil."));
+        } else if (selectableCount == 1) {
+            nextApprover = candidates.stream()
+                    .filter(c -> c.getUserId() != null)
+                    .findFirst()
+                    .map(c -> userRepository.findById(c.getUserId()).orElse(null))
+                    .orElse(null);
+        } else {
+            nextApprover = currentApproval.getApprover().getManager();
+        }
 
         if (nextApprover != null) {
             PurchaseRequestApproval nextApproval = new PurchaseRequestApproval();
@@ -122,11 +172,30 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             notificationService.createNotification(nextApprover, nextApproverMessage, request);
             
         } else {
-            request.setStatus(RequestStatus.APPROVED);
-            request.setCompletedAt(LocalDateTime.now());
-            
-            String finalMessage = String.format("'%s' başlıklı talebiniz tamamen onaylandı.", request.getTitle());
-            notificationService.createNotification(request.getRequester(), finalMessage, request);
+            if (approveDto.getSendToUserId() != null) {
+                User sendToUser = userRepository.findById(approveDto.getSendToUserId())
+                        .orElseThrow(() -> new ValidationException("İletilecek kullanıcı bulunamadı."));
+                if (!isValidReturnToTarget(request, currentApproval.getStepOrder(), sendToUser.getId())) {
+                    throw new ValidationException("Talebi sadece talep sahibine veya onay zincirinde sizden önceki kişilere iletebilirsiniz.");
+                }
+                int nextStepOrder = request.getApprovals().stream().mapToInt(PurchaseRequestApproval::getStepOrder).max().orElse(0) + 1;
+                PurchaseRequestApproval nextApproval = new PurchaseRequestApproval();
+                nextApproval.setPurchaseRequest(request);
+                nextApproval.setApprover(sendToUser);
+                nextApproval.setRoleName("MANAGER");
+                nextApproval.setRequiredRole("MANAGER");
+                nextApproval.setStepOrder(nextStepOrder);
+                nextApproval.setStatus(ApprovalStatus.PENDING);
+                approvalRepository.save(nextApproval);
+                request.setStatus(RequestStatus.IN_APPROVAL);
+                String message = String.format("'%s' başlıklı talep %s tarafından size iletildi.", request.getTitle(), approver.getFirstName());
+                notificationService.createNotification(sendToUser, message, request);
+            } else {
+                request.setStatus(RequestStatus.APPROVED);
+                request.setCompletedAt(LocalDateTime.now());
+                String finalMessage = String.format("'%s' başlıklı talebiniz tamamen onaylandı.", request.getTitle());
+                notificationService.createNotification(request.getRequester(), finalMessage, request);
+            }
         }
 
         PurchaseRequest updatedRequest = purchaseRequestRepository.save(request);
@@ -137,28 +206,80 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     public PurchaseRequestDto rejectPurchaseRequest(Long id, String approverEmail, ApprovePurchaseRequestDto rejectDto) {
         PurchaseRequest request = validateAndGetRequest(id);
         User approver = validateAndGetUser(approverEmail);
-        
+
         Optional<PurchaseRequestApproval> currentApprovalOpt = approvalRepository
                 .findFirstByPurchaseRequestAndStatusOrderByStepOrderAsc(request, ApprovalStatus.PENDING);
-        
+
         if (currentApprovalOpt.isEmpty()) {
             throw new ValidationException("Reddedilecek adım bulunamadı.");
         }
-        
+
         PurchaseRequestApproval currentApproval = currentApprovalOpt.get();
+        String reason = rejectDto.getRejectionReason() != null ? rejectDto.getRejectionReason() : rejectDto.getComment();
         currentApproval.setStatus(ApprovalStatus.REJECTED);
-        currentApproval.setComment(rejectDto.getComment());
+        currentApproval.setComment(reason);
         currentApproval.setActionTakenAt(LocalDateTime.now());
         approvalRepository.save(currentApproval);
-        
+
+        if (rejectDto.getReturnToUserId() != null) {
+            // Talebi alt kırılımdaki bir kişiye geri gönder; talep kapanmaz, IN_APPROVAL kalır
+            User returnToUser = userRepository.findById(rejectDto.getReturnToUserId())
+                    .orElseThrow(() -> new ValidationException("Geri gönderilecek kullanıcı bulunamadı."));
+            if (!isValidReturnToTarget(request, currentApproval.getStepOrder(), returnToUser.getId())) {
+                throw new ValidationException("Geri gönderilecek kişi sadece talep sahibi veya onay zincirinde sizden önceki kişilerden biri olabilir.");
+            }
+            request.setRejectionReason(reason);
+            int nextStepOrder = request.getApprovals().stream().mapToInt(PurchaseRequestApproval::getStepOrder).max().orElse(0) + 1;
+            PurchaseRequestApproval nextApproval = new PurchaseRequestApproval();
+            nextApproval.setPurchaseRequest(request);
+            nextApproval.setApprover(returnToUser);
+            nextApproval.setRoleName("MANAGER");
+            nextApproval.setRequiredRole("MANAGER");
+            nextApproval.setStepOrder(nextStepOrder);
+            nextApproval.setStatus(ApprovalStatus.PENDING);
+            approvalRepository.save(nextApproval);
+            request.setStatus(RequestStatus.IN_APPROVAL);
+            request = purchaseRequestRepository.save(request);
+            String message = String.format("'%s' başlıklı talep %s tarafından size geri gönderildi. Gerekçe: %s", request.getTitle(), approver.getFirstName(), reason);
+            notificationService.createNotification(returnToUser, message, request);
+            return purchaseRequestMapper.toDto(request);
+        }
+
+        // Tamamen reddet
         request.setStatus(RequestStatus.REJECTED);
-        request.setRejectionReason(rejectDto.getRejectionReason());
+        request.setRejectionReason(reason);
         request = purchaseRequestRepository.save(request);
-        
-        String message = String.format("'%s' başlıklı talebiniz %s tarafından reddedildi. Sebep: %s", request.getTitle(), approver.getFirstName(), rejectDto.getRejectionReason());
+        String message = String.format("'%s' başlıklı talebiniz %s tarafından reddedildi. Sebep: %s", request.getTitle(), approver.getFirstName(), reason);
         notificationService.createNotification(request.getRequester(), message, request);
-        
         return purchaseRequestMapper.toDto(request);
+    }
+
+    /** returnToUserId'nin requester veya mevcut adımdan önceki onaycılardan biri olup olmadığını kontrol eder */
+    private boolean isValidReturnToTarget(PurchaseRequest request, int currentStepOrder, Long returnToUserId) {
+        if (request.getRequester() != null && request.getRequester().getId().equals(returnToUserId)) return true;
+        return request.getApprovals().stream()
+                .filter(a -> a.getStepOrder() < currentStepOrder)
+                .anyMatch(a -> a.getApprover() != null && a.getApprover().getId().equals(returnToUserId));
+    }
+
+    /** Üst onaycı yokken talebi iletebileceği kişiler: talep sahibi + önceki onaycılar */
+    private List<SendDownCandidateDto> buildSendDownCandidates(PurchaseRequest request, int currentStepOrder) {
+        List<SendDownCandidateDto> list = new ArrayList<>();
+        if (request.getRequester() != null) {
+            User r = request.getRequester();
+            String name = (r.getFirstName() != null ? r.getFirstName() + " " : "") + (r.getLastName() != null ? r.getLastName() : "").trim();
+            if (name.isEmpty()) name = r.getEmail();
+            list.add(new SendDownCandidateDto(r.getId(), name, "Talep sahibi"));
+        }
+        request.getApprovals().stream()
+                .filter(a -> a.getStepOrder() < currentStepOrder && a.getApprover() != null)
+                .forEach(a -> {
+                    User u = a.getApprover();
+                    String name = (u.getFirstName() != null ? u.getFirstName() + " " : "") + (u.getLastName() != null ? u.getLastName() : "").trim();
+                    if (name.isEmpty()) name = u.getEmail();
+                    list.add(new SendDownCandidateDto(u.getId(), name, "Onaycı - Adım " + a.getStepOrder()));
+                });
+        return list;
     }
     
     @Override
@@ -199,10 +320,40 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     }
     
     @Override
+    @Transactional(readOnly = true)
+    public List<ParentApproverCandidateDto> getFirstApproverCandidatesForUser(String userEmail) {
+        User user = userRepository.findByEmailAndIsActiveTrue(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Kullanıcı bulunamadı: " + userEmail));
+        return userGroupService.findParentApproverCandidatesForUser(user);
+    }
+
+    @Override
     public PurchaseRequestDto getPurchaseRequestById(Long id) {
         PurchaseRequest request = purchaseRequestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Satın alma talebi bulunamadı: " + id));
-        return purchaseRequestMapper.toDto(request);
+        PurchaseRequestDto dto = purchaseRequestMapper.toDto(request);
+        if (request.getStatus() == RequestStatus.IN_APPROVAL) {
+            Optional<PurchaseRequestApproval> pendingOpt = approvalRepository
+                    .findFirstByPurchaseRequestAndStatusOrderByStepOrderAsc(request, ApprovalStatus.PENDING);
+            String currentUserEmail = SecurityContextHolder.getContext().getAuthentication() != null
+                    ? SecurityContextHolder.getContext().getAuthentication().getName()
+                    : null;
+            if (pendingOpt.isPresent() && currentUserEmail != null) {
+                userRepository.findByEmailAndIsActiveTrue(currentUserEmail).ifPresent(currentUser -> {
+                    if (currentUser.getId().equals(pendingOpt.get().getApprover().getId())) {
+                        List<ParentApproverCandidateDto> candidates = userGroupService.findParentApproverCandidatesForUser(currentUser);
+                        dto.setNextApproverCandidates(candidates);
+                        long selectableCount = candidates.stream().filter(c -> c.getUserId() != null).count();
+                        boolean hasNextByManager = pendingOpt.get().getApprover().getManager() != null;
+                        if (selectableCount == 0 && !hasNextByManager) {
+                            dto.setHasNoNextApprover(true);
+                            dto.setSendDownCandidates(buildSendDownCandidates(request, pendingOpt.get().getStepOrder()));
+                        }
+                    }
+                });
+            }
+        }
+        return dto;
     }
     
     @Override
@@ -326,8 +477,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         // Rejection reason'ı temizle
         request.setRejectionReason(null);
         
-        // Yeni approval step'i oluştur
-        createInitialApprovalStep(request, requester);
+        // Yeni approval step'i oluştur (tekrar gönderimde ilk onaycı adaylarından biri otomatik seçilir veya manager kullanılır)
+        createInitialApprovalStep(request, requester, null);
         
         PurchaseRequest savedRequest = purchaseRequestRepository.save(request);
         

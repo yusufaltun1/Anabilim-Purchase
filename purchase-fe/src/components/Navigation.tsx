@@ -24,7 +24,8 @@ export const Navigation = () => {
     '/users', '/users/create', '/products', '/products/create',
     '/categories', '/categories/create', '/suppliers', '/suppliers/create',
     '/warehouses', '/warehouses/create', '/schools', '/schools/create',
-    '/personnel', '/personnel/create', '/locations', '/locations/create'
+    '/personnel', '/personnel/create', '/locations', '/locations/create',
+    '/user-groups'
   ].some(path => location.pathname.startsWith(path));
 
   const isTransferRoute = () => location.pathname.startsWith('/transfers');
@@ -82,6 +83,7 @@ export const Navigation = () => {
                       <button onClick={() => { navigate('/schools'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/schools') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Okullar</button>
                       <button onClick={() => { navigate('/personnel'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/personnel') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Personel</button>
                       <button onClick={() => { navigate('/locations'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/locations') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Lokasyonlar</button>
+                      <button onClick={() => { navigate('/user-groups/whiteboard'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/user-groups') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Kullanıcı Grupları</button>
                     </div>
                   </div>
                 )}

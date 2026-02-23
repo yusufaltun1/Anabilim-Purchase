@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { purchaseRequestService } from '../services/purchase-request.service';
-import { PurchaseRequest, PurchaseRequestItem, ApprovalAction } from '../types/purchase-request';
+import { PurchaseRequest, PurchaseRequestItem, ApprovalAction, ParentApproverCandidate } from '../types/purchase-request';
 import { User } from '../types/user';
 import { AddItemsForm } from '../components/AddItemsForm';
 import { authService } from '../services/auth.service';
@@ -26,6 +26,10 @@ export const PurchaseRequestDetail = () => {
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionComment, setRejectionComment] = useState('');
+  const [returnToUserId, setReturnToUserId] = useState<number | ''>('');
+  const [nextApproverUserId, setNextApproverUserId] = useState<number | ''>('');
+  const [nextApproverCandidatesList, setNextApproverCandidatesList] = useState<ParentApproverCandidate[]>([]);
+  const [sendToUserId, setSendToUserId] = useState<number | ''>('');
   const [editingQuote, setEditingQuote] = useState<any>(null);
   const [quoteFormData, setQuoteFormData] = useState<UpdateSupplierQuoteRequest>({
     unitPrice: 0,
@@ -62,7 +66,25 @@ export const PurchaseRequestDetail = () => {
       const requestResponse = await purchaseRequestService.getRequestById(requestId);
 
       if (requestResponse.success) {
-        setRequest(requestResponse.data as PurchaseRequest);
+        const req = requestResponse.data as PurchaseRequest;
+        setRequest(req);
+        if (req?.status === 'IN_APPROVAL' && req.approvals?.some((a) => a.status === 'PENDING') && authService.getCurrentUser()?.id === req.approvals?.find((a) => a.status === 'PENDING')?.approver?.id) {
+          if (req.nextApproverCandidates && req.nextApproverCandidates.length > 0) {
+            setNextApproverCandidatesList(req.nextApproverCandidates);
+            const oneSelectable = req.nextApproverCandidates.find((c) => c.userId != null);
+            if (req.nextApproverCandidates.filter((c) => c.userId != null).length === 1 && oneSelectable) setNextApproverUserId(oneSelectable.userId!);
+          } else {
+            purchaseRequestService.getFirstApproverCandidates().then((list) => {
+              setNextApproverCandidatesList(list);
+              const selectable = list.filter((c) => c.userId != null);
+              if (selectable.length === 1) setNextApproverUserId(selectable[0].userId!);
+            }).catch(() => setNextApproverCandidatesList([]));
+          }
+        } else {
+          setNextApproverCandidatesList([]);
+          setNextApproverUserId('');
+          setSendToUserId('');
+        }
       } else {
         setError(requestResponse.message);
       }
@@ -74,17 +96,30 @@ export const PurchaseRequestDetail = () => {
     }
   };
 
+  const selectableCandidates = nextApproverCandidatesList.filter((c) => c.userId != null);
   const handleApprove = async () => {
+    const candidates = nextApproverCandidatesList;
+    if (selectableCandidates.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) {
+      showNotification('Birden fazla üst grubunuz var. Lütfen onayı hangi üst gruba ileteceğinizi seçin.', 'error');
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
-      
+
       if (!id) {
         setError('Talep ID\'si bulunamadı');
         return;
       }
 
-      await purchaseRequestService.approveRequest(parseInt(id), { comment: actionComment });
+      const payload = {
+        comment: actionComment,
+        nextApproverUserId: selectableCandidates.length >= 1 ? (nextApproverUserId === '' ? selectableCandidates[0].userId! : nextApproverUserId) : undefined,
+        sendToUserId: request?.hasNoNextApprover ? (sendToUserId === '' ? null : sendToUserId) : undefined,
+      };
+      await purchaseRequestService.approveRequest(parseInt(id), payload);
+      setNextApproverUserId('');
+      setSendToUserId('');
       await loadRequestData();
       showNotification('Talep başarıyla onaylandı', 'success');
     } catch (err) {
@@ -105,17 +140,27 @@ export const PurchaseRequestDetail = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       if (!id) {
         setError('Talep ID\'si bulunamadı');
         return;
       }
 
-      await purchaseRequestService.rejectRequest(parseInt(id), { comment: rejectionComment });
+      const payload = {
+        comment: rejectionComment,
+        rejectionReason: rejectionComment,
+        returnToUserId: returnToUserId === '' ? null : returnToUserId,
+      };
+      await purchaseRequestService.rejectRequest(parseInt(id), payload);
       setShowRejectModal(false);
       setRejectionComment('');
+      setReturnToUserId('');
       await loadRequestData();
-      showNotification('Talep başarıyla reddedildi', 'success');
+      if (payload.returnToUserId != null) {
+        showNotification('Talep seçtiğiniz kişiye geri gönderildi', 'success');
+      } else {
+        showNotification('Talep başarıyla reddedildi', 'success');
+      }
     } catch (err) {
       console.error('Error rejecting request:', err);
       setError('Talep reddedilirken hata oluştu');
@@ -123,6 +168,30 @@ export const PurchaseRequestDetail = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  /** Reddederken geri gönderilebilecek kişiler: talep sahibi + onay zincirinde mevcut adımdan önceki onaycılar */
+  const getReturnToCandidates = (): { id: number; label: string }[] => {
+    if (!request) return [];
+    const pending = request.approvals?.find((a) => a.status === 'PENDING');
+    const currentStepOrder = pending?.stepOrder ?? 0;
+    const candidates: { id: number; label: string }[] = [];
+    const seen = new Set<number>();
+    if (request.requester?.id && !seen.has(request.requester.id)) {
+      seen.add(request.requester.id);
+      const name = [request.requester.firstName, request.requester.lastName].filter(Boolean).join(' ') || request.requester.email;
+      candidates.push({ id: request.requester.id, label: `${name} (Talep sahibi)` });
+    }
+    request.approvals
+      ?.filter((a) => a.stepOrder < currentStepOrder && a.approver?.id)
+      .forEach((a) => {
+        if (a.approver && !seen.has(a.approver.id)) {
+          seen.add(a.approver.id);
+          const name = [a.approver.firstName, a.approver.lastName].filter(Boolean).join(' ') || a.approver.email;
+          candidates.push({ id: a.approver.id, label: `${name} (Onaycı - Adım ${a.stepOrder})` });
+        }
+      });
+    return candidates;
   };
 
   const handleCancel = async () => {
@@ -171,6 +240,25 @@ export const PurchaseRequestDetail = () => {
       case 'IN_PROGRESS': return 'İşlemde';
       case 'COMPLETED': return 'Tamamlandı';
       default: return status;
+    }
+  };
+
+  /** Onay adımı durumu (PENDING, APPROVED, REJECTED) */
+  const getApprovalStepStatusText = (status: string) => {
+    switch (status) {
+      case 'PENDING': return 'Beklemede';
+      case 'APPROVED': return 'Onaylandı';
+      case 'REJECTED': return 'Reddedildi';
+      default: return status;
+    }
+  };
+
+  const getApprovalStepStatusColor = (status: string) => {
+    switch (status) {
+      case 'PENDING': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'APPROVED': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'REJECTED': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -320,24 +408,80 @@ export const PurchaseRequestDetail = () => {
             {request.items && request.items.length > 0 && <PurchaseRequestItems items={request.items} />}
 
             <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
-              <div className="px-4 py-5 sm:px-6"><h3 className="text-lg leading-6 font-medium text-gray-900">Onay Süreci</h3></div>
-              <div className="border-t border-gray-200">
-                <ul className="divide-y divide-gray-200">
-                  {request.approvals?.map((approval) => (
-                    <li key={approval.id} className="px-4 py-4 sm:px-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="ml-4"><div className="text-sm font-medium text-gray-900">{approval.approver.firstName} {approval.approver.lastName}</div><div className="text-sm text-gray-500">{approval.roleName.replace(/_/g, ' ')}</div></div>
-                        </div>
-                        <div className="flex items-center">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(approval.status)}`}>{getStatusText(approval.status)}</span>
-                          {approval.comment && <span className="ml-2 text-sm text-gray-500">{approval.comment}</span>}
-                          {approval.actionTakenAt && <span className="ml-2 text-sm text-gray-500">{formatDate(approval.actionTakenAt)}</span>}
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+              <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Onay Süreci</h3>
+                <p className="mt-1 text-sm text-gray-500">Talep onay zinciri, adım sırasına göre</p>
+              </div>
+              <div className="px-4 py-6 sm:px-6">
+                {(!request.approvals || request.approvals.length === 0) ? (
+                  <p className="text-sm text-gray-500">Henüz onay adımı yok.</p>
+                ) : (
+                  <div className="flow-root">
+                    <ul className="relative -mb-8">
+                      {[...(request.approvals || [])]
+                        .sort((a, b) => (a.stepOrder ?? 0) - (b.stepOrder ?? 0))
+                        .map((approval, index) => {
+                          const isLast = index === (request.approvals?.length ?? 0) - 1;
+                          const isPending = approval.status === 'PENDING';
+                          const isApproved = approval.status === 'APPROVED';
+                          const isRejected = approval.status === 'REJECTED';
+                          const name = [approval.approver?.firstName, approval.approver?.lastName].filter(Boolean).join(' ') || approval.approver?.email || '—';
+                          return (
+                            <li key={approval.id} className="relative pb-8">
+                              {!isLast && (
+                                <span className="absolute left-4 top-8 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+                              )}
+                              <div className="relative flex items-start">
+                                <span
+                                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${
+                                    isApproved
+                                      ? 'border-emerald-300 bg-emerald-50'
+                                      : isRejected
+                                        ? 'border-red-300 bg-red-50'
+                                        : isPending
+                                          ? 'border-amber-300 bg-amber-50'
+                                          : 'border-gray-300 bg-gray-50'
+                                  }`}
+                                >
+                                  {isApproved && (
+                                    <svg className="h-4 w-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                  )}
+                                  {isRejected && (
+                                    <svg className="h-4 w-4 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                  )}
+                                  {isPending && (
+                                    <span className="text-xs font-semibold text-amber-700">{approval.stepOrder}</span>
+                                  )}
+                                  {!isPending && !isApproved && !isRejected && (
+                                    <span className="text-xs font-medium text-gray-600">{approval.stepOrder}</span>
+                                  )}
+                                </span>
+                                <div className="ml-4 min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span className="text-sm font-medium text-gray-900">{name}</span>
+                                    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${getApprovalStepStatusColor(approval.status)}`}>
+                                      {getApprovalStepStatusText(approval.status)}
+                                    </span>
+                                  </div>
+                                  <p className="mt-0.5 text-xs text-gray-500">{approval.roleName?.replace(/_/g, ' ') ?? 'Onaycı'}</p>
+                                  {(approval.actionTakenAt || approval.comment) && (
+                                    <div className="mt-2 space-y-0.5">
+                                      {approval.actionTakenAt && (
+                                        <p className="text-xs text-gray-500">{formatDate(approval.actionTakenAt)}</p>
+                                      )}
+                                      {approval.comment && (
+                                        <p className="text-sm text-gray-600 bg-gray-50 rounded px-2 py-1.5 border border-gray-100">{approval.comment}</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -346,10 +490,63 @@ export const PurchaseRequestDetail = () => {
                 <div className="px-4 py-5 sm:p-6">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">Onay İşlemi</h3>
                   <div className="mt-2 max-w-xl text-sm text-gray-500"><p>Bu talebi onaylayabilir veya reddedebilirsiniz.</p></div>
-                  <div className="mt-5">
+                  <div className="mt-5 space-y-4">
+                    {nextApproverCandidatesList.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Onayı hangi üst gruba ileteceksiniz?</label>
+                        <select
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          value={nextApproverUserId}
+                          onChange={(e) => setNextApproverUserId(e.target.value === '' ? '' : Number(e.target.value))}
+                          disabled={selectableCandidates.length <= 1}
+                        >
+                          {selectableCandidates.length > 1 && <option value="">— Seçin —</option>}
+                          {nextApproverCandidatesList.map((c, idx) => (
+                            <option
+                              key={c.userId != null ? `u-${c.userId}` : `g-${idx}-${c.groupName}`}
+                              value={c.userId != null ? c.userId : ''}
+                              disabled={c.userId == null}
+                            >
+                              {c.userId != null ? `${c.userName} (${c.groupName})` : c.userName}
+                            </option>
+                          ))}
+                        </select>
+                        {selectableCandidates.length === 1 ? (
+                          <p className="mt-1 text-xs text-gray-500">Seçilebilir tek üst grubunuz var; onay bu kişiye iletilecek.</p>
+                        ) : selectableCandidates.length > 1 ? (
+                          <p className="mt-1 text-xs text-gray-500">Birden fazla üst gruba bağlısınız; onayı ileteceğiniz grubu seçin. Üye atanmamış gruplar seçilemez.</p>
+                        ) : (
+                          <p className="mt-1 text-xs text-amber-600">Tüm üst gruplarınızda henüz üye atanmamış. Onay yöneticinize (manager) iletilir.</p>
+                        )}
+                      </div>
+                    )}
+                    {request.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Üst onaycı bulunmuyor</label>
+                        <p className="mt-1 text-xs text-gray-500 mb-2">Talebi aşağıdaki kişilere iletebilir veya tamamen onaylayabilirsiniz.</p>
+                        <select
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                          value={sendToUserId}
+                          onChange={(e) => setSendToUserId(e.target.value === '' ? '' : Number(e.target.value))}
+                        >
+                          <option value="">Tamamen onayla</option>
+                          {request.sendDownCandidates.map((c) => (
+                            <option key={c.userId} value={c.userId}>
+                              {c.userName} ({c.label})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <textarea rows={3} className="shadow-sm block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Onay yorumu ekleyin (opsiyonel)..." value={actionComment} onChange={(e) => setActionComment(e.target.value)} />
                     <div className="mt-5 flex space-x-3">
-                      <button onClick={handleApprove} disabled={loading} className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">Onayla</button>
+                      <button
+                        onClick={handleApprove}
+                        disabled={loading || (selectableCandidates.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))}
+                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Onayla
+                      </button>
                       <button onClick={() => setShowRejectModal(true)} disabled={loading} className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">Reddet</button>
                     </div>
                   </div>
@@ -380,22 +577,39 @@ export const PurchaseRequestDetail = () => {
                       <p className="text-sm text-gray-500">Bu talebi reddetmek istediğinizden emin misiniz? Lütfen reddetme gerekçenizi belirtin.</p>
                     </div>
                     <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Reddetme gerekçesi (zorunlu)</label>
                       <textarea
                         rows={4}
                         className="shadow-sm block w-full sm:text-sm border-gray-300 rounded-md"
-                        placeholder="Reddetme gerekçesi (zorunlu)..."
+                        placeholder="Reddetme gerekçesi..."
                         value={rejectionComment}
                         onChange={(e) => setRejectionComment(e.target.value)}
                       />
+                    </div>
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Geri gönderilecek kişi</label>
+                      <select
+                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                        value={returnToUserId}
+                        onChange={(e) => setReturnToUserId(e.target.value === '' ? '' : Number(e.target.value))}
+                      >
+                        <option value="">Tamamen reddet (talep kapanır)</option>
+                        {getReturnToCandidates().map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-gray-500">Talep sahibi veya onay zincirinde sizden önceki kişilerden birine geri gönderebilirsiniz.</p>
                     </div>
                   </div>
                 </div>
               </div>
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button type="button" onClick={submitRejection} disabled={loading} className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm">
-                  {loading ? 'Reddediliyor...' : 'Talebi Reddet'}
+                  {loading ? 'İşleniyor...' : returnToUserId === '' ? 'Talebi Reddet' : 'Geri Gönder'}
                 </button>
-                <button type="button" onClick={() => setShowRejectModal(false)} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">
+                <button type="button" onClick={() => { setShowRejectModal(false); setReturnToUserId(''); }} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">
                   İptal
                 </button>
               </div>

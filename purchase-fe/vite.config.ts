@@ -10,7 +10,7 @@ plugins: [react()],
   },
   server: {
     proxy: {
-      '/api': 'https://api.talentai.com.tr',
+      '/api': 'http://localhost:8080',
     },
   },
 });

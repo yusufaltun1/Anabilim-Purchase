@@ -58,6 +58,18 @@ export interface PurchaseRequestItem {
   potentialSupplierIds?: number[];
 }
 
+export interface ParentApproverCandidate {
+  userId: number | null;
+  userName: string;
+  groupName: string;
+}
+
+export interface SendDownCandidate {
+  userId: number;
+  userName: string;
+  label: string;
+}
+
 export interface Approval {
   id: number;
   approver: User;
@@ -104,6 +116,12 @@ export interface PurchaseRequest {
   rejected: boolean;
   approved: boolean;
   pending: boolean;
+  /** Sadece bekleyen onaycı için; birden fazla üst grup varsa seçim listesi */
+  nextApproverCandidates?: ParentApproverCandidate[];
+  /** Üst onaycı yokken true; talebi alt kırılıma iletebilir veya tamamen onaylayabilir */
+  hasNoNextApprover?: boolean;
+  /** hasNoNextApprover true iken talebi iletebileceği kişiler */
+  sendDownCandidates?: SendDownCandidate[];
 }
 
 export interface CreatePurchaseRequestItem {
@@ -121,6 +139,8 @@ export interface CreatePurchaseRequest {
   title: string;
   description: string;
   items: CreatePurchaseRequestItem[];
+  /** Birden fazla üst grup varsa, talebin gideceği ilk onaycı (userId). */
+  firstApproverUserId?: number | null;
 }
 
 export interface AddItemsRequest {
@@ -129,6 +149,12 @@ export interface AddItemsRequest {
 
 export interface ApprovalAction {
   comment: string;
+  /** Geri gönderilecek kişi (alt kırılım). Yoksa tamamen reddedilir. */
+  returnToUserId?: number | null;
+  /** Birden fazla üst grup varsa, onayı ileteceğin üst gruptaki kişi (userId). */
+  nextApproverUserId?: number | null;
+  /** Üst onaycı yokken talebi bu kullanıcıya ilet (alt kırılım). Yoksa tamamen onayla. */
+  sendToUserId?: number | null;
 }
 
 export interface PurchaseRequestHistory {
