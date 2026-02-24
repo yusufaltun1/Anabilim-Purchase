@@ -24,7 +24,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { purchaseService } from '@/services/api/purchase.service';
 import { ParentApproverCandidate, PurchaseRequest, PurchaseRequestApproval, PurchaseRequestAttachment, SupplierQuote } from '@/services/types/purchase.types';
 
@@ -249,6 +249,55 @@ export default function RequestDetailScreen() {
     }
   };
 
+  const handleAddDocument = async () => {
+    if (!token || !id) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const file = result.assets[0];
+      setUploadingAttachment(true);
+      await purchaseService.uploadAttachment(Number(id), token, {
+        uri: file.uri,
+        name: file.name || 'document',
+        type: file.mimeType || 'application/octet-stream',
+      });
+      await fetchRequestDetail();
+      Alert.alert('Başarılı', 'Belge yüklendi.');
+    } catch (err) {
+      console.error('Belge yükleme hatası:', err);
+      Alert.alert('Hata', (err as Error).message || 'Belge yüklenemedi.');
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
+  const handleDownloadAttachment = async (att: PurchaseRequestAttachment) => {
+    if (!token || !id) return;
+    const url = purchaseService.getAttachmentDownloadUrl(Number(id), att.id);
+    const filename = att.fileName || `attachment-${att.id}`;
+    const ext = filename.includes('.') ? '' : (att.contentType?.startsWith('image/') ? '.jpg' : '.pdf');
+    const cacheDir = FileSystem.cacheDirectory ?? '';
+    const localUri = `${cacheDir}${filename}${ext}`;
+    try {
+      const { uri } = await FileSystem.downloadAsync(url, localUri, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (Platform.OS === 'web') {
+        (window as unknown as { open: (u: string, target?: string) => void }).open(uri, '_blank');
+      } else {
+        const canOpen = await Linking.canOpenURL(uri);
+        if (canOpen) await Linking.openURL(uri);
+        else Alert.alert('Bilgi', 'Dosya indirildi. Uygun uygulama ile açabilirsiniz.');
+      }
+    } catch (err) {
+      console.error('İndirme hatası:', err);
+      Alert.alert('Hata', (err as Error).message || 'Belge indirilemedi.');
+    }
+  };
+
   return (
     <>
       <Stack.Screen options={{ title: request.title || 'Talep Detayı' }} />
@@ -399,6 +448,50 @@ export default function RequestDetailScreen() {
                 </View>
               </Card>
             ))}
+          </Card>
+
+          {/* Belgeler */}
+          <Card style={StyleSheet.flatten([styles.infoCard, { backgroundColor: colors.background }])}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="attach" size={18} color={colors.primary} />
+              <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Belgeler</ThemedText>
+            </View>
+            <ThemedText style={[styles.attachmentHint, { color: colors.textSecondary }]}>
+              PDF veya resim yükleyebilir, sonra indirebilirsiniz.
+            </ThemedText>
+            {(request.attachments && request.attachments.length > 0) && (
+              <View style={styles.attachmentList}>
+                {request.attachments.map((att) => (
+                  <View key={att.id} style={[styles.attachmentRow, { borderColor: colors.border }]}>
+                    <Ionicons name={att.contentType?.startsWith('image/') ? 'image' : 'document'} size={20} color={colors.textSecondary} />
+                    <ThemedText style={[styles.attachmentFileName, { color: colors.text }]} numberOfLines={1}>
+                      {att.fileName}
+                    </ThemedText>
+                    <TouchableOpacity
+                      style={[styles.downloadButton, { backgroundColor: colors.primary }]}
+                      onPress={() => handleDownloadAttachment(att)}
+                    >
+                      <Ionicons name="download-outline" size={18} color="#fff" />
+                      <ThemedText style={styles.downloadButtonText}>İndir</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+            <TouchableOpacity
+              style={[styles.addAttachmentButton, { borderColor: colors.border }]}
+              onPress={handleAddDocument}
+              disabled={uploadingAttachment}
+            >
+              {uploadingAttachment ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+              )}
+              <ThemedText style={[styles.addAttachmentText, { color: colors.primary }]}>
+                {uploadingAttachment ? 'Yükleniyor...' : 'Belge ekle (PDF veya resim)'}
+              </ThemedText>
+            </TouchableOpacity>
           </Card>
 
           {/* Rejection Reason Card */}
@@ -831,6 +924,52 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  attachmentHint: {
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  attachmentList: {
+    marginBottom: 12,
+  },
+  attachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    gap: 8,
+  },
+  attachmentFileName: {
+    flex: 1,
+    fontSize: 14,
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  downloadButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  addAttachmentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    borderStyle: 'dashed',
+    gap: 8,
+  },
+  addAttachmentText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   buttonContainer: {
     position: 'absolute',
