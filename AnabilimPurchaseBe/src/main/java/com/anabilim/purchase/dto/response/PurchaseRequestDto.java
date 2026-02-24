@@ -22,6 +22,7 @@ public class PurchaseRequestDto {
     private RequestStatus status;
     private List<PurchaseRequestApprovalDto> approvals;
     private List<PurchaseRequestItemDto> items;
+    private List<PurchaseRequestAttachmentDto> attachments;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime completedAt;

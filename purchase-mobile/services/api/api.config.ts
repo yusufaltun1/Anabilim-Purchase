@@ -18,6 +18,9 @@ export const API_CONFIG = {
       APPROVE: (id: number) => `/api/purchase-requests/${id}/approve`,
       REJECT: (id: number) => `/api/purchase-requests/${id}/reject`,
       DETAIL: (id: number) => `/api/purchase-requests/${id}`,
+      ATTACHMENTS: (id: number) => `/api/purchase-requests/${id}/attachments`,
+      ATTACHMENT_DOWNLOAD: (requestId: number, attachmentId: number) =>
+        `/api/purchase-requests/${requestId}/attachments/${attachmentId}`,
     },
     SUPPLIERS: {
       BASE: '/api/suppliers',
@@ -40,10 +43,17 @@ export const getAuthHeaders = (token?: string) => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  
+  return headers;
+};
+
+/** Multipart için Content-Type eklenmez; fetch boundary otomatik ekler. */
+export const getAuthHeadersMultipart = (token?: string) => {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
   return headers;
 };

@@ -54,6 +54,14 @@ export interface SendDownCandidate {
   label: string;
 }
 
+export interface PurchaseRequestAttachment {
+  id: number;
+  fileName: string;
+  contentType: string;
+  fileSize?: number;
+  createdAt: string;
+}
+
 export interface CreatePurchaseRequestDto {
   title: string;
   description: string;
@@ -100,6 +108,7 @@ export interface PurchaseRequest {
   nextApproverCandidates?: ParentApproverCandidate[];
   hasNoNextApprover?: boolean;
   sendDownCandidates?: SendDownCandidate[];
+  attachments?: PurchaseRequestAttachment[];
 }
 
 export interface CreatePurchaseRequestResponse {

@@ -1,5 +1,11 @@
-import { CreatePurchaseRequestDto, CreatePurchaseRequestResponse, ParentApproverCandidate, PurchaseRequest } from '../types/purchase.types';
-import { API_CONFIG, getAuthHeaders } from './api.config';
+import {
+  CreatePurchaseRequestDto,
+  CreatePurchaseRequestResponse,
+  ParentApproverCandidate,
+  PurchaseRequest,
+  PurchaseRequestAttachment,
+} from '../types/purchase.types';
+import { API_CONFIG, getAuthHeaders, getAuthHeadersMultipart } from './api.config';
 
 class PurchaseService {
   private baseUrl = API_CONFIG.BASE_URL;
@@ -318,6 +324,39 @@ class PurchaseService {
       console.error('Tedarikçiler yüklenirken hata:', error);
       throw error;
     }
+  }
+
+  async uploadAttachment(
+    requestId: number,
+    token: string,
+    file: { uri: string; name: string; type: string }
+  ): Promise<PurchaseRequestAttachment> {
+    const formData = new FormData();
+    formData.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.type,
+    } as unknown as Blob);
+
+    const response = await fetch(
+      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.ATTACHMENTS(requestId)}`,
+      {
+        method: 'POST',
+        headers: getAuthHeadersMultipart(token),
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || `Yükleme hatası: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  getAttachmentDownloadUrl(requestId: number, attachmentId: number): string {
+    return `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.ATTACHMENT_DOWNLOAD(requestId, attachmentId)}`;
   }
 }
 

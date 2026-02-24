@@ -56,7 +56,7 @@ export default function ApprovalDetailScreen() {
     try {
       const data = await purchaseService.getRequestById(Number(id), token);
       setRequest(data);
-      if (data?.status === 'IN_APPROVAL' && data?.approvals?.some((a: any) => a.status === 'PENDING')) {
+      if ((data?.status === 'IN_APPROVAL' || data?.status === 'IN_PROGRESS') && data?.approvals?.some((a: any) => a.status === 'PENDING')) {
         if (data.nextApproverCandidates && data.nextApproverCandidates.length > 0) {
           setNextApproverCandidatesList(data.nextApproverCandidates);
           const one = data.nextApproverCandidates.filter((c: ParentApproverCandidate) => c.userId != null);

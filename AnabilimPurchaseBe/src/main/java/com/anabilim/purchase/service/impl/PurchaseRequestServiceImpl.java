@@ -4,6 +4,8 @@ import com.anabilim.purchase.dto.request.ApprovePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.CreatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestItemsDto;
+import com.anabilim.purchase.dto.response.AttachmentDownloadResult;
+import com.anabilim.purchase.dto.response.PurchaseRequestAttachmentDto;
 import com.anabilim.purchase.dto.response.PurchaseRequestDto;
 import com.anabilim.purchase.dto.response.ParentApproverCandidateDto;
 import com.anabilim.purchase.dto.response.SendDownCandidateDto;
@@ -20,11 +22,19 @@ import com.anabilim.purchase.service.UserGroupService;
 import com.anabilim.purchase.entity.Product;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +56,10 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     private final PurchaseRequestApprovalRepository purchaseRequestApprovalRepository;
     private final ProductRepository productRepository;
     private final UserGroupService userGroupService;
+    private final PurchaseRequestAttachmentRepository attachmentRepository;
+
+    private static final String UPLOAD_BASE = "uploads";
+    private static final long MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
     @Override
     public PurchaseRequestDto createPurchaseRequest(CreatePurchaseRequestDto createDto, String requesterEmail) {
@@ -353,7 +367,80 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 });
             }
         }
+        List<PurchaseRequestAttachmentDto> attachmentDtos = attachmentRepository.findByPurchaseRequestIdOrderByCreatedAtAsc(request.getId())
+                .stream()
+                .map(a -> new PurchaseRequestAttachmentDto(a.getId(), a.getFileName(), a.getContentType(), a.getFileSize(), a.getCreatedAt()))
+                .collect(Collectors.toList());
+        dto.setAttachments(attachmentDtos);
         return dto;
+    }
+
+    @Override
+    @Transactional
+    public PurchaseRequestAttachmentDto uploadAttachment(Long requestId, MultipartFile file, String userEmail) {
+        if (file == null || file.isEmpty()) {
+            throw new ValidationException("Dosya boş olamaz.");
+        }
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new ValidationException("Dosya boyutu 20 MB'dan büyük olamaz.");
+        }
+        String contentType = file.getContentType();
+        boolean allowedType = contentType != null
+                && ("application/pdf".equalsIgnoreCase(contentType) || contentType.toLowerCase().startsWith("image/"));
+        if (!allowedType) {
+            throw new ValidationException("Sadece PDF veya resim (JPEG, PNG, GIF, WebP) yüklenebilir.");
+        }
+        PurchaseRequest request = purchaseRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Satın alma talebi bulunamadı: " + requestId));
+        User user = userRepository.findByEmailAndIsActiveTrue(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Kullanıcı bulunamadı."));
+        if (!request.getRequester().getId().equals(user.getId()) && !canUserApprovePurchaseRequest(requestId, userEmail)) {
+            throw new ValidationException("Bu talebe belge ekleyemezsiniz.");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank()) {
+            originalFilename = "file";
+        }
+        String ext = "";
+        int dot = originalFilename.lastIndexOf('.');
+        if (dot > 0) {
+            ext = originalFilename.substring(dot);
+        }
+        String storedName = UUID.randomUUID().toString() + ext;
+        Path dir = Paths.get(UPLOAD_BASE, "purchase-requests", requestId.toString());
+        try {
+            Files.createDirectories(dir);
+            Path target = dir.resolve(storedName);
+            file.transferTo(target.toFile());
+        } catch (IOException e) {
+            log.error("Attachment upload failed", e);
+            throw new ValidationException("Dosya kaydedilemedi: " + e.getMessage());
+        }
+        String relativePath = "purchase-requests/" + requestId + "/" + storedName;
+        PurchaseRequestAttachment att = new PurchaseRequestAttachment();
+        att.setPurchaseRequest(request);
+        att.setFileName(originalFilename);
+        att.setContentType(contentType);
+        att.setFileSize(file.getSize());
+        att.setStoredPath(relativePath);
+        att = attachmentRepository.save(att);
+        return new PurchaseRequestAttachmentDto(att.getId(), att.getFileName(), att.getContentType(), att.getFileSize(), att.getCreatedAt());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AttachmentDownloadResult downloadAttachment(Long requestId, Long attachmentId) {
+        PurchaseRequestAttachment att = attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Belge bulunamadı: " + attachmentId));
+        if (!att.getPurchaseRequest().getId().equals(requestId)) {
+            throw new ResourceNotFoundException("Belge bu talebe ait değil.");
+        }
+        Path path = Paths.get(UPLOAD_BASE, att.getStoredPath());
+        if (!Files.exists(path)) {
+            throw new ResourceNotFoundException("Dosya bulunamadı.");
+        }
+        Resource resource = new FileSystemResource(path.toFile());
+        return new AttachmentDownloadResult(resource, att.getFileName(), att.getContentType());
     }
     
     @Override

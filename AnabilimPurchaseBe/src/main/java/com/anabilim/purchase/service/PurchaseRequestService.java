@@ -5,8 +5,11 @@ import com.anabilim.purchase.dto.request.CreatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestDto;
 import com.anabilim.purchase.dto.request.UpdatePurchaseRequestItemsDto;
 import com.anabilim.purchase.dto.response.ParentApproverCandidateDto;
+import com.anabilim.purchase.dto.response.AttachmentDownloadResult;
+import com.anabilim.purchase.dto.response.PurchaseRequestAttachmentDto;
 import com.anabilim.purchase.dto.response.PurchaseRequestDto;
 import com.anabilim.purchase.entity.enums.RequestStatus;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -42,6 +45,12 @@ public interface PurchaseRequestService {
     
     /** Talep oluştururken ilk onaycı adayları (giriş yapan kullanıcının üst gruplarına göre). */
     List<ParentApproverCandidateDto> getFirstApproverCandidatesForUser(String userEmail);
+
+    /** Talep belgesi yükle (PDF veya resim). */
+    PurchaseRequestAttachmentDto uploadAttachment(Long requestId, MultipartFile file, String userEmail);
+
+    /** Talep belgesi indir. */
+    AttachmentDownloadResult downloadAttachment(Long requestId, Long attachmentId);
 
     // Diğer işlemler
     boolean canUserApprovePurchaseRequest(Long requestId, String userEmail);

@@ -19,10 +19,14 @@ import {
   Alert,
   RefreshControl,
   FlatList,
+  Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { purchaseService } from '@/services/api/purchase.service';
-import { ParentApproverCandidate, PurchaseRequest, PurchaseRequestApproval, SupplierQuote } from '@/services/types/purchase.types';
+import { ParentApproverCandidate, PurchaseRequest, PurchaseRequestApproval, PurchaseRequestAttachment, SupplierQuote } from '@/services/types/purchase.types';
 
 type StatusStyle = {
   text: string;
@@ -46,6 +50,7 @@ export default function RequestDetailScreen() {
   const [approvalComment, setApprovalComment] = useState('');
   const [returnToOptions, setReturnToOptions] = useState<{ id: number; label: string }[]>([]);
   const [returnToExpanded, setReturnToExpanded] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const { token } = useAuth();
   const colorScheme = useColorScheme();
   const colors = AppColors[colorScheme ?? 'light'];
@@ -55,7 +60,7 @@ export default function RequestDetailScreen() {
     try {
       const data = await purchaseService.getRequestById(Number(id), token);
       setRequest(data);
-      if (data?.status === 'IN_APPROVAL' && data?.approvals?.some((a: any) => a.status === 'PENDING')) {
+      if ((data?.status === 'IN_APPROVAL' || data?.status === 'IN_PROGRESS') && data?.approvals?.some((a: any) => a.status === 'PENDING')) {
         if (data.nextApproverCandidates && data.nextApproverCandidates.length > 0) {
           setNextApproverCandidatesList(data.nextApproverCandidates);
           const one = data.nextApproverCandidates.filter((c: ParentApproverCandidate) => c.userId != null);

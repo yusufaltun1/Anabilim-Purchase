@@ -12,9 +12,18 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+
+import com.anabilim.purchase.dto.response.AttachmentDownloadResult;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.anabilim.purchase.dto.response.PurchaseRequestAttachmentDto;
 
 import java.util.List;
 
@@ -129,5 +138,25 @@ public class PurchaseRequestController {
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(purchaseRequestService.resubmitPurchaseRequest(
                 id, userDetails.getUsername()));
+    }
+
+    @PostMapping(value = "/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PurchaseRequestAttachmentDto> uploadAttachment(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(purchaseRequestService.uploadAttachment(id, file, userDetails.getUsername()));
+    }
+
+    @GetMapping("/{id}/attachments/{attachmentId}")
+    public ResponseEntity<Resource> downloadAttachment(
+            @PathVariable Long id,
+            @PathVariable Long attachmentId) {
+        AttachmentDownloadResult result = purchaseRequestService.downloadAttachment(id, attachmentId);
+        MediaType mediaType = MediaType.parseMediaType(result.getContentType() != null ? result.getContentType() : "application/octet-stream");
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.getFileName() + "\"")
+                .body(result.getResource());
     }
 } 
