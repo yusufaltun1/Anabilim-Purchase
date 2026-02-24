@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { purchaseRequestService } from '../services/purchase-request.service';
-import { PurchaseRequest, PurchaseRequestItem, ApprovalAction, ParentApproverCandidate } from '../types/purchase-request';
+import { PurchaseRequest, PurchaseRequestItem, ApprovalAction, ParentApproverCandidate, PurchaseRequestAttachment } from '../types/purchase-request';
 import { User } from '../types/user';
 import { AddItemsForm } from '../components/AddItemsForm';
 import { authService } from '../services/auth.service';
@@ -42,6 +42,8 @@ export const PurchaseRequestDetail = () => {
   });
   const [quoteSaving, setQuoteSaving] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadRequestData();
@@ -68,7 +70,7 @@ export const PurchaseRequestDetail = () => {
       if (requestResponse.success) {
         const req = requestResponse.data as PurchaseRequest;
         setRequest(req);
-        if (req?.status === 'IN_APPROVAL' && req.approvals?.some((a) => a.status === 'PENDING') && authService.getCurrentUser()?.id === req.approvals?.find((a) => a.status === 'PENDING')?.approver?.id) {
+        if ((req?.status === 'IN_APPROVAL' || req?.status === 'IN_PROGRESS') && req.approvals?.some((a) => a.status === 'PENDING') && authService.getCurrentUser()?.id === req.approvals?.find((a) => a.status === 'PENDING')?.approver?.id) {
           if (req.nextApproverCandidates && req.nextApproverCandidates.length > 0) {
             setNextApproverCandidatesList(req.nextApproverCandidates);
             const oneSelectable = req.nextApproverCandidates.find((c) => c.userId != null);
@@ -267,6 +269,43 @@ export const PurchaseRequestDetail = () => {
     return request.approvals.find(a => a.status === 'PENDING')?.approver || null;
   };
 
+  const handleAddDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    const ok = file.type === 'application/pdf' || file.type.startsWith('image/');
+    if (!ok) {
+      showNotification('Sadece PDF veya resim (JPEG, PNG, GIF, WebP) yükleyebilirsiniz.', 'error');
+      return;
+    }
+    e.target.value = '';
+    try {
+      setUploadingAttachment(true);
+      await purchaseRequestService.uploadAttachment(parseInt(id), file);
+      await loadRequestData();
+      showNotification('Belge yüklendi.', 'success');
+    } catch (err) {
+      console.error('Belge yükleme hatası:', err);
+      showNotification(err instanceof Error ? err.message : 'Belge yüklenemedi.', 'error');
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
+  const handleDownloadAttachment = async (att: PurchaseRequestAttachment) => {
+    if (!id) return;
+    try {
+      const { blobUrl, fileName } = await purchaseRequestService.downloadAttachment(parseInt(id), att.id);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('İndirme hatası:', err);
+      showNotification(err instanceof Error ? err.message : 'Belge indirilemedi.', 'error');
+    }
+  };
+
   const PurchaseRequestItems: React.FC<{ items: PurchaseRequestItem[] }> = ({ items }) => (
     <div className="mt-8 flow-root">
       <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
@@ -405,6 +444,64 @@ export const PurchaseRequestDetail = () => {
               </div>
             </div>
 
+            {/* Belgeler */}
+            <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Belgeler</h3>
+                <p className="mt-1 text-sm text-gray-500">PDF veya resim yükleyebilir, sonra indirebilirsiniz.</p>
+              </div>
+              <div className="px-4 py-5 sm:px-6">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf,image/*"
+                  className="hidden"
+                  onChange={handleAddDocument}
+                />
+                {request.attachments && request.attachments.length > 0 && (
+                  <ul className="divide-y divide-gray-200 mb-4">
+                    {request.attachments.map((att) => (
+                      <li key={att.id} className="py-3 flex items-center justify-between">
+                        <div className="flex items-center min-w-0 flex-1">
+                          {att.contentType?.startsWith('image/') ? (
+                            <svg className="h-5 w-5 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2h2v2h-2v-2zm-4 0h2v2h-2v-2zm-4 2h2v2H7v-2zm-2-2h2v2H5v-2z" clipRule="evenodd" /></svg>
+                          ) : (
+                            <svg className="h-5 w-5 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" /></svg>
+                          )}
+                          <span className="ml-3 text-sm font-medium text-gray-900 truncate">{att.fileName}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadAttachment(att)}
+                          className="ml-4 inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                        >
+                          İndir
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAttachment}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploadingAttachment ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
+                      Yükleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="-ml-0.5 mr-2 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Belge ekle (PDF veya resim)
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
             {request.items && request.items.length > 0 && <PurchaseRequestItems items={request.items} />}
 
             <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
@@ -485,7 +582,7 @@ export const PurchaseRequestDetail = () => {
               </div>
             </div>
 
-            {request.status === 'IN_APPROVAL' && getCurrentApprover(request)?.id === authService.getCurrentUser()?.id && (
+            {(request.status === 'IN_APPROVAL' || request.status === 'IN_PROGRESS') && getCurrentApprover(request)?.id === authService.getCurrentUser()?.id && (
               <div className="mt-6 bg-white shadow sm:rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">Onay İşlemi</h3>

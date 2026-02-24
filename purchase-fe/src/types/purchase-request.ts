@@ -70,6 +70,14 @@ export interface SendDownCandidate {
   label: string;
 }
 
+export interface PurchaseRequestAttachment {
+  id: number;
+  fileName: string;
+  contentType: string;
+  fileSize?: number;
+  createdAt: string;
+}
+
 export interface Approval {
   id: number;
   approver: User;
@@ -122,6 +130,7 @@ export interface PurchaseRequest {
   hasNoNextApprover?: boolean;
   /** hasNoNextApprover true iken talebi iletebileceği kişiler */
   sendDownCandidates?: SendDownCandidate[];
+  attachments?: PurchaseRequestAttachment[];
 }
 
 export interface CreatePurchaseRequestItem {

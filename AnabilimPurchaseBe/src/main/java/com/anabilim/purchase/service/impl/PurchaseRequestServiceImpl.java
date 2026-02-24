@@ -22,6 +22,7 @@ import com.anabilim.purchase.service.UserGroupService;
 import com.anabilim.purchase.entity.Product;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -58,8 +59,15 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     private final UserGroupService userGroupService;
     private final PurchaseRequestAttachmentRepository attachmentRepository;
 
-    private static final String UPLOAD_BASE = "uploads";
+    @Value("${app.upload-dir:uploads}")
+    private String uploadBaseDir;
+
     private static final long MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+
+    /** Mutlak path kullanarak Tomcat/servlet ortamında dizin tutarlılığını sağlar. */
+    private Path getUploadBasePath() {
+        return Paths.get(uploadBaseDir).toAbsolutePath().normalize();
+    }
 
     @Override
     public PurchaseRequestDto createPurchaseRequest(CreatePurchaseRequestDto createDto, String requesterEmail) {
@@ -407,7 +415,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             ext = originalFilename.substring(dot);
         }
         String storedName = UUID.randomUUID().toString() + ext;
-        Path dir = Paths.get(UPLOAD_BASE, "purchase-requests", requestId.toString());
+        Path base = getUploadBasePath();
+        Path dir = base.resolve("purchase-requests").resolve(requestId.toString());
         try {
             Files.createDirectories(dir);
             Path target = dir.resolve(storedName);
@@ -435,7 +444,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         if (!att.getPurchaseRequest().getId().equals(requestId)) {
             throw new ResourceNotFoundException("Belge bu talebe ait değil.");
         }
-        Path path = Paths.get(UPLOAD_BASE, att.getStoredPath());
+        Path path = getUploadBasePath().resolve(att.getStoredPath());
         if (!Files.exists(path)) {
             throw new ResourceNotFoundException("Dosya bulunamadı.");
         }

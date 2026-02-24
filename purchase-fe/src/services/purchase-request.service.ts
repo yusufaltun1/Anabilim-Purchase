@@ -9,7 +9,8 @@ import {
   PurchaseRequestHistory,
   UpdatePurchaseRequestItemsRequest,
   PurchaseRequestItemsResponse,
-  ParentApproverCandidate
+  ParentApproverCandidate,
+  PurchaseRequestAttachment
 } from '../types/purchase-request';
 
 class PurchaseRequestService {
@@ -17,6 +18,13 @@ class PurchaseRequestService {
     const token = authService.getToken();
     return {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+  }
+
+  private getHeadersMultipart(): HeadersInit {
+    const token = authService.getToken();
+    return {
       'Authorization': `Bearer ${token}`,
     };
   }
@@ -308,6 +316,41 @@ class PurchaseRequestService {
         timestamp: new Date().toISOString()
       };
     }
+  }
+
+  async uploadAttachment(requestId: number, file: File): Promise<PurchaseRequestAttachment> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/${requestId}/attachments`, {
+      method: 'POST',
+      headers: this.getHeadersMultipart(),
+      body: formData,
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Belge yüklenirken hata oluştu');
+    }
+    return response.json();
+  }
+
+  /** İndirme için blob URL ve dosya adı döner; sayfa link tıklayıp URL.revokeObjectURL yapabilir */
+  async downloadAttachment(requestId: number, attachmentId: number): Promise<{ blobUrl: string; fileName: string }> {
+    const response = await fetch(
+      `${API_CONFIG.BASE_URL}/api/purchase-requests/${requestId}/attachments/${attachmentId}`,
+      { headers: this.getHeaders() }
+    );
+    if (!response.ok) {
+      throw new Error('Belge indirilirken hata oluştu');
+    }
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let fileName = `attachment-${attachmentId}`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) fileName = match[1].trim();
+    }
+    const blobUrl = URL.createObjectURL(blob);
+    return { blobUrl, fileName };
   }
 }
 

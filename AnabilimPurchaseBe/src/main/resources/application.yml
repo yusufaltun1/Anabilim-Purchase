@@ -4,6 +4,10 @@ server:
     context-path: /
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
   jackson:
     deserialization:
       fail_on_unknown_properties: false
@@ -85,3 +89,7 @@ microsoft:
     client-secret: ${MIC_CLIENT_SECRET}
     tenant-id: ${MIC_TENANT_ID}
     sender-email: hr@talentai.com.tr
+
+app:
+  upload-dir: ${UPLOAD_DIR:uploads}
+
