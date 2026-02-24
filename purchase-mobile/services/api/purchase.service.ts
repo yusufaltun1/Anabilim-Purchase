@@ -99,8 +99,9 @@ class PurchaseService {
   }
 
   async getRequestById(id: number, token: string): Promise<PurchaseRequest> {
+    const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.DETAIL(id)}`;
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.DETAIL(id)}`, {
+      const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(token),
       });
@@ -109,7 +110,11 @@ class PurchaseService {
         throw new Error(`HTTP hatası! Durum: ${response.status}`);
       }
 
-      return await response.json();
+      const json = await response.json();
+      if (json != null && typeof json === 'object' && json.data != null && !json.id && json.data.id != null) {
+        return json.data as PurchaseRequest;
+      }
+      return json as PurchaseRequest;
     } catch (error) {
       console.error('Talep detayı yüklenirken hata:', error);
       throw error;

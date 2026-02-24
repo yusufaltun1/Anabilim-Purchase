@@ -7,6 +7,23 @@ export interface Supplier {
   contactEmail: string;
 }
 
+export interface SupplierQuote {
+  id: number;
+  quoteNumber?: string;
+  unitPrice?: number;
+  quantity?: number;
+  totalPrice?: number;
+  currency?: string;
+  deliveryDate?: string;
+  quoteDate?: string;
+  validityDate?: string;
+  notes?: string;
+  supplierReference?: string;
+  status?: string;
+  isSelected?: boolean;
+  supplier?: { id: number; name: string; contactPerson?: string; contactPhone?: string; contactEmail?: string };
+}
+
 export interface PurchaseRequestItem {
   id?: number;
   productName: string;
@@ -17,8 +34,8 @@ export interface PurchaseRequestItem {
   productLink?: string;
   potentialSupplierIds?: number[];
   potentialSuppliers?: Supplier[];
-  supplierQuotes?: any[];
-  selectedSupplierId?: number;
+  supplierQuotes?: SupplierQuote[];
+  selectedSupplierId?: number | null;
   estimatedDeliveryDate?: string;
   notes?: string;
   createdAt?: string;

@@ -332,7 +332,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         PurchaseRequest request = purchaseRequestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Satın alma talebi bulunamadı: " + id));
         PurchaseRequestDto dto = purchaseRequestMapper.toDto(request);
-        if (request.getStatus() == RequestStatus.IN_APPROVAL) {
+        if (request.getStatus() == RequestStatus.IN_APPROVAL || request.getStatus() == RequestStatus.IN_PROGRESS) {
             Optional<PurchaseRequestApproval> pendingOpt = approvalRepository
                     .findFirstByPurchaseRequestAndStatusOrderByStepOrderAsc(request, ApprovalStatus.PENDING);
             String currentUserEmail = SecurityContextHolder.getContext().getAuthentication() != null

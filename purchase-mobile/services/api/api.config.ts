@@ -1,5 +1,5 @@
 const defaultBaseUrl = __DEV__
-  ? 'http://localhost:8080'
+  ? 'https://testsatinalmaapi.anabilim.k12.tr'
   : 'https://testsatinalmaapi.anabilim.k12.tr';
 const rawBaseUrl = defaultBaseUrl;
 const BASE_URL = rawBaseUrl.replace(/\/$/, '');
