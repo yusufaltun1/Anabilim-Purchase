@@ -90,7 +90,9 @@ function UserGroupWhiteboardInner() {
   const [editGroupDescription, setEditGroupDescription] = useState('');
   const [updatingGroup, setUpdatingGroup] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(false);
+  const [copyingGroup, setCopyingGroup] = useState(false);
   const [groupUpdateMessage, setGroupUpdateMessage] = useState<'success' | 'error' | null>(null);
+  const [lastSuccessWasCopy, setLastSuccessWasCopy] = useState(false);
   const selectedGroupName: string | null = selectedNodeId ? (nodes.find((n) => n.id === selectedNodeId)?.data?.label ?? null) : null;
   const lastLoadedGroupIdRef = useRef<string | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -341,6 +343,7 @@ function UserGroupWhiteboardInner() {
     if (!selectedNodeId) return;
     setUpdatingGroup(true);
     setGroupUpdateMessage(null);
+    setLastSuccessWasCopy(false);
     try {
       await userGroupService.updateGroup(Number(selectedNodeId), {
         name: editGroupName.trim() || selectedGroupName || 'Grup',
@@ -382,6 +385,55 @@ function UserGroupWhiteboardInner() {
       setDeletingGroup(false);
     }
   }, [selectedNodeId, selectedGroupName]);
+
+  const handleCopyGroup = useCallback(async () => {
+    if (!selectedNodeId) return;
+    const node = nodes.find((n) => n.id === selectedNodeId);
+    const pos = node?.position ?? { x: 250, y: 150 };
+    const x = typeof pos.x === 'number' ? pos.x : 250;
+    const y = typeof pos.y === 'number' ? pos.y : 150;
+    const baseName = (editGroupName || selectedGroupName || 'Grup').trim() || 'Grup';
+    const newName = `${baseName} (kopya)`;
+    setCopyingGroup(true);
+    setGroupUpdateMessage(null);
+    setLastSuccessWasCopy(true);
+    try {
+      const created = await userGroupService.createGroup({
+        name: newName,
+        description: (editGroupDescription || node?.data?.description || '').trim() || undefined,
+        positionX: x + 80,
+        positionY: y + 60,
+      });
+      const newId = String(created.id);
+      setNodes((nds) => [
+        ...nds.map((n) => ({ ...n, selected: n.id === newId })),
+        {
+          id: newId,
+          type: NODE_TYPE_GROUP,
+          position: { x: created.positionX ?? x + 80, y: created.positionY ?? y + 60 },
+          data: {
+            label: created.name,
+            memberCount: 0,
+            description: created.description,
+          },
+          selected: true,
+        },
+      ]);
+      setEditGroupName(newName);
+      setEditGroupDescription(created.description ?? '');
+      setSelectedNodeId(newId);
+      lastLoadedGroupIdRef.current = newId;
+      setSelectedUserIds([]);
+      setGroupUpdateMessage('success');
+      setTimeout(() => setGroupUpdateMessage(null), 2000);
+    } catch (err) {
+      console.error(err);
+      setGroupUpdateMessage('error');
+      setTimeout(() => setGroupUpdateMessage(null), 3000);
+    } finally {
+      setCopyingGroup(false);
+    }
+  }, [selectedNodeId, nodes, editGroupName, editGroupDescription, selectedGroupName]);
 
   if (loading) {
     return (
@@ -512,14 +564,22 @@ function UserGroupWhiteboardInner() {
                       placeholder="Açıklama"
                     />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={handleUpdateGroup}
                       disabled={updatingGroup}
-                      className="flex-1 px-3 py-1.5 bg-emerald-600 text-white rounded text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                      className="flex-1 min-w-0 px-3 py-1.5 bg-emerald-600 text-white rounded text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
                     >
                       {updatingGroup ? '…' : 'Güncelle'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyGroup}
+                      disabled={copyingGroup}
+                      className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {copyingGroup ? '…' : 'Kopyala'}
                     </button>
                     <button
                       type="button"
@@ -527,11 +587,13 @@ function UserGroupWhiteboardInner() {
                       disabled={deletingGroup}
                       className="px-3 py-1.5 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50"
                     >
-                      {deletingGroup ? '…' : 'Grubu sil'}
+                      {deletingGroup ? '…' : 'Sil'}
                     </button>
                   </div>
-                  {groupUpdateMessage === 'success' && <p className="text-xs text-emerald-600">Grup güncellendi.</p>}
-                  {groupUpdateMessage === 'error' && <p className="text-xs text-red-600">Güncelleme başarısız.</p>}
+                  {groupUpdateMessage === 'success' && (
+                    <p className="text-xs text-emerald-600">{lastSuccessWasCopy ? 'Grup kopyalandı.' : 'Grup güncellendi.'}</p>
+                  )}
+                  {groupUpdateMessage === 'error' && <p className="text-xs text-red-600">İşlem başarısız.</p>}
                 </div>
               </>
             ) : (
