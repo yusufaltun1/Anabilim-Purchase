@@ -84,6 +84,9 @@ public class UserGroupServiceImpl implements UserGroupService {
         if (!userGroupRepository.existsById(id)) {
             throw new ResourceNotFoundException("Grup bulunamadı: " + id);
         }
+        // Önce bu gruba ait tüm bağlantıları sil (FK kısıtı hatasını önlemek için)
+        userGroupLinkRepository.findBySourceGroupId(id).forEach(userGroupLinkRepository::delete);
+        userGroupLinkRepository.findByTargetGroupId(id).forEach(userGroupLinkRepository::delete);
         userGroupRepository.deleteById(id);
     }
 

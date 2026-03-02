@@ -86,6 +86,11 @@ function UserGroupWhiteboardInner() {
   const [savingPositions, setSavingPositions] = useState(false);
   const [positionSaveMessage, setPositionSaveMessage] = useState<'success' | 'error' | null>(null);
   const [memberSaveMessage, setMemberSaveMessage] = useState<'success' | 'error' | null>(null);
+  const [editGroupName, setEditGroupName] = useState('');
+  const [editGroupDescription, setEditGroupDescription] = useState('');
+  const [updatingGroup, setUpdatingGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
+  const [groupUpdateMessage, setGroupUpdateMessage] = useState<'success' | 'error' | null>(null);
   const selectedGroupName: string | null = selectedNodeId ? (nodes.find((n) => n.id === selectedNodeId)?.data?.label ?? null) : null;
   const lastLoadedGroupIdRef = useRef<string | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -131,6 +136,20 @@ function UserGroupWhiteboardInner() {
     loadUsers();
   }, [loadWhiteboard, loadUsers]);
 
+  // Seçili node değişince edit alanlarını doldur
+  useEffect(() => {
+    if (!selectedNodeId) {
+      setEditGroupName('');
+      setEditGroupDescription('');
+      return;
+    }
+    const node = nodes.find((n) => n.id === selectedNodeId);
+    if (node?.data) {
+      setEditGroupName(node.data.label ?? '');
+      setEditGroupDescription(node.data.description ?? '');
+    }
+  }, [selectedNodeId, nodes]);
+
   // Seçili node'u nodes state'inden al; grup üyelerini sadece seçim değişince yükle
   useEffect(() => {
     const selected = nodes.find((n) => n.selected);
@@ -163,13 +182,24 @@ function UserGroupWhiteboardInner() {
   }, [nodes]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    changes.forEach((c) => {
-      if (c.type === 'remove' && 'id' in c && c.id) {
-        userGroupService.deleteGroup(Number(c.id)).catch((err) => console.error('Grup silinemedi:', err));
-      }
-    });
-    setNodes((nds) => applyNodeChanges(changes, nds) as GroupNode[]);
-  }, []);
+    const removeChanges = changes.filter((c): c is NodeChange & { type: 'remove'; id: string } => c.type === 'remove' && 'id' in c && !!c.id);
+    const otherChanges = changes.filter((c) => c.type !== 'remove');
+    setNodes((nds) => applyNodeChanges(otherChanges, nds) as GroupNode[]);
+    if (removeChanges.length > 0) {
+      Promise.all(removeChanges.map((c) => userGroupService.deleteGroup(Number(c.id))))
+        .then(() => {
+          setNodes((nds) => nds.filter((n) => !removeChanges.some((r) => r.id === n.id)));
+          setEdges((eds) => eds.filter((e) => !removeChanges.some((r) => e.source === r.id || e.target === r.id)));
+          if (selectedNodeId && removeChanges.some((r) => r.id === selectedNodeId)) {
+            setSelectedNodeId(null);
+          }
+        })
+        .catch((err) => {
+          console.error('Grup silinemedi:', err);
+          alert('Grup silinemedi: ' + (err?.message ?? 'Bilinmeyen hata'));
+        });
+    }
+  }, [selectedNodeId]);
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     changes.forEach((c) => {
       if (c.type === 'remove' && 'id' in c && c.id) {
@@ -307,6 +337,52 @@ function UserGroupWhiteboardInner() {
     );
   }, []);
 
+  const handleUpdateGroup = useCallback(async () => {
+    if (!selectedNodeId) return;
+    setUpdatingGroup(true);
+    setGroupUpdateMessage(null);
+    try {
+      await userGroupService.updateGroup(Number(selectedNodeId), {
+        name: editGroupName.trim() || selectedGroupName || 'Grup',
+        description: editGroupDescription.trim() || '',
+      });
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === selectedNodeId
+            ? { ...n, data: { ...n.data, label: editGroupName.trim() || n.data.label, description: editGroupDescription.trim() || n.data.description } }
+            : n
+        )
+      );
+      setGroupUpdateMessage('success');
+      setTimeout(() => setGroupUpdateMessage(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setGroupUpdateMessage('error');
+      setTimeout(() => setGroupUpdateMessage(null), 4000);
+    } finally {
+      setUpdatingGroup(false);
+    }
+  }, [selectedNodeId, editGroupName, editGroupDescription, selectedGroupName]);
+
+  const handleDeleteGroup = useCallback(async () => {
+    if (!selectedNodeId) return;
+    if (!window.confirm(`"${selectedGroupName ?? 'Grup'}" grubunu silmek istediğinize emin misiniz? Bu gruba ait bağlantılar da silinecektir.`)) return;
+    setDeletingGroup(true);
+    try {
+      await userGroupService.deleteGroup(Number(selectedNodeId));
+      setNodes((nds) => nds.filter((n) => n.id !== selectedNodeId));
+      setEdges((eds) => eds.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId));
+      setSelectedNodeId(null);
+      lastLoadedGroupIdRef.current = null;
+      setSelectedUserIds([]);
+    } catch (err) {
+      console.error(err);
+      alert('Grup silinemedi: ' + (err?.message ?? 'Bilinmeyen hata'));
+    } finally {
+      setDeletingGroup(false);
+    }
+  }, [selectedNodeId, selectedGroupName]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -415,10 +491,52 @@ function UserGroupWhiteboardInner() {
                   Seçili grup: {selectedGroupName ?? '—'}
                 </p>
                 <p className="text-sm text-gray-500 mt-0.5">Bu gruba (role) atanacak kullanıcıları işaretleyip kaydedin.</p>
+                <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Grup adı</label>
+                    <input
+                      type="text"
+                      value={editGroupName}
+                      onChange={(e) => setEditGroupName(e.target.value)}
+                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      placeholder="Grup adı"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Açıklama (isteğe bağlı)</label>
+                    <input
+                      type="text"
+                      value={editGroupDescription}
+                      onChange={(e) => setEditGroupDescription(e.target.value)}
+                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      placeholder="Açıklama"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleUpdateGroup}
+                      disabled={updatingGroup}
+                      className="flex-1 px-3 py-1.5 bg-emerald-600 text-white rounded text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      {updatingGroup ? '…' : 'Güncelle'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteGroup}
+                      disabled={deletingGroup}
+                      className="px-3 py-1.5 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {deletingGroup ? '…' : 'Grubu sil'}
+                    </button>
+                  </div>
+                  {groupUpdateMessage === 'success' && <p className="text-xs text-emerald-600">Grup güncellendi.</p>}
+                  {groupUpdateMessage === 'error' && <p className="text-xs text-red-600">Güncelleme başarısız.</p>}
+                </div>
               </>
             ) : (
               <p className="text-sm text-gray-500 mt-1">
-                Tahtada bir grup (kutu) seçin. Seçtiğiniz gruba buradan kullanıcı atayabilirsiniz.
+                Tahtada bir grup (kutu) seçin. Seçtiğiniz gruba buradan kullanıcı atayabilir, adını güncelleyebilir veya silebilirsiniz.
               </p>
             )}
           </div>
