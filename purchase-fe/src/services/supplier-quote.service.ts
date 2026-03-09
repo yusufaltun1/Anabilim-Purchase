@@ -76,6 +76,42 @@ class SupplierQuoteService {
       };
     }
   }
+
+  /** Karşı teklif gir (ana teklifi değiştirmez; tabloda "Karşı teklif var" ibaresi çıkar) */
+  async setCounterOffer(quoteUid: string, payload: { quantity: number; unitPrice: number }): Promise<SupplierQuoteResponse> {
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/supplier-quotes/${quoteUid}/counter-offer`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: data.message || 'Karşı teklif kaydedilemedi',
+          data: null,
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Karşı teklif kaydedildi',
+        data: data,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Karşı teklif kaydedilemedi',
+        data: null,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
 }
 
 export const supplierQuoteService = new SupplierQuoteService(); 

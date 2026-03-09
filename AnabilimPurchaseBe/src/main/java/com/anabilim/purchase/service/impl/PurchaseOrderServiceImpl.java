@@ -158,7 +158,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 supplierQuote.getUpdatedAt(),
                 supplierQuote.getRespondedAt(),
                 supplierQuote.getEnteredByUser() != null ? supplierQuote.getEnteredByUser().getId() : null,
-                supplierQuote.getEnteredByUser() != null ? supplierQuote.getEnteredByUser().getFullName() : null
+                supplierQuote.getEnteredByUser() != null ? supplierQuote.getEnteredByUser().getFullName() : null,
+                supplierQuote.getCounterOfferUnitPrice(),
+                supplierQuote.getCounterOfferQuantity(),
+                supplierQuote.getCounterOfferEnteredAt(),
+                supplierQuote.getCounterOfferEnteredBy() != null ? supplierQuote.getCounterOfferEnteredBy().getId() : null,
+                supplierQuote.getCounterOfferEnteredBy() != null ? supplierQuote.getCounterOfferEnteredBy().getFullName() : null
         );
     }
 

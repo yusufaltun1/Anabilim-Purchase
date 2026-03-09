@@ -228,7 +228,10 @@ public class PurchaseRequestMapper {
             quote.getCreatedAt(),
             quote.getUpdatedAt(),
             quote.getRespondedAt(),
-            toSupplierDto(quote.getSupplier())
+            toSupplierDto(quote.getSupplier()),
+            quote.getCounterOfferUnitPrice(),
+            quote.getCounterOfferQuantity(),
+            quote.getCounterOfferEnteredAt()
         );
     }
 } 

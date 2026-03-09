@@ -66,5 +66,9 @@ public class PurchaseRequestItemDto {
         private LocalDateTime updatedAt;
         private LocalDateTime respondedAt;
         private SupplierDto supplier;
+        /** Karşı teklif (ana teklif ayrı; sadece ibare için) */
+        private java.math.BigDecimal counterOfferUnitPrice;
+        private Integer counterOfferQuantity;
+        private LocalDateTime counterOfferEnteredAt;
     }
 } 

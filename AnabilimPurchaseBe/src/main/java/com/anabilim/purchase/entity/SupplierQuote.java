@@ -99,6 +99,20 @@ public class SupplierQuote {
     
     @Column(name = "responded_at")
     private LocalDateTime respondedAt;
+
+    /** Karşı teklif: kullanıcının girdiği adet (ana teklif ayrı güncellenir) */
+    @Column(name = "counter_offer_quantity")
+    private Integer counterOfferQuantity;
+
+    @Column(name = "counter_offer_unit_price", precision = 19, scale = 4)
+    private BigDecimal counterOfferUnitPrice;
+
+    @Column(name = "counter_offer_entered_at")
+    private LocalDateTime counterOfferEnteredAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "counter_offer_entered_by_user_id")
+    private User counterOfferEnteredBy;
     
     @PrePersist
     public void prePersist() {

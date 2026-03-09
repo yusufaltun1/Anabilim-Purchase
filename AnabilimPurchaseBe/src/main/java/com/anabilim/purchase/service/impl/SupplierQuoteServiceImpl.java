@@ -1,14 +1,18 @@
 package com.anabilim.purchase.service.impl;
 
+import com.anabilim.purchase.dto.request.SetCounterOfferDto;
 import com.anabilim.purchase.dto.request.UpdateSupplierQuoteDto;
 import com.anabilim.purchase.dto.response.SupplierQuoteDto;
+import com.anabilim.purchase.entity.PurchaseRequest;
 import com.anabilim.purchase.entity.PurchaseRequestItem;
 import com.anabilim.purchase.entity.Supplier;
 import com.anabilim.purchase.entity.SupplierQuote;
 import com.anabilim.purchase.entity.User;
 import com.anabilim.purchase.entity.enums.QuoteStatus;
+import com.anabilim.purchase.entity.enums.RequestStatus;
 import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.repository.PurchaseRequestItemRepository;
+import com.anabilim.purchase.repository.PurchaseRequestRepository;
 import com.anabilim.purchase.repository.SupplierQuoteRepository;
 import com.anabilim.purchase.repository.SupplierRepository;
 import com.anabilim.purchase.repository.UserRepository;
@@ -31,6 +35,7 @@ public class SupplierQuoteServiceImpl implements SupplierQuoteService {
     
     private final SupplierQuoteRepository supplierQuoteRepository;
     private final PurchaseRequestItemRepository requestItemRepository;
+    private final PurchaseRequestRepository purchaseRequestRepository;
     private final SupplierRepository supplierRepository;
     private final UserRepository userRepository;
     
@@ -75,6 +80,29 @@ public class SupplierQuoteServiceImpl implements SupplierQuoteService {
         }
         
         return toDto(supplierQuoteRepository.save(quote));
+    }
+
+    @Override
+    @Transactional
+    public SupplierQuoteDto setCounterOffer(String quoteUid, SetCounterOfferDto dto) {
+        SupplierQuote quote = getQuoteEntityByUid(quoteUid);
+        quote.setCounterOfferQuantity(dto.getQuantity());
+        quote.setCounterOfferUnitPrice(dto.getUnitPrice());
+        quote.setCounterOfferEnteredAt(LocalDateTime.now());
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getName() != null && !"anonymousUser".equals(auth.getName())) {
+            User user = userRepository.findByEmail(auth.getName()).orElse(null);
+            if (user != null) {
+                quote.setCounterOfferEnteredBy(user);
+            }
+        }
+        SupplierQuote savedQuote = supplierQuoteRepository.save(quote);
+        PurchaseRequest request = savedQuote.getRequestItem().getPurchaseRequest();
+        if (request != null) {
+            request.setStatus(RequestStatus.PARTIAL_APPROVAL);
+            purchaseRequestRepository.save(request);
+        }
+        return toDto(savedQuote);
     }
     
     @Override
@@ -148,7 +176,13 @@ public class SupplierQuoteServiceImpl implements SupplierQuoteService {
             dto.setEnteredByUserId(quote.getEnteredByUser().getId());
             dto.setEnteredByUserName(quote.getEnteredByUser().getFullName());
         }
-        
+        dto.setCounterOfferUnitPrice(quote.getCounterOfferUnitPrice());
+        dto.setCounterOfferQuantity(quote.getCounterOfferQuantity());
+        dto.setCounterOfferEnteredAt(quote.getCounterOfferEnteredAt());
+        if (quote.getCounterOfferEnteredBy() != null) {
+            dto.setCounterOfferEnteredByUserId(quote.getCounterOfferEnteredBy().getId());
+            dto.setCounterOfferEnteredByUserName(quote.getCounterOfferEnteredBy().getFullName());
+        }
         return dto;
     }
 } 

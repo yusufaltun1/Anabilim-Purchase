@@ -58,6 +58,10 @@ public class PurchaseRequestDto {
         return status == RequestStatus.IN_PROGRESS;
     }
     
+    public boolean isPartialApproval() {
+        return status == RequestStatus.PARTIAL_APPROVAL;
+    }
+    
     public boolean isCompleted() {
         return status == RequestStatus.COMPLETED;
     }

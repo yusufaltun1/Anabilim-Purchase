@@ -29,6 +29,10 @@ export interface SupplierQuote {
   updatedAt: string;
   respondedAt: string;
   supplier: Supplier;
+  /** Karşı teklif (ana tekliften bağımsız; tabloda "Karşı teklif var" gösterilir) */
+  counterOfferUnitPrice?: number | null;
+  counterOfferQuantity?: number | null;
+  counterOfferEnteredAt?: string | null;
 }
 
 export interface PurchaseRequestItem {

@@ -1,5 +1,6 @@
 package com.anabilim.purchase.controller;
 
+import com.anabilim.purchase.dto.request.SetCounterOfferDto;
 import com.anabilim.purchase.dto.request.UpdateSupplierQuoteDto;
 import com.anabilim.purchase.dto.response.SupplierQuoteDto;
 import com.anabilim.purchase.service.SupplierQuoteService;
@@ -27,6 +28,13 @@ public class SupplierQuoteController {
             @PathVariable String quoteUid,
             @Valid @RequestBody UpdateSupplierQuoteDto updateDto) {
         return ResponseEntity.ok(supplierQuoteService.updateQuote(quoteUid, updateDto));
+    }
+
+    @PutMapping("/{quoteUid}/counter-offer")
+    public ResponseEntity<SupplierQuoteDto> setCounterOffer(
+            @PathVariable String quoteUid,
+            @Valid @RequestBody SetCounterOfferDto dto) {
+        return ResponseEntity.ok(supplierQuoteService.setCounterOffer(quoteUid, dto));
     }
     
     @GetMapping("/request-item/{requestItemId}")

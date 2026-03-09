@@ -35,6 +35,13 @@ public class SupplierQuoteDto {
      */
     private Long enteredByUserId;
     private String enteredByUserName;
+
+    /** Karşı teklif (ana tekliften bağımsız; tabloda "Karşı teklif var" gösterilir) */
+    private BigDecimal counterOfferUnitPrice;
+    private Integer counterOfferQuantity;
+    private java.time.LocalDateTime counterOfferEnteredAt;
+    private Long counterOfferEnteredByUserId;
+    private String counterOfferEnteredByUserName;
     
     @Data
     @NoArgsConstructor

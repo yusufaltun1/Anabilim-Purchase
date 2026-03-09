@@ -61,6 +61,7 @@ export const PurchaseRequests = () => {
       case 'REJECTED': return 'bg-red-100 text-red-800';
       case 'CANCELLED': return 'bg-gray-100 text-gray-800';
       case 'IN_PROGRESS': return 'bg-blue-100 text-blue-800';
+      case 'PARTIAL_APPROVAL': return 'bg-indigo-100 text-indigo-800';
       case 'COMPLETED': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -74,6 +75,7 @@ export const PurchaseRequests = () => {
       case 'REJECTED': return 'Reddedildi';
       case 'CANCELLED': return 'İptal Edildi';
       case 'IN_PROGRESS': return 'İşlemde';
+      case 'PARTIAL_APPROVAL': return 'Kısmi Onay';
       case 'COMPLETED': return 'Tamamlandı';
       default: return status;
     }

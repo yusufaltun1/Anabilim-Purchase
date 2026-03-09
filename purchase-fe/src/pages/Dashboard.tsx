@@ -81,7 +81,7 @@ export const Dashboard = () => {
   // İşlemde olan satın alma taleplerini hesapla
   const getInProgressRequests = () => {
     return purchaseRequests.filter(request => 
-      request.status === 'IN_PROGRESS' || request.status === 'APPROVED' || request.status === 'PARTIALLY_APPROVED'
+      request.status === 'IN_PROGRESS' || request.status === 'APPROVED' || request.status === 'PARTIAL_APPROVAL'
     ).length;
   };
 

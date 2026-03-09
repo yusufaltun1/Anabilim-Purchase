@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { purchaseRequestService } from '../services/purchase-request.service';
@@ -44,6 +45,13 @@ export const PurchaseRequestDetail = () => {
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Karşı teklif popover (kalem bazlı)
+  const [counterOfferPopoverItemId, setCounterOfferPopoverItemId] = useState<number | null>(null);
+  const [counterOfferQuote, setCounterOfferQuote] = useState<any>(null);
+  const [counterOfferQuantity, setCounterOfferQuantity] = useState<number>(0);
+  const [counterOfferUnitPrice, setCounterOfferUnitPrice] = useState<number>(0);
+  const [counterOfferSaving, setCounterOfferSaving] = useState(false);
+  const [counterOfferError, setCounterOfferError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRequestData();
@@ -70,7 +78,7 @@ export const PurchaseRequestDetail = () => {
       if (requestResponse.success) {
         const req = requestResponse.data as PurchaseRequest;
         setRequest(req);
-        if ((req?.status === 'IN_APPROVAL' || req?.status === 'IN_PROGRESS') && req.approvals?.some((a) => a.status === 'PENDING') && authService.getCurrentUser()?.id === req.approvals?.find((a) => a.status === 'PENDING')?.approver?.id) {
+        if ((req?.status === 'IN_APPROVAL' || req?.status === 'IN_PROGRESS' || req?.status === 'PARTIAL_APPROVAL') && req.approvals?.some((a) => a.status === 'PENDING') && authService.getCurrentUser()?.id === req.approvals?.find((a) => a.status === 'PENDING')?.approver?.id) {
           if (req.nextApproverCandidates && req.nextApproverCandidates.length > 0) {
             setNextApproverCandidatesList(req.nextApproverCandidates);
             const oneSelectable = req.nextApproverCandidates.find((c) => c.userId != null);
@@ -227,6 +235,7 @@ export const PurchaseRequestDetail = () => {
       case 'REJECTED': return 'bg-red-100 text-red-800';
       case 'CANCELLED': return 'bg-gray-100 text-gray-800';
       case 'IN_PROGRESS': return 'bg-blue-100 text-blue-800';
+      case 'PARTIAL_APPROVAL': return 'bg-indigo-100 text-indigo-800';
       case 'COMPLETED': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -240,6 +249,7 @@ export const PurchaseRequestDetail = () => {
       case 'REJECTED': return 'Reddedildi';
       case 'CANCELLED': return 'İptal Edildi';
       case 'IN_PROGRESS': return 'İşlemde';
+      case 'PARTIAL_APPROVAL': return 'Kısmi Onay';
       case 'COMPLETED': return 'Tamamlandı';
       default: return status;
     }
@@ -313,11 +323,26 @@ export const PurchaseRequestDetail = () => {
           {items.map((item) => (
             <div key={item.id} className="mb-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
               <div className="bg-white px-4 py-5 sm:p-6">
-                <h3 className="text-lg font-medium leading-6 text-gray-900">{item.product?.name}</h3>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <h3 className="text-lg font-medium leading-6 text-gray-900">{item.product?.name}</h3>
+                  {(item.supplierQuotes?.length ?? 0) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => openCounterOfferPopover(item)}
+                      className="inline-flex items-center px-3 py-1.5 border border-indigo-300 shadow-sm text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                    >
+                      Karşı teklif gir
+                    </button>
+                  )}
+                </div>
+                {(item.supplierQuotes?.length ?? 0) === 0 && (
+                  <p className="mt-1 text-sm text-gray-500">Bu kalem için tedarikçi atandığında karşı teklif girebilirsiniz.</p>
+                )}
                 <SupplierQuoteList
                   quotes={item.supplierQuotes}
                   onConvertToOrder={(quote) => { setSelectedQuote(quote); setShowConvertModal(true); }}
                   onEditQuote={(quote) => handleEditQuoteOpen(quote)}
+                  onEditQuoteFromCounterOffer={(quote) => handleEditQuoteOpenFromCounterOffer(quote)}
                 />
               </div>
             </div>
@@ -345,6 +370,21 @@ export const PurchaseRequestDetail = () => {
     });
   };
 
+  /** Karşı teklif hücresine tıklanınca güncelleme modalını karşı teklif miktarlarıyla açar */
+  const handleEditQuoteOpenFromCounterOffer = (quote: any) => {
+    setEditingQuote(quote);
+    setQuoteError(null);
+    setQuoteFormData({
+      unitPrice: quote.counterOfferUnitPrice != null ? quote.counterOfferUnitPrice : (quote.unitPrice || 0),
+      quantity: quote.counterOfferQuantity != null ? quote.counterOfferQuantity : (quote.quantity || 0),
+      currency: quote.currency || 'TRY',
+      deliveryDate: quote.deliveryDate?.split('T')[0] || '',
+      validityDate: quote.validityDate?.split('T')[0] || '',
+      notes: quote.notes || '',
+      supplierReference: quote.supplierReference || ''
+    });
+  };
+
   const handleQuoteChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -353,6 +393,60 @@ export const PurchaseRequestDetail = () => {
       ...prev,
       [name]: ['unitPrice', 'quantity'].includes(name) ? parseFloat(value) : value
     }));
+  };
+
+  /** Karşı teklif popover açıldığında seçili teklife göre form doldur */
+  const openCounterOfferPopover = (item: PurchaseRequestItem) => {
+    const quotes = item.supplierQuotes || [];
+    const quote = quotes[0] ?? null;
+    setCounterOfferQuote(quote);
+    setCounterOfferQuantity(quote ? (quote.quantity || item.quantity) : item.quantity || 0);
+    setCounterOfferUnitPrice(quote ? (quote.unitPrice || 0) : 0);
+    setCounterOfferError(null);
+    setCounterOfferPopoverItemId(item.id);
+  };
+
+  const closeCounterOfferPopover = () => {
+    setCounterOfferPopoverItemId(null);
+    setCounterOfferQuote(null);
+    setCounterOfferError(null);
+  };
+
+  const handleCounterOfferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!counterOfferQuote?.quoteUid) {
+      setCounterOfferError('Lütfen bir teklif seçin');
+      return;
+    }
+    if (counterOfferQuantity <= 0) {
+      setCounterOfferError('Adet 0\'dan büyük olmalıdır');
+      return;
+    }
+    if (counterOfferUnitPrice <= 0) {
+      setCounterOfferError('Birim fiyat 0\'dan büyük olmalıdır');
+      return;
+    }
+    setCounterOfferError(null);
+    try {
+      setCounterOfferSaving(true);
+      const response = await supplierQuoteService.setCounterOffer(counterOfferQuote.quoteUid, {
+        quantity: counterOfferQuantity,
+        unitPrice: counterOfferUnitPrice
+      });
+      if (!response.success) {
+        setCounterOfferError(response.message || 'Kayıt başarısız');
+        return;
+      }
+      showNotification('Karşı teklif kaydedildi', 'success');
+      closeCounterOfferPopover();
+      await loadRequestData();
+    } catch (err) {
+      console.error('Counter offer submit error:', err);
+      setCounterOfferError(err instanceof Error ? err.message : 'Kayıt sırasında hata oluştu');
+      showNotification('Karşı teklif kaydedilirken hata oluştu', 'error');
+    } finally {
+      setCounterOfferSaving(false);
+    }
   };
 
   const handleQuoteSubmit = async (e: React.FormEvent) => {
@@ -412,10 +506,72 @@ export const PurchaseRequestDetail = () => {
     return <div className="min-h-screen bg-gray-50"><Navigation /><div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"><div className="text-center py-12"><p className="text-gray-500">{error || 'Talep bulunamadı'}</p></div></div></div>;
   }
 
+  const counterOfferItem = request?.items?.find((i) => i.id === counterOfferPopoverItemId) ?? null;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
-      
+      {counterOfferPopoverItemId != null && counterOfferItem && createPortal(
+        <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="counter-offer-title">
+          <div className="fixed inset-0 bg-black/40" aria-hidden="true" onClick={closeCounterOfferPopover} />
+          <div className="fixed left-1/2 top-1/2 z-[101] w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-gray-200 bg-white p-4 shadow-xl">
+            <div className="flex justify-between items-center mb-3">
+              <span id="counter-offer-title" className="text-sm font-medium text-gray-900">Karşı teklif</span>
+              <button type="button" onClick={closeCounterOfferPopover} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+            <form onSubmit={handleCounterOfferSubmit} className="space-y-3">
+              {counterOfferItem.supplierQuotes && counterOfferItem.supplierQuotes.length > 1 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Teklif (tedarikçi)</label>
+                  <select
+                    value={counterOfferQuote?.quoteUid ?? ''}
+                    onChange={(e) => {
+                      const q = counterOfferItem.supplierQuotes!.find((x: any) => x.quoteUid === e.target.value);
+                      setCounterOfferQuote(q ?? null);
+                      setCounterOfferQuantity(q ? (q.quantity || counterOfferItem.quantity) : counterOfferItem.quantity || 0);
+                      setCounterOfferUnitPrice(q ? (q.unitPrice || 0) : 0);
+                    }}
+                    className="block w-full rounded-md border-gray-300 shadow-sm text-sm"
+                  >
+                    {counterOfferItem.supplierQuotes.map((q: any) => (
+                      <option key={q.quoteUid} value={q.quoteUid}>{q.supplier?.name ?? q.supplier?.companyName ?? `Teklif ${q.quoteNumber ?? q.quoteUid}`}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Adet</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={counterOfferQuantity || ''}
+                  onChange={(e) => setCounterOfferQuantity(parseFloat(e.target.value) || 0)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Birim fiyat</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={counterOfferUnitPrice || ''}
+                  onChange={(e) => setCounterOfferUnitPrice(parseFloat(e.target.value) || 0)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm text-sm"
+                />
+              </div>
+              {counterOfferError && <p className="text-sm text-red-600">{counterOfferError}</p>}
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={closeCounterOfferPopover} className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50">İptal</button>
+                <button type="submit" disabled={counterOfferSaving} className="flex-1 px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+                  {counterOfferSaving ? 'Kaydediliyor...' : 'Kaydet'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {error && <div className="mb-6 bg-red-50 border border-red-200 text-red-800 rounded-md p-4"><p>{error}</p></div>}
@@ -582,7 +738,7 @@ export const PurchaseRequestDetail = () => {
               </div>
             </div>
 
-            {(request.status === 'IN_APPROVAL' || request.status === 'IN_PROGRESS') && getCurrentApprover(request)?.id === authService.getCurrentUser()?.id && (
+            {(request.status === 'IN_APPROVAL' || request.status === 'IN_PROGRESS' || request.status === 'PARTIAL_APPROVAL') && getCurrentApprover(request)?.id === authService.getCurrentUser()?.id && (
               <div className="mt-6 bg-white shadow sm:rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">Onay İşlemi</h3>
