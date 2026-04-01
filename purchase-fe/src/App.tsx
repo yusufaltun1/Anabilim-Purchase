@@ -11,6 +11,7 @@ import { WorkflowEdit } from './pages/WorkflowEdit';
 import { RoleList } from './pages/RoleList';
 import { RoleCreate } from './pages/RoleCreate';
 import { RoleEdit } from './pages/RoleEdit';
+import { PermissionList } from './pages/PermissionList';
 import { UserList } from './pages/UserList';
 import { UserCreate } from './pages/UserCreate';
 import { UserEdit } from './pages/UserEdit';
@@ -124,6 +125,14 @@ function App({ instance }: AppProps) {
                     <RoleEdit />
                   </PrivateRoute>
                 } 
+              />
+              <Route
+                path="/permissions"
+                element={
+                  <PrivateRoute>
+                    <PermissionList />
+                  </PrivateRoute>
+                }
               />
               <Route 
                 path="/openpositions" 

@@ -4,6 +4,28 @@ import { Navigation } from '../components/Navigation';
 import { roleService } from '../services/role.service';
 import { CreateRoleRequest } from '../types/role';
 
+const OPERATION_PERMISSION_MAP: Record<string, string[]> = {
+  REQUEST_CREATE: ['REQUEST_CREATE'],
+  REQUEST_EDIT: ['REQUEST_UPDATE'],
+  REQUEST_VIEW: ['REQUEST_READ'],
+  REQUEST_APPROVE: ['APPROVAL_APPROVE', 'APPROVAL_REJECT', 'APPROVAL_RETURN'],
+  QUOTE_COLLECT: ['INVENTORY_READ'],
+  ORDER_CREATE: ['INVENTORY_UPDATE'],
+  REQUEST_CLOSE: ['REQUEST_DELETE'],
+  SYSTEM_MANAGE: ['WORKFLOW_CREATE', 'WORKFLOW_READ', 'WORKFLOW_UPDATE', 'WORKFLOW_DELETE']
+};
+
+const OPERATION_LABELS: Array<{ key: string; label: string }> = [
+  { key: 'REQUEST_CREATE', label: 'Talep Açma' },
+  { key: 'REQUEST_EDIT', label: 'Talep Düzenleme' },
+  { key: 'REQUEST_VIEW', label: 'Talep Görüntüleme' },
+  { key: 'REQUEST_APPROVE', label: 'Onay' },
+  { key: 'QUOTE_COLLECT', label: 'Teklif Toplama' },
+  { key: 'ORDER_CREATE', label: 'Sipariş Oluşturma' },
+  { key: 'REQUEST_CLOSE', label: 'Talep Kapatma' },
+  { key: 'SYSTEM_MANAGE', label: 'Sistem Yönetimi' }
+];
+
 export const RoleCreate = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -16,6 +38,16 @@ export const RoleCreate = () => {
     description: '',
     isActive: true,
     isSystemRole: false,
+  });
+  const [operations, setOperations] = useState<Record<string, boolean>>({
+    REQUEST_CREATE: true,
+    REQUEST_EDIT: false,
+    REQUEST_VIEW: true,
+    REQUEST_APPROVE: false,
+    QUOTE_COLLECT: false,
+    ORDER_CREATE: false,
+    REQUEST_CLOSE: false,
+    SYSTEM_MANAGE: false
   });
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -71,6 +103,20 @@ export const RoleCreate = () => {
       };
       
       await roleService.createRole(roleData);
+      const created = await roleService.getRoleByName(roleData.name);
+      const selectedPermissionNames = new Set<string>();
+      Object.entries(operations).forEach(([key, enabled]) => {
+        if (enabled) {
+          (OPERATION_PERMISSION_MAP[key] || []).forEach(p => selectedPermissionNames.add(p));
+        }
+      });
+      for (const permissionName of selectedPermissionNames) {
+        try {
+          await roleService.addPermissionToRole(created.id!, permissionName);
+        } catch (e) {
+          console.warn(`Permission atanamadı: ${permissionName}`, e);
+        }
+      }
       navigate('/roles', { 
         state: { message: 'Rol başarıyla oluşturuldu!' }
       });
@@ -233,6 +279,26 @@ export const RoleCreate = () => {
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-6">İşlem Yetkileri</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {OPERATION_LABELS.map((item) => (
+                <label key={item.key} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={operations[item.key]}
+                    onChange={(e) => setOperations(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                  />
+                  <span className="text-sm text-gray-800">{item.label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              Not: Seçimler rol permission'larına otomatik çevrilir.
+            </p>
           </div>
 
           {/* Information Card */}
