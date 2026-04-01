@@ -52,6 +52,10 @@ export const PurchaseRequestDetail = () => {
   const [counterOfferUnitPrice, setCounterOfferUnitPrice] = useState<number>(0);
   const [counterOfferSaving, setCounterOfferSaving] = useState(false);
   const [counterOfferError, setCounterOfferError] = useState<string | null>(null);
+  const canApproveRequest = authService.hasCapability('REQUEST_APPROVE');
+  const canQuoteCollect = authService.hasCapability('QUOTE_COLLECT');
+  const canOrderCreate = authService.hasCapability('ORDER_CREATE');
+  const canEditRequest = authService.hasCapability('REQUEST_EDIT');
 
   useEffect(() => {
     loadRequestData();
@@ -325,7 +329,7 @@ export const PurchaseRequestDetail = () => {
               <div className="bg-white px-4 py-5 sm:p-6">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <h3 className="text-lg font-medium leading-6 text-gray-900">{item.product?.name}</h3>
-                  {(item.supplierQuotes?.length ?? 0) > 0 && (
+                  {canQuoteCollect && (item.supplierQuotes?.length ?? 0) > 0 && (
                     <button
                       type="button"
                       onClick={() => openCounterOfferPopover(item)}
@@ -340,9 +344,9 @@ export const PurchaseRequestDetail = () => {
                 )}
                 <SupplierQuoteList
                   quotes={item.supplierQuotes}
-                  onConvertToOrder={(quote) => { setSelectedQuote(quote); setShowConvertModal(true); }}
-                  onEditQuote={(quote) => handleEditQuoteOpen(quote)}
-                  onEditQuoteFromCounterOffer={(quote) => handleEditQuoteOpenFromCounterOffer(quote)}
+                  onConvertToOrder={canOrderCreate ? ((quote) => { setSelectedQuote(quote); setShowConvertModal(true); }) : undefined}
+                  onEditQuote={canQuoteCollect ? ((quote) => handleEditQuoteOpen(quote)) : undefined}
+                  onEditQuoteFromCounterOffer={canQuoteCollect ? ((quote) => handleEditQuoteOpenFromCounterOffer(quote)) : undefined}
                 />
               </div>
             </div>
@@ -738,7 +742,7 @@ export const PurchaseRequestDetail = () => {
               </div>
             </div>
 
-            {(request.status === 'IN_APPROVAL' || request.status === 'IN_PROGRESS' || request.status === 'PARTIAL_APPROVAL') && getCurrentApprover(request)?.id === authService.getCurrentUser()?.id && (
+            {canApproveRequest && (request.status === 'IN_APPROVAL' || request.status === 'IN_PROGRESS' || request.status === 'PARTIAL_APPROVAL') && getCurrentApprover(request)?.id === authService.getCurrentUser()?.id && (
               <div className="mt-6 bg-white shadow sm:rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">Onay İşlemi</h3>
@@ -881,7 +885,7 @@ export const PurchaseRequestDetail = () => {
         />
       )}
 
-      {editingQuote && (
+      {canQuoteCollect && editingQuote && (
         <div className="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>

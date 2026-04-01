@@ -83,40 +83,111 @@ public class DataInitializer implements CommandLineRunner {
     }
     
     private void createRoles() {
+        // Tüm kullanıcılarda talep açma yetkisi bulunur.
+        Role idariAsistan = createRole("IDARI_ASISTAN", "İdari Asistan", "Talep açabilir.");
+        assignPermissionsToRole(idariAsistan, "REQUEST_CREATE", "REQUEST_READ");
 
-        
-        // Employee role
+        Role doktor = createRole("DOKTOR", "Doktor", "Talep açabilir.");
+        assignPermissionsToRole(doktor, "REQUEST_CREATE", "REQUEST_READ");
+
+        Role hemsire = createRole("HEMSIRE", "Hemşire", "Talep açabilir.");
+        assignPermissionsToRole(hemsire, "REQUEST_CREATE", "REQUEST_READ");
+
+        Role dizgici = createRole("DIZGICI", "Dizgici", "Talep açabilir.");
+        assignPermissionsToRole(dizgici, "REQUEST_CREATE", "REQUEST_READ");
+
+        Role uzman = createRole("UZMAN", "Uzman", "Talep açabilir.");
+        assignPermissionsToRole(uzman, "REQUEST_CREATE", "REQUEST_READ");
+
+        Role uzmanYard = createRole("UZMAN_YARDIMCISI", "Uzm Yard.", "Talep açabilir.");
+        assignPermissionsToRole(uzmanYard, "REQUEST_CREATE", "REQUEST_READ");
+
+        Role ogretmen = createRole("OGRETMEN", "Öğretmen", "Sadece talep açabilir.");
+        assignPermissionsToRole(ogretmen, "REQUEST_CREATE", "REQUEST_READ");
+
+        Role mudur = createRole("MUDUR", "Müdür", "Talep sahibi / düzenleme / onaylayıcı.");
+        assignPermissionsToRole(mudur, "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN");
+
+        Role mudurYard = createRole("MUDUR_YARDIMCISI", "Md Yard.", "Talep sahibi / düzenleme / onaylayıcı.");
+        assignPermissionsToRole(mudurYard, "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN");
+
+        Role idariYonetimMuduru = createRole("IDARI_YONETIM_MUDURU", "İdari Yönetim Müdürü", "Talep sahibi / onaylayıcı.");
+        assignPermissionsToRole(idariYonetimMuduru, "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN");
+
+        Role zumreBaskani = createRole("ZUMRE_BASKANI", "Zümre Başkanı", "Talep sahibi / düzenleme.");
+        assignPermissionsToRole(zumreBaskani, "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE");
+
+        Role bolumBaskani = createRole("BOLUM_BASKANI", "Bölüm Başkanı", "Talep sahibi / düzenleme / onaylayıcı.");
+        assignPermissionsToRole(bolumBaskani, "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN");
+
+        Role kampusMuduru = createRole("KAMPUS_MUDURU", "Kampüs Müdürü", "Talep sahibi / düzenleme / onaylayıcı.");
+        assignPermissionsToRole(kampusMuduru, "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN");
+
+        Role serkanBey = createRole("SERKAN_BEY", "Serkan Bey", "Talep sahibi / onaylayıcı.");
+        assignPermissionsToRole(serkanBey, "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN");
+
+        Role sedaHanim = createRole("SEDA_HANIM", "Seda Hanım", "Talep sahibi / onaylayıcı.");
+        assignPermissionsToRole(sedaHanim, "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN");
+
+        Role satinAlmaDepartmani = createRole("SATIN_ALMA_DEPARTMANI", "Satın Alma Departmanı",
+                "Satın alma süreçlerini yönetir.");
+        assignPermissionsToRole(satinAlmaDepartmani,
+                "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN",
+                "WORKFLOW_CREATE", "WORKFLOW_READ", "WORKFLOW_UPDATE", "WORKFLOW_DELETE",
+                "INVENTORY_READ", "INVENTORY_UPDATE");
+
+        Role bilgiIslem = createRole("BILGI_ISLEM_DEPARTMANI", "Bilgi İşlem Departmanı", "Sistem admin yetkileri.");
+        assignPermissionsToRole(bilgiIslem,
+                "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE", "REQUEST_DELETE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN",
+                "WORKFLOW_CREATE", "WORKFLOW_READ", "WORKFLOW_UPDATE", "WORKFLOW_DELETE",
+                "INVENTORY_READ", "INVENTORY_UPDATE");
+
+        // Geriye dönük mevcut roller
         Role employeeRole = createRole("EMPLOYEE", "Çalışan", "Temel çalışan rolü");
-        assignPermissionsToRole(employeeRole, 
-            "REQUEST_CREATE", "REQUEST_READ", "INVENTORY_READ");
-        
-        // Manager role
+        assignPermissionsToRole(employeeRole, "REQUEST_CREATE", "REQUEST_READ", "INVENTORY_READ");
+
         Role managerRole = createRole("MANAGER", "Yönetici", "Birim yöneticisi rolü");
-        assignPermissionsToRole(managerRole, 
-            "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE", "REQUEST_DELETE",
-            "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN",
-            "WORKFLOW_READ", "INVENTORY_READ", "INVENTORY_UPDATE");
-        
-        // Purchase Manager role
+        assignPermissionsToRole(managerRole,
+                "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE", "REQUEST_DELETE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN",
+                "WORKFLOW_READ", "INVENTORY_READ", "INVENTORY_UPDATE");
+
         Role purchaseManagerRole = createRole("PURCHASE_MANAGER", "Satınalma Müdürü", "Satınalma müdürü rolü");
-        assignPermissionsToRole(purchaseManagerRole, 
-            "REQUEST_READ", "REQUEST_UPDATE", "APPROVAL_APPROVE", "APPROVAL_REJECT",
-            "WORKFLOW_CREATE", "WORKFLOW_READ", "WORKFLOW_UPDATE", "WORKFLOW_DELETE",
-            "INVENTORY_READ", "INVENTORY_UPDATE");
-        
-        // System Admin role
+        assignPermissionsToRole(purchaseManagerRole,
+                "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN",
+                "WORKFLOW_CREATE", "WORKFLOW_READ", "WORKFLOW_UPDATE", "WORKFLOW_DELETE",
+                "INVENTORY_READ", "INVENTORY_UPDATE");
+
         Role adminRole = createRole("SYSTEM_ADMIN", "Sistem Yöneticisi", "Sistem yöneticisi rolü");
-        assignPermissionsToRole(adminRole, 
-            "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE", "REQUEST_DELETE",
-            "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN",
-            "WORKFLOW_CREATE", "WORKFLOW_READ", "WORKFLOW_UPDATE", "WORKFLOW_DELETE",
-            "INVENTORY_READ", "INVENTORY_UPDATE");
+        assignPermissionsToRole(adminRole,
+                "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE", "REQUEST_DELETE",
+                "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN",
+                "WORKFLOW_CREATE", "WORKFLOW_READ", "WORKFLOW_UPDATE", "WORKFLOW_DELETE",
+                "INVENTORY_READ", "INVENTORY_UPDATE");
         
         log.info("Roles oluşturuldu");
     }
     
     private Role createRole(String name, String displayName, String description) {
-        return roleRepository.findByName(name).get();
+        return roleRepository.findByName(name).orElseGet(() -> {
+            Role role = new Role();
+            role.setName(name);
+            role.setDisplayName(displayName);
+            role.setDescription(description);
+            role.setIsActive(true);
+            role.setIsSystemRole(true);
+            return roleRepository.save(role);
+        });
     }
     
     private void assignPermissionsToRole(Role role, String... permissionNames) {

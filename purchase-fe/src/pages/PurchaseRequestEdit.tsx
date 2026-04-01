@@ -4,8 +4,10 @@ import { Navigation } from '../components/Navigation';
 import { PurchaseRequestItems } from '../components/PurchaseRequestItems';
 import { purchaseRequestService } from '../services/purchase-request.service';
 import { PurchaseRequestItem, PurchaseRequest } from '../types/purchase-request';
+import { authService } from '../services/auth.service';
 
 export const PurchaseRequestEdit = () => {
+  const canEditRequest = authService.hasCapability('REQUEST_EDIT');
   console.log('PurchaseRequestEdit component rendered');
   const navigate = useNavigate();
   const params = useParams();
@@ -22,6 +24,10 @@ export const PurchaseRequestEdit = () => {
   });
 
   useEffect(() => {
+    if (!canEditRequest) {
+      navigate('/purchase-requests');
+      return;
+    }
     console.log('PurchaseRequestEdit useEffect triggered, id:', id);
     if (id) {
       console.log('Calling loadPurchaseRequest with id:', id);
@@ -29,7 +35,7 @@ export const PurchaseRequestEdit = () => {
     } else {
       console.log('No ID available, skipping loadPurchaseRequest');
     }
-  }, [id]);
+  }, [id, canEditRequest, navigate]);
 
   const loadPurchaseRequest = async () => {
     if (!id) {

@@ -9,6 +9,10 @@ export const PurchaseRequests = () => {
   const navigate = useNavigate();
   const userInfo = authService.getUserInfo();
   const userRoles = userInfo?.roles || [];
+  const currentUserId = authService.getCurrentUser()?.id;
+  const canCreateRequest = authService.hasCapability('REQUEST_CREATE');
+  const canEditRequest = authService.hasCapability('REQUEST_EDIT');
+  const canViewRequest = authService.hasCapability('REQUEST_VIEW');
   
   const restrictedRoles = ['OGRETMEN', 'ZUMRE_BASKANI', 'OKUL_MUDURU'];
   const hasRestrictedRole = userRoles.some(role => restrictedRoles.includes(role));
@@ -16,7 +20,7 @@ export const PurchaseRequests = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
-  const [filter, setFilter] = useState<'all' | 'my-requests' | 'pending'>(hasRestrictedRole ? 'my-requests' : 'all');
+  const [filter, setFilter] = useState<'my-requests' | 'pending'>('my-requests');
 
   useEffect(() => {
     loadRequests();
@@ -35,8 +39,8 @@ export const PurchaseRequests = () => {
         case 'pending':
           response = await purchaseRequestService.getPendingApprovals();
           break;
-        default: // 'all'
-          response = await purchaseRequestService.getAllRequests();
+        default:
+          response = await purchaseRequestService.getMyRequests();
       }
 
       if (response.success) {
@@ -85,6 +89,20 @@ export const PurchaseRequests = () => {
     return request.approvals?.find(a => a.status === 'PENDING')?.approver || null;
   };
 
+  const canEditSpecificRequest = (request: PurchaseRequest) => {
+    if (!canEditRequest) return false;
+    if (!currentUserId) return false;
+
+    // Talep sahibi olmalı
+    if (request.requester?.id !== currentUserId) return false;
+
+    // Geri atama yapılmışsa (pending onaycı talep sahibi ise) veya talep reddedilmişse düzenlenebilir
+    const pendingApproverId = getCurrentApprover(request)?.id;
+    const isReturnedToRequester = pendingApproverId === currentUserId;
+    const isRejected = request.status === 'REJECTED';
+    return isReturnedToRequester || isRejected;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -96,18 +114,18 @@ export const PurchaseRequests = () => {
               <h1 className="text-3xl font-bold text-gray-900">Satın Alma Talepleri</h1>
               <p className="mt-2 text-gray-600">Satın alma taleplerinizi görüntüleyin ve yönetin</p>
             </div>
-            <button onClick={() => navigate('/purchase-requests/create')} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+            {canCreateRequest && <button onClick={() => navigate('/purchase-requests/create')} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
               Yeni Talep Oluştur
-            </button>
+            </button>}
           </div>
+          {!canViewRequest && (
+            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800">
+              Bu modülde görüntüleme yetkiniz bulunmuyor.
+            </div>
+          )}
 
           <div className="mb-6">
             <div className="flex space-x-4">
-              {!hasRestrictedRole && (
-                <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-md text-sm font-medium ${filter === 'all' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}>
-                  Tüm Talepler
-                </button>
-              )}
               <button onClick={() => setFilter('my-requests')} className={`px-4 py-2 rounded-md text-sm font-medium ${filter === 'my-requests' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}>
                 Taleplerim
               </button>
@@ -141,7 +159,7 @@ export const PurchaseRequests = () => {
                           </div>
                           <div className="flex space-x-2">
                             <button onClick={() => navigate(`/purchase-requests/${request.id}`)} className="text-indigo-600 hover:text-indigo-900 text-sm font-medium">Detay</button>
-                            <button onClick={() => navigate(`/purchase-requests/edit/${request.id}`)} className="text-green-600 hover:text-green-900 text-sm font-medium">Düzenle</button>
+                            {canEditSpecificRequest(request) && <button onClick={() => navigate(`/purchase-requests/edit/${request.id}`)} className="text-green-600 hover:text-green-900 text-sm font-medium">Düzenle</button>}
                           </div>
                         </div>
                         <div className="mt-2 sm:flex sm:justify-between">

@@ -9,6 +9,13 @@ export const Navigation = () => {
   const location = useLocation();
   const { logout } = useAuth();
   const userInfo = authService.getUserInfo();
+  const effectiveUserInfo = authService.getEffectiveUserInfo();
+  const canSystemManage = authService.hasCapability('SYSTEM_MANAGE');
+  const canQuoteCollect = authService.hasCapability('QUOTE_COLLECT');
+  const canOrderCreate = authService.hasCapability('ORDER_CREATE');
+  const canRequestView = authService.hasCapability('REQUEST_VIEW');
+  const isRealSystemAdmin = authService.isRealSystemAdmin();
+  const perspectiveRole = authService.getPerspectiveRole() || '';
   const [isSystemMenuOpen, setIsSystemMenuOpen] = useState(false);
   const [isTransferMenuOpen, setIsTransferMenuOpen] = useState(false);
 
@@ -29,6 +36,11 @@ export const Navigation = () => {
   ].some(path => location.pathname.startsWith(path));
 
   const isTransferRoute = () => location.pathname.startsWith('/transfers');
+
+  const handlePerspectiveChange = (value: string) => {
+    authService.setPerspectiveRole(value || null);
+    window.location.reload();
+  };
 
   return (
     <nav className="bg-white shadow-lg border-b border-gray-200">
@@ -51,6 +63,7 @@ export const Navigation = () => {
                 Dashboard
               </button>
               
+              {canSystemManage && (
               <div className="relative">
                 <button onClick={() => setIsTransferMenuOpen(!isTransferMenuOpen)} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center ${isTransferRoute() ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
                   <span>Transfer Yönetimi</span>
@@ -65,7 +78,9 @@ export const Navigation = () => {
                   </div>
                 )}
               </div>
+              )}
 
+              {canSystemManage && (
               <div className="relative">
                 <button onClick={() => setIsSystemMenuOpen(!isSystemMenuOpen)} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center ${isSystemRoute() ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
                   <span>Sistem</span>
@@ -88,20 +103,21 @@ export const Navigation = () => {
                   </div>
                 )}
               </div>
+              )}
 
-              <button onClick={() => navigate('/purchase-requests')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/purchase-requests') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+              {canRequestView && <button onClick={() => navigate('/purchase-requests')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/purchase-requests') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
                 Satın Alma Talepleri
-              </button>
+              </button>}
 
-              <button onClick={() => navigate('/purchase-orders')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/purchase-orders') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+              {canOrderCreate && <button onClick={() => navigate('/purchase-orders')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/purchase-orders') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
                 Satın Alma Siparişleri
-              </button>
-              <button onClick={() => navigate('/stock-management')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/stock-management') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+              </button>}
+              {canQuoteCollect && <button onClick={() => navigate('/stock-management')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/stock-management') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
                 Stok Yönetimi
-              </button>
-              <button onClick={() => navigate('/warehouses')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/warehouses') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+              </button>}
+              {(canQuoteCollect || canSystemManage) && <button onClick={() => navigate('/warehouses')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/warehouses') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
                 Depolar
-              </button>
+              </button>}
             </div>
 
             <div className="flex items-center space-x-4">
@@ -113,8 +129,37 @@ export const Navigation = () => {
                 <div className="text-sm">
                   <p className="text-gray-900 font-medium">{userInfo?.displayName || 'Kullanıcı'}</p>
                   <p className="text-gray-500">{userInfo?.department || 'Departman'}</p>
+                  {effectiveUserInfo?.roles?.length ? (
+                    <p className="text-gray-400 text-xs">{effectiveUserInfo.roles.join(', ')}</p>
+                  ) : null}
                 </div>
               </div>
+              {isRealSystemAdmin && (
+                <select
+                  value={perspectiveRole}
+                  onChange={(e) => handlePerspectiveChange(e.target.value)}
+                  className="hidden md:block border border-gray-300 rounded-md text-xs px-2 py-1 bg-white"
+                  title="Perspective (rol simülasyonu)"
+                >
+                  <option value="">Perspective: Gerçek rol</option>
+                  <option value="IDARI_ASISTAN">İdari Asistan</option>
+                  <option value="DOKTOR">Doktor</option>
+                  <option value="HEMSIRE">Hemşire</option>
+                  <option value="DIZGICI">Dizgici</option>
+                  <option value="UZMAN">Uzman</option>
+                  <option value="UZMAN_YARDIMCISI">Uzm Yard.</option>
+                  <option value="MUDUR">Müdür</option>
+                  <option value="MUDUR_YARDIMCISI">Md Yard.</option>
+                  <option value="IDARI_YONETIM_MUDURU">İdari Yönetim Müdürü</option>
+                  <option value="SATIN_ALMA_DEPARTMANI">Satın Alma Departmanı</option>
+                  <option value="SERKAN_BEY">Serkan Bey</option>
+                  <option value="OGRETMEN">Öğretmen</option>
+                  <option value="ZUMRE_BASKANI">Zümre Başkanı</option>
+                  <option value="BOLUM_BASKANI">Bölüm Başkanı</option>
+                  <option value="KAMPUS_MUDURU">Kampüs Müdürü</option>
+                  <option value="SEDA_HANIM">Seda Hanım</option>
+                </select>
+              )}
               <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                 Çıkış
               </button>

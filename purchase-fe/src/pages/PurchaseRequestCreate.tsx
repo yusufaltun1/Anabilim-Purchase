@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { purchaseRequestService } from '../services/purchase-request.service';
 import { CreatePurchaseRequest, CreatePurchaseRequestItem, ParentApproverCandidate } from '../types/purchase-request';
+import { authService } from '../services/auth.service';
 
 export const PurchaseRequestCreate = () => {
   const navigate = useNavigate();
+  const canCreateRequest = authService.hasCapability('REQUEST_CREATE');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -18,8 +20,12 @@ export const PurchaseRequestCreate = () => {
   });
 
   useEffect(() => {
+    if (!canCreateRequest) {
+      navigate('/purchase-requests');
+      return;
+    }
     purchaseRequestService.getFirstApproverCandidates().then(setFirstApproverCandidates).catch(() => setFirstApproverCandidates([]));
-  }, []);
+  }, [canCreateRequest, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

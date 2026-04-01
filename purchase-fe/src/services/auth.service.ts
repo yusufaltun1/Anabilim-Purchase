@@ -12,6 +12,16 @@ interface UserInfo {
   permissions: string[];
 }
 
+export type AppCapability =
+  | 'REQUEST_CREATE'
+  | 'REQUEST_EDIT'
+  | 'REQUEST_VIEW'
+  | 'REQUEST_APPROVE'
+  | 'QUOTE_COLLECT'
+  | 'ORDER_CREATE'
+  | 'REQUEST_CLOSE'
+  | 'SYSTEM_MANAGE';
+
 interface LoginResponse {
   success: boolean;
   message: string;
@@ -86,6 +96,74 @@ export const authService = {
   getUserInfo(): UserInfo | null {
     const userInfo = localStorage.getItem('user_info');
     return userInfo ? JSON.parse(userInfo) : null;
+  },
+
+  getPerspectiveRole(): string | null {
+    return localStorage.getItem('perspective_role');
+  },
+
+  setPerspectiveRole(role: string | null) {
+    if (role) {
+      localStorage.setItem('perspective_role', role);
+    } else {
+      localStorage.removeItem('perspective_role');
+    }
+  },
+
+  getEffectiveUserInfo(): UserInfo | null {
+    const userInfo = this.getUserInfo();
+    if (!userInfo) return null;
+    const perspectiveRole = this.getPerspectiveRole();
+    if (!perspectiveRole) return userInfo;
+    return {
+      ...userInfo,
+      roles: [perspectiveRole]
+    };
+  },
+
+  getEffectiveRoles(): string[] {
+    return this.getEffectiveUserInfo()?.roles || [];
+  },
+
+  hasCapability(capability: AppCapability): boolean {
+    const userInfo = this.getUserInfo();
+    const roles = this.getEffectiveRoles();
+    const permissions = userInfo?.permissions || [];
+
+    // Tüm kullanıcılarda talep açma yetkisi var
+    if (capability === 'REQUEST_CREATE') return this.isAuthenticated();
+    if (capability === 'REQUEST_VIEW') return this.isAuthenticated();
+
+    const hasRole = (allowed: string[]) => roles.some(r => allowed.includes(r));
+    switch (capability) {
+      case 'REQUEST_EDIT':
+        return hasRole([
+          'MUDUR', 'MUDUR_YARDIMCISI', 'IDARI_YONETIM_MUDURU',
+          'SERKAN_BEY', 'ZUMRE_BASKANI', 'BOLUM_BASKANI',
+          'KAMPUS_MUDURU', 'SEDA_HANIM', 'SATIN_ALMA_DEPARTMANI',
+          'BILGI_ISLEM_DEPARTMANI', 'SYSTEM_ADMIN', 'MANAGER', 'PURCHASE_MANAGER'
+        ]) || permissions.includes('REQUEST_UPDATE');
+      case 'REQUEST_APPROVE':
+        return hasRole([
+          'MUDUR', 'MUDUR_YARDIMCISI', 'IDARI_YONETIM_MUDURU',
+          'SERKAN_BEY', 'BOLUM_BASKANI', 'KAMPUS_MUDURU',
+          'SEDA_HANIM', 'SATIN_ALMA_DEPARTMANI', 'BILGI_ISLEM_DEPARTMANI',
+          'SYSTEM_ADMIN', 'MANAGER', 'PURCHASE_MANAGER'
+        ]) || permissions.includes('APPROVAL_APPROVE');
+      case 'QUOTE_COLLECT':
+      case 'ORDER_CREATE':
+      case 'REQUEST_CLOSE':
+        return hasRole(['SATIN_ALMA_DEPARTMANI', 'BILGI_ISLEM_DEPARTMANI', 'SYSTEM_ADMIN', 'PURCHASE_MANAGER']);
+      case 'SYSTEM_MANAGE':
+        return hasRole(['BILGI_ISLEM_DEPARTMANI', 'SYSTEM_ADMIN']);
+      default:
+        return false;
+    }
+  },
+
+  isRealSystemAdmin(): boolean {
+    const roles = this.getUserInfo()?.roles || [];
+    return roles.includes('SYSTEM_ADMIN') || roles.includes('BILGI_ISLEM_DEPARTMANI');
   },
 
   getCurrentUser(): any {
