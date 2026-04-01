@@ -63,7 +63,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 }
 
 export async function registerCompany(data: CompanyRegistrationData): Promise<any> {
-  const response = await fetch('http://localhost:8080/api/v1/auth/register', {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/auth/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -81,7 +81,7 @@ export async function registerCompany(data: CompanyRegistrationData): Promise<an
 
 export async function checkJobPositionCredits(): Promise<CreditsInfo> {
   const token = authService.getToken();
-  const response = await fetch('http://localhost:8080/api/credits/check-job-position', {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/api/credits/check-job-position`, {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -97,7 +97,7 @@ export async function checkJobPositionCredits(): Promise<CreditsInfo> {
 
 export async function getCreditPackages(): Promise<CreditPackage[]> {
   const token = authService.getToken();
-  const response = await fetch('http://localhost:8080/api/credits/packages', {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/api/credits/packages`, {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -113,7 +113,7 @@ export async function getCreditPackages(): Promise<CreditPackage[]> {
 
 export async function purchaseCredits(request: PurchaseRequest): Promise<PurchaseResponse> {
   const token = authService.getToken();
-  const response = await fetch('http://localhost:8080/api/credits/purchase', {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/api/credits/purchase`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -132,7 +132,7 @@ export async function purchaseCredits(request: PurchaseRequest): Promise<Purchas
 
 export async function fetchAllCandidates(): Promise<any[]> {
   const token = authService.getToken();
-  const response = await fetch('http://localhost:8080/api/recruitment/candidates/all', {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/api/recruitment/candidates/all`, {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
