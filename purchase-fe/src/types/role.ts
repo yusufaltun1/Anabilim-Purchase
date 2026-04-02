@@ -7,6 +7,9 @@ export interface Role {
   isSystemRole: boolean;
   createdAt?: string;
   updatedAt?: string;
+  // Backend RoleDto: permissionNames
+  permissionNames?: string[];
+  // Eski/alternatif alan adı (bazı UI'larda kullanılıyor)
   permissions?: string[];
 }
 

@@ -293,10 +293,10 @@ export const RoleList = () => {
                           {role.isActive ? 'Aktif' : 'Pasif'}
                         </span>
                       </div>
-                      {role.permissions && (
+                      {(role.permissionNames || role.permissions) && (
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500">İzinler:</span>
-                          <span className="font-medium text-gray-900">{role.permissions.length}</span>
+                          <span className="font-medium text-gray-900">{(role.permissionNames || role.permissions || []).length}</span>
                         </div>
                       )}
                     </div>

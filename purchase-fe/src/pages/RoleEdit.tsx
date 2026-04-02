@@ -73,7 +73,7 @@ export const RoleEdit = () => {
         isActive: role.isActive,
         isSystemRole: role.isSystemRole,
       });
-      const perms = new Set(role.permissions || []);
+      const perms = new Set(role.permissionNames || role.permissions || []);
       const opState: Record<string, boolean> = { ...operations };
       Object.keys(OPERATION_PERMISSION_MAP).forEach((key) => {
         const reqPerms = OPERATION_PERMISSION_MAP[key];
@@ -143,7 +143,7 @@ export const RoleEdit = () => {
       
       await roleService.updateRole(parseInt(id), roleData);
       const currentRole = await roleService.getRoleById(parseInt(id));
-      const currentPermissions = new Set(currentRole.permissions || []);
+      const currentPermissions = new Set(currentRole.permissionNames || currentRole.permissions || []);
       const selectedPermissions = new Set<string>();
       Object.entries(operations).forEach(([key, enabled]) => {
         if (enabled) {
@@ -429,12 +429,12 @@ export const RoleEdit = () => {
                   </p>
                 </div>
                 
-                {originalData.permissions && (
+                {(originalData.permissionNames || originalData.permissions) && (
                   <div className="md:col-span-2">
                     <span className="text-sm font-medium text-gray-500">Mevcut İzinler:</span>
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {originalData.permissions.length > 0 ? (
-                        originalData.permissions.map((permission, index) => (
+                      {(originalData.permissionNames || originalData.permissions || []).length > 0 ? (
+                        (originalData.permissionNames || originalData.permissions || []).map((permission, index) => (
                           <span
                             key={index}
                             className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
