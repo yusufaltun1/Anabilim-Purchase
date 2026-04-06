@@ -137,12 +137,7 @@ export const authService = {
     const hasRole = (allowed: string[]) => roles.some(r => allowed.includes(r));
     switch (capability) {
       case 'REQUEST_EDIT':
-        return hasRole([
-          'MUDUR', 'MUDUR_YARDIMCISI', 'IDARI_YONETIM_MUDURU',
-          'SERKAN_BEY', 'ZUMRE_BASKANI', 'BOLUM_BASKANI',
-          'KAMPUS_MUDURU', 'SEDA_HANIM', 'SATIN_ALMA_DEPARTMANI',
-          'BILGI_ISLEM_DEPARTMANI', 'SYSTEM_ADMIN', 'MANAGER', 'PURCHASE_MANAGER'
-        ]) || permissions.includes('REQUEST_UPDATE');
+        return permissions.includes('REQUEST_UPDATE') || permissions.includes('REQUEST_EDIT');
       case 'REQUEST_APPROVE':
         return hasRole([
           'MUDUR', 'MUDUR_YARDIMCISI', 'IDARI_YONETIM_MUDURU',

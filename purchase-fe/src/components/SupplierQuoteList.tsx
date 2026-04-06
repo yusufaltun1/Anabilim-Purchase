@@ -9,6 +9,8 @@ interface SupplierQuoteListProps {
   showActions?: boolean;
   onConvertToOrder?: (quote: SupplierQuote) => void;
   onEditQuote?: (quote: SupplierQuote) => void;
+  /** İlgili teklif satırı için karşı teklif girişi */
+  onEnterCounterOffer?: (quote: SupplierQuote) => void;
   /** Karşı teklif hücresine tıklanınca güncelleme modalını karşı teklif değerleriyle açar */
   onEditQuoteFromCounterOffer?: (quote: SupplierQuote) => void;
 }
@@ -20,6 +22,7 @@ export const SupplierQuoteList: React.FC<SupplierQuoteListProps> = ({
   showActions = true,
   onConvertToOrder,
   onEditQuote,
+  onEnterCounterOffer,
   onEditQuoteFromCounterOffer
 }) => {
   const sortedQuotes = [...quotes].sort((a, b) => {
@@ -106,7 +109,7 @@ export const SupplierQuoteList: React.FC<SupplierQuoteListProps> = ({
                     <button
                       type="button"
                       onClick={() => onEditQuoteFromCounterOffer(quote)}
-                      className="inline-flex flex-wrap items-center gap-x-1 rounded px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-800 max-w-[140px] hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 cursor-pointer text-left"
+                      className="inline-flex flex-wrap items-center gap-x-1 rounded px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-800 max-w-[160px] hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 cursor-pointer text-left"
                       title="Karşı teklifi ana teklife uygulamak için tıklayın"
                     >
                       <span>Karşı teklif var</span>
@@ -115,13 +118,21 @@ export const SupplierQuoteList: React.FC<SupplierQuoteListProps> = ({
                       )}
                     </button>
                   ) : (
-                    <span className="inline-flex flex-wrap items-center gap-x-1 rounded px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-800 max-w-[140px]">
+                    <span className="inline-flex flex-wrap items-center gap-x-1 rounded px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-800 max-w-[160px]">
                       <span>Karşı teklif var</span>
                       {quote.counterOfferQuantity != null && quote.counterOfferUnitPrice != null && (
                         <span className="font-normal">({quote.counterOfferQuantity}, {formatCurrency(quote.counterOfferUnitPrice)} ₺)</span>
                       )}
                     </span>
                   )
+                ) : onEnterCounterOffer && quote.status === 'RESPONDED' && quote.quoteUid ? (
+                  <button
+                    type="button"
+                    onClick={() => onEnterCounterOffer(quote)}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
+                  >
+                    Karşı teklif gir
+                  </button>
                 ) : (
                   <span className="text-gray-400">—</span>
                 )}

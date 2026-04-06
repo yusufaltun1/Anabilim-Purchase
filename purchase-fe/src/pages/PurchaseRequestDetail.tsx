@@ -3,7 +3,15 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { purchaseRequestService } from '../services/purchase-request.service';
-import { PurchaseRequest, PurchaseRequestItem, ApprovalAction, ParentApproverCandidate, PurchaseRequestAttachment } from '../types/purchase-request';
+import {
+  PurchaseRequest,
+  PurchaseRequestItem,
+  Supplier,
+  SupplierQuote,
+  ApprovalAction,
+  ParentApproverCandidate,
+  PurchaseRequestAttachment,
+} from '../types/purchase-request';
 import { User } from '../types/user';
 import { AddItemsForm } from '../components/AddItemsForm';
 import { authService } from '../services/auth.service';
@@ -13,6 +21,7 @@ import { ConvertRequestToOrderModal } from '../components/ConvertRequestToOrderM
 import { useNotification } from '../contexts/NotificationContext';
 import { supplierQuoteService } from '../services/supplier-quote.service';
 import { UpdateSupplierQuoteRequest } from '../types/supplier-quote';
+import { markPendingApprovalSeen } from '../utils/dashboard-pending-seen';
 
 export const PurchaseRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -82,6 +91,14 @@ export const PurchaseRequestDetail = () => {
       if (requestResponse.success) {
         const req = requestResponse.data as PurchaseRequest;
         setRequest(req);
+        const uid = authService.getCurrentUser()?.id;
+        if (
+          uid &&
+          req.status === 'IN_APPROVAL' &&
+          req.approvals?.some((a) => a.status === 'PENDING' && a.approver?.id === uid)
+        ) {
+          markPendingApprovalSeen(uid, requestId);
+        }
         if ((req?.status === 'IN_APPROVAL' || req?.status === 'IN_PROGRESS' || req?.status === 'PARTIAL_APPROVAL') && req.approvals?.some((a) => a.status === 'PENDING') && authService.getCurrentUser()?.id === req.approvals?.find((a) => a.status === 'PENDING')?.approver?.id) {
           if (req.nextApproverCandidates && req.nextApproverCandidates.length > 0) {
             setNextApproverCandidatesList(req.nextApproverCandidates);
@@ -320,41 +337,225 @@ export const PurchaseRequestDetail = () => {
     }
   };
 
-  const PurchaseRequestItems: React.FC<{ items: PurchaseRequestItem[] }> = ({ items }) => (
-    <div className="mt-8 flow-root">
-      <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-        <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-          {items.map((item) => (
-            <div key={item.id} className="mb-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-              <div className="bg-white px-4 py-5 sm:p-6">
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">{item.product?.name}</h3>
-                  {canQuoteCollect && (item.supplierQuotes?.length ?? 0) > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => openCounterOfferPopover(item)}
-                      className="inline-flex items-center px-3 py-1.5 border border-indigo-300 shadow-sm text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
-                    >
-                      Karşı teklif gir
-                    </button>
-                  )}
+  const PurchaseRequestItems: React.FC<{ items: PurchaseRequestItem[] }> = ({ items }) => {
+    const normalizeQuotes = (raw: PurchaseRequestItem['supplierQuotes']): SupplierQuote[] => {
+      if (!raw) return [];
+      return Array.isArray(raw) ? raw : Object.values(raw as Record<string, SupplierQuote>);
+    };
+
+    const normalizeSuppliers = (raw: PurchaseRequestItem['potentialSuppliers']): Supplier[] => {
+      if (!raw) return [];
+      const arr = Array.isArray(raw) ? raw : Object.values(raw as Record<string, Supplier>);
+      return arr as Supplier[];
+    };
+
+    const itemImageSrc = (item: PurchaseRequestItem): string | null => {
+      const img = item.imageBase64?.trim();
+      if (!img) return null;
+      if (img.startsWith('data:') || img.startsWith('http://') || img.startsWith('https://')) return img;
+      return `data:image/jpeg;base64,${img}`;
+    };
+
+    const displayProductName = (item: PurchaseRequestItem) =>
+      item.productName?.trim() || item.product?.name?.trim() || `Kalem #${item.id}`;
+
+    return (
+      <div className="mt-8 flow-root">
+        <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+          <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 px-1 sm:px-0">Satın alma kalemleri</h2>
+            <p className="text-sm text-gray-600 mb-6 px-1 sm:px-0">
+              Her kalem için ürün bilgisi, talep detayları ve tedarikçi teklifleri aşağıdadır.
+            </p>
+            {items.map((item, index) => {
+              const quotes = normalizeQuotes(item.supplierQuotes);
+              const suppliers = normalizeSuppliers(item.potentialSuppliers);
+              const imgSrc = itemImageSrc(item);
+              const productCode =
+                item.product?.code != null && String(item.product.code).trim() !== ''
+                  ? item.product.code
+                  : null;
+
+              return (
+                <div
+                  key={item.id}
+                  className="mb-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg bg-white"
+                >
+                  <div className="border-b border-gray-200 bg-gradient-to-r from-slate-50 to-white px-4 py-4 sm:px-6">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                        Kalem {index + 1}
+                      </span>
+                      <h3 className="text-lg font-semibold text-gray-900">{displayProductName(item)}</h3>
+                      {productCode && (
+                        <span className="text-sm text-gray-500 font-mono">Kod: {productCode}</span>
+                      )}
+                      {item.productId != null && item.productId > 0 && (
+                        <span className="text-xs text-gray-400">Ürün ID: {item.productId}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="px-4 py-5 sm:p-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+                      <div className="lg:col-span-4">
+                        <p className="text-xs font-medium text-gray-500 uppercase mb-2">Ürün görseli</p>
+                        {imgSrc ? (
+                          <a
+                            href={imgSrc}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block rounded-lg border border-gray-200 overflow-hidden bg-gray-50 hover:ring-2 hover:ring-indigo-300 transition-shadow"
+                          >
+                            <img
+                              src={imgSrc}
+                              alt={displayProductName(item)}
+                              className="w-full max-h-72 object-contain object-center bg-gray-50"
+                            />
+                          </a>
+                        ) : (
+                          <div className="flex min-h-[160px] items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-sm text-gray-400">
+                            Görsel eklenmemiş
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="lg:col-span-8 space-y-5">
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                          <div className="rounded-md bg-gray-50 px-3 py-2 border border-gray-100">
+                            <dt className="text-gray-500 font-medium">Miktar</dt>
+                            <dd className="mt-0.5 text-gray-900 font-semibold">{item.quantity ?? '—'}</dd>
+                          </div>
+                          <div className="rounded-md bg-gray-50 px-3 py-2 border border-gray-100">
+                            <dt className="text-gray-500 font-medium">Tahmini teslim tarihi</dt>
+                            <dd className="mt-0.5 text-gray-900 font-semibold">
+                              {formatDate(item.estimatedDeliveryDate)}
+                            </dd>
+                          </div>
+                          {item.product?.unit && (
+                            <div className="rounded-md bg-gray-50 px-3 py-2 border border-gray-100 sm:col-span-2">
+                              <dt className="text-gray-500 font-medium">Birim</dt>
+                              <dd className="mt-0.5 text-gray-900">{item.product.unit}</dd>
+                            </div>
+                          )}
+                          {(() => {
+                            const cat = item.product?.category;
+                            return (
+                              cat != null &&
+                              String(cat).trim() !== '' && (
+                                <div className="rounded-md bg-gray-50 px-3 py-2 border border-gray-100 sm:col-span-2">
+                                  <dt className="text-gray-500 font-medium">Kategori</dt>
+                                  <dd className="mt-0.5 text-gray-900">{String(cat)}</dd>
+                                </div>
+                              )
+                            );
+                          })()}
+                        </dl>
+
+                        {(item.description?.trim() ||
+                          (item.product?.description && item.product.description.trim())) && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                              Açıklama
+                            </h4>
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap rounded-md border border-gray-100 bg-white px-3 py-2">
+                              {item.description?.trim() || item.product?.description}
+                            </p>
+                          </div>
+                        )}
+
+                        {item.productLink?.trim() && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                              Ürün linki
+                            </h4>
+                            <a
+                              href={item.productLink.trim()}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-indigo-600 hover:text-indigo-800 break-all underline"
+                            >
+                              {item.productLink.trim()}
+                            </a>
+                          </div>
+                        )}
+
+                        {item.notes?.trim() && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                              Notlar
+                            </h4>
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap rounded-md border border-amber-100 bg-amber-50/50 px-3 py-2">
+                              {item.notes.trim()}
+                            </p>
+                          </div>
+                        )}
+
+                        {suppliers.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                              Potansiyel tedarikçiler
+                            </h4>
+                            <ul className="space-y-2">
+                              {suppliers.map((s) => (
+                                <li
+                                  key={s.id}
+                                  className="text-sm rounded-md border border-gray-100 bg-white px-3 py-2 shadow-sm"
+                                >
+                                  <span className="font-medium text-gray-900">{s.name}</span>
+                                  {s.contactPerson && (
+                                    <span className="text-gray-600"> · {s.contactPerson}</span>
+                                  )}
+                                  {s.contactPhone && (
+                                    <span className="block text-xs text-gray-500 mt-0.5">{s.contactPhone}</span>
+                                  )}
+                                  {s.contactEmail && (
+                                    <a
+                                      href={`mailto:${s.contactEmail}`}
+                                      className="block text-xs text-indigo-600 hover:underline mt-0.5"
+                                    >
+                                      {s.contactEmail}
+                                    </a>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-200 bg-gray-50/50 px-4 py-5 sm:px-6">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Tedarikçi teklifleri</h4>
+                    {quotes.length === 0 && (
+                      <p className="mb-4 text-sm text-gray-500">
+                        Bu kalem için teklif girildikten sonra, tabloda her tedarikçi satırında karşı teklif
+                        girebilirsiniz.
+                      </p>
+                    )}
+                    <SupplierQuoteList
+                      quotes={quotes}
+                      onConvertToOrder={
+                        canOrderCreate ? (quote) => { setSelectedQuote(quote); setShowConvertModal(true); } : undefined
+                      }
+                      onEditQuote={canQuoteCollect ? (quote) => handleEditQuoteOpen(quote) : undefined}
+                      onEnterCounterOffer={
+                        canQuoteCollect ? (quote) => openCounterOfferPopover(item, quote) : undefined
+                      }
+                      onEditQuoteFromCounterOffer={
+                        canQuoteCollect ? (quote) => handleEditQuoteOpenFromCounterOffer(quote) : undefined
+                      }
+                    />
+                  </div>
                 </div>
-                {(item.supplierQuotes?.length ?? 0) === 0 && (
-                  <p className="mt-1 text-sm text-gray-500">Bu kalem için tedarikçi atandığında karşı teklif girebilirsiniz.</p>
-                )}
-                <SupplierQuoteList
-                  quotes={item.supplierQuotes}
-                  onConvertToOrder={canOrderCreate ? ((quote) => { setSelectedQuote(quote); setShowConvertModal(true); }) : undefined}
-                  onEditQuote={canQuoteCollect ? ((quote) => handleEditQuoteOpen(quote)) : undefined}
-                  onEditQuoteFromCounterOffer={canQuoteCollect ? ((quote) => handleEditQuoteOpenFromCounterOffer(quote)) : undefined}
-                />
-              </div>
-            </div>
-          ))}
+              );
+            })}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const handleConvertSuccess = () => {
     loadRequestData();
@@ -399,13 +600,11 @@ export const PurchaseRequestDetail = () => {
     }));
   };
 
-  /** Karşı teklif popover açıldığında seçili teklife göre form doldur */
-  const openCounterOfferPopover = (item: PurchaseRequestItem) => {
-    const quotes = item.supplierQuotes || [];
-    const quote = quotes[0] ?? null;
+  /** Karşı teklif: her tedarikçi teklifi satırından açılır */
+  const openCounterOfferPopover = (item: PurchaseRequestItem, quote: SupplierQuote) => {
     setCounterOfferQuote(quote);
-    setCounterOfferQuantity(quote ? (quote.quantity || item.quantity) : item.quantity || 0);
-    setCounterOfferUnitPrice(quote ? (quote.unitPrice || 0) : 0);
+    setCounterOfferQuantity(quote.quantity || item.quantity || 0);
+    setCounterOfferUnitPrice(quote.unitPrice || 0);
     setCounterOfferError(null);
     setCounterOfferPopoverItemId(item.id);
   };
@@ -524,24 +723,16 @@ export const PurchaseRequestDetail = () => {
               <button type="button" onClick={closeCounterOfferPopover} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
             <form onSubmit={handleCounterOfferSubmit} className="space-y-3">
-              {counterOfferItem.supplierQuotes && counterOfferItem.supplierQuotes.length > 1 && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Teklif (tedarikçi)</label>
-                  <select
-                    value={counterOfferQuote?.quoteUid ?? ''}
-                    onChange={(e) => {
-                      const q = counterOfferItem.supplierQuotes!.find((x: any) => x.quoteUid === e.target.value);
-                      setCounterOfferQuote(q ?? null);
-                      setCounterOfferQuantity(q ? (q.quantity || counterOfferItem.quantity) : counterOfferItem.quantity || 0);
-                      setCounterOfferUnitPrice(q ? (q.unitPrice || 0) : 0);
-                    }}
-                    className="block w-full rounded-md border-gray-300 shadow-sm text-sm"
-                  >
-                    {counterOfferItem.supplierQuotes.map((q: any) => (
-                      <option key={q.quoteUid} value={q.quoteUid}>{q.supplier?.name ?? q.supplier?.companyName ?? `Teklif ${q.quoteNumber ?? q.quoteUid}`}</option>
-                    ))}
-                  </select>
-                </div>
+              {counterOfferQuote && (
+                <p className="text-xs text-gray-600">
+                  Tedarikçi:{' '}
+                  <span className="font-medium text-gray-800">
+                    {counterOfferQuote.supplier?.name ?? '—'}
+                  </span>
+                  {counterOfferQuote.quoteNumber != null && (
+                    <span className="text-gray-500"> · Teklif no: {counterOfferQuote.quoteNumber}</span>
+                  )}
+                </p>
               )}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Adet</label>

@@ -92,15 +92,8 @@ export const PurchaseRequests = () => {
   const canEditSpecificRequest = (request: PurchaseRequest) => {
     if (!canEditRequest) return false;
     if (!currentUserId) return false;
-
-    // Talep sahibi olmalı
-    if (request.requester?.id !== currentUserId) return false;
-
-    // Geri atama yapılmışsa (pending onaycı talep sahibi ise) veya talep reddedilmişse düzenlenebilir
-    const pendingApproverId = getCurrentApprover(request)?.id;
-    const isReturnedToRequester = pendingApproverId === currentUserId;
-    const isRejected = request.status === 'REJECTED';
-    return isReturnedToRequester || isRejected;
+    if (request.status === 'CANCELLED' || request.status === 'COMPLETED') return false;
+    return true;
   };
 
   return (

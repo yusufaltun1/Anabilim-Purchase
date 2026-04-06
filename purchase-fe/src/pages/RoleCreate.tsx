@@ -1,35 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { roleService } from '../services/role.service';
+import { permissionService } from '../services/permission.service';
 import { CreateRoleRequest } from '../types/role';
-
-const OPERATION_PERMISSION_MAP: Record<string, string[]> = {
-  REQUEST_CREATE: ['REQUEST_CREATE'],
-  REQUEST_EDIT: ['REQUEST_UPDATE'],
-  REQUEST_VIEW: ['REQUEST_READ'],
-  REQUEST_APPROVE: ['APPROVAL_APPROVE', 'APPROVAL_REJECT', 'APPROVAL_RETURN'],
-  QUOTE_COLLECT: ['INVENTORY_READ'],
-  ORDER_CREATE: ['INVENTORY_UPDATE'],
-  REQUEST_CLOSE: ['REQUEST_DELETE'],
-  SYSTEM_MANAGE: ['WORKFLOW_CREATE', 'WORKFLOW_READ', 'WORKFLOW_UPDATE', 'WORKFLOW_DELETE']
-};
-
-const OPERATION_LABELS: Array<{ key: string; label: string }> = [
-  { key: 'REQUEST_CREATE', label: 'Talep Açma' },
-  { key: 'REQUEST_EDIT', label: 'Talep Düzenleme' },
-  { key: 'REQUEST_VIEW', label: 'Talep Görüntüleme' },
-  { key: 'REQUEST_APPROVE', label: 'Onay' },
-  { key: 'QUOTE_COLLECT', label: 'Teklif Toplama' },
-  { key: 'ORDER_CREATE', label: 'Sipariş Oluşturma' },
-  { key: 'REQUEST_CLOSE', label: 'Talep Kapatma' },
-  { key: 'SYSTEM_MANAGE', label: 'Sistem Yönetimi' }
-];
+import { Permission } from '../types/permission';
+import {
+  OPERATION_LABELS,
+  computeOperationsFromSelection,
+  groupCatalogByResource,
+  initialEmptySelection,
+  mergeSelectionForOperation,
+} from '../utils/role-permission-ui';
 
 export const RoleCreate = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [permCatalogLoading, setPermCatalogLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [permCatalog, setPermCatalog] = useState<Permission[]>([]);
+  const [permissionSelection, setPermissionSelection] = useState<Record<string, boolean>>({});
   
   // Form state
   const [formData, setFormData] = useState({
@@ -39,16 +29,33 @@ export const RoleCreate = () => {
     isActive: true,
     isSystemRole: false,
   });
-  const [operations, setOperations] = useState<Record<string, boolean>>({
-    REQUEST_CREATE: true,
-    REQUEST_EDIT: false,
-    REQUEST_VIEW: true,
-    REQUEST_APPROVE: false,
-    QUOTE_COLLECT: false,
-    ORDER_CREATE: false,
-    REQUEST_CLOSE: false,
-    SYSTEM_MANAGE: false
-  });
+  const [operations, setOperations] = useState<Record<string, boolean>>(() =>
+    computeOperationsFromSelection({})
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const catalog = await permissionService.getAllPermissions();
+        if (cancelled) return;
+        const active = catalog.filter((p) => p.isActive !== false);
+        setPermCatalog(active);
+        let sel = initialEmptySelection(active);
+        sel = mergeSelectionForOperation(sel, 'REQUEST_CREATE', true);
+        sel = mergeSelectionForOperation(sel, 'REQUEST_VIEW', true);
+        setPermissionSelection(sel);
+        setOperations(computeOperationsFromSelection(sel));
+      } catch (e) {
+        console.error('Permission kataloğu yüklenemedi', e);
+      } finally {
+        if (!cancelled) setPermCatalogLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({
@@ -105,10 +112,8 @@ export const RoleCreate = () => {
       await roleService.createRole(roleData);
       const created = await roleService.getRoleByName(roleData.name);
       const selectedPermissionNames = new Set<string>();
-      Object.entries(operations).forEach(([key, enabled]) => {
-        if (enabled) {
-          (OPERATION_PERMISSION_MAP[key] || []).forEach(p => selectedPermissionNames.add(p));
-        }
+      Object.entries(permissionSelection).forEach(([name, on]) => {
+        if (on) selectedPermissionNames.add(name);
       });
       for (const permissionName of selectedPermissionNames) {
         try {
@@ -160,10 +165,10 @@ export const RoleCreate = () => {
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || permCatalogLoading}
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
-                {loading ? 'Oluşturuluyor...' : 'Oluştur'}
+                {permCatalogLoading ? 'İzinler yükleniyor...' : loading ? 'Oluşturuluyor...' : 'Oluştur'}
               </button>
             </div>
           </div>
@@ -282,14 +287,21 @@ export const RoleCreate = () => {
           </div>
 
           <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-6">İşlem Yetkileri</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-6">İşlem Yetkileri (özet)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {OPERATION_LABELS.map((item) => (
                 <label key={item.key} className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={operations[item.key]}
-                    onChange={(e) => setOperations(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                    checked={!!operations[item.key]}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setPermissionSelection((prev) => {
+                        const next = mergeSelectionForOperation(prev, item.key, enabled);
+                        setOperations(computeOperationsFromSelection(next));
+                        return next;
+                      });
+                    }}
                     className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
                   />
                   <span className="text-sm text-gray-800">{item.label}</span>
@@ -297,8 +309,49 @@ export const RoleCreate = () => {
               ))}
             </div>
             <p className="mt-3 text-xs text-gray-500">
-              Not: Seçimler rol permission'larına otomatik çevrilir.
+              Özet kutular tanımlı grupları işaretler. Yeni permission’lar için aşağıdaki tam listeyi kullanın.
             </p>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-6">Tüm permission’lar</h3>
+            {permCatalogLoading ? (
+              <p className="text-sm text-gray-500">Yükleniyor…</p>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600 mb-4">
+                  Permissionlar ekranında oluşturduğunuz her kayıt burada görünür.
+                </p>
+                {Array.from(groupCatalogByResource(permCatalog).entries()).map(([resource, perms]) => (
+                  <div key={resource} className="mb-6 last:mb-0">
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{resource}</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {perms.map((p) => (
+                        <label key={p.name} className="flex items-start space-x-2 rounded border border-gray-100 p-2">
+                          <input
+                            type="checkbox"
+                            checked={!!permissionSelection[p.name]}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setPermissionSelection((prev) => {
+                                const next = { ...prev, [p.name]: checked };
+                                setOperations(computeOperationsFromSelection(next));
+                                return next;
+                              });
+                            }}
+                            className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded shrink-0"
+                          />
+                          <span className="text-sm text-gray-800">
+                            <span className="font-medium">{p.displayName || p.name}</span>
+                            <span className="block text-xs text-gray-500 font-mono">{p.name}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
           {/* Information Card */}

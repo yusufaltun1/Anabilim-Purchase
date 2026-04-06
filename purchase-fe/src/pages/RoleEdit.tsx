@@ -2,29 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { roleService } from '../services/role.service';
+import { permissionService } from '../services/permission.service';
 import { Role, UpdateRoleRequest } from '../types/role';
-
-const OPERATION_PERMISSION_MAP: Record<string, string[]> = {
-  REQUEST_CREATE: ['REQUEST_CREATE'],
-  REQUEST_EDIT: ['REQUEST_UPDATE'],
-  REQUEST_VIEW: ['REQUEST_READ'],
-  REQUEST_APPROVE: ['APPROVAL_APPROVE', 'APPROVAL_REJECT', 'APPROVAL_RETURN'],
-  QUOTE_COLLECT: ['INVENTORY_READ'],
-  ORDER_CREATE: ['INVENTORY_UPDATE'],
-  REQUEST_CLOSE: ['REQUEST_DELETE'],
-  SYSTEM_MANAGE: ['WORKFLOW_CREATE', 'WORKFLOW_READ', 'WORKFLOW_UPDATE', 'WORKFLOW_DELETE']
-};
-
-const OPERATION_LABELS: Array<{ key: string; label: string }> = [
-  { key: 'REQUEST_CREATE', label: 'Talep Açma' },
-  { key: 'REQUEST_EDIT', label: 'Talep Düzenleme' },
-  { key: 'REQUEST_VIEW', label: 'Talep Görüntüleme' },
-  { key: 'REQUEST_APPROVE', label: 'Onay' },
-  { key: 'QUOTE_COLLECT', label: 'Teklif Toplama' },
-  { key: 'ORDER_CREATE', label: 'Sipariş Oluşturma' },
-  { key: 'REQUEST_CLOSE', label: 'Talep Kapatma' },
-  { key: 'SYSTEM_MANAGE', label: 'Sistem Yönetimi' }
-];
+import { Permission } from '../types/permission';
+import {
+  OPERATION_LABELS,
+  buildPermissionSelectionFromRole,
+  computeOperationsFromSelection,
+  groupCatalogByResource,
+  mergeSelectionForOperation,
+} from '../utils/role-permission-ui';
 
 export const RoleEdit = () => {
   const navigate = useNavigate();
@@ -43,16 +30,11 @@ export const RoleEdit = () => {
   });
   
   const [originalData, setOriginalData] = useState<Role | null>(null);
-  const [operations, setOperations] = useState<Record<string, boolean>>({
-    REQUEST_CREATE: true,
-    REQUEST_EDIT: false,
-    REQUEST_VIEW: true,
-    REQUEST_APPROVE: false,
-    QUOTE_COLLECT: false,
-    ORDER_CREATE: false,
-    REQUEST_CLOSE: false,
-    SYSTEM_MANAGE: false
-  });
+  const [permCatalog, setPermCatalog] = useState<Permission[]>([]);
+  const [permissionSelection, setPermissionSelection] = useState<Record<string, boolean>>({});
+  const [operations, setOperations] = useState<Record<string, boolean>>(() =>
+    computeOperationsFromSelection({})
+  );
 
   useEffect(() => {
     if (id) {
@@ -63,8 +45,14 @@ export const RoleEdit = () => {
   const loadRole = async (roleId: number) => {
     try {
       setLoading(true);
-      const role = await roleService.getRoleById(roleId);
-      
+      const [role, catalog] = await Promise.all([
+        roleService.getRoleById(roleId),
+        permissionService.getAllPermissions(),
+      ]);
+
+      const activeCatalog = catalog.filter((p) => p.isActive !== false);
+      setPermCatalog(activeCatalog);
+
       setOriginalData(role);
       setFormData({
         name: role.name,
@@ -73,13 +61,11 @@ export const RoleEdit = () => {
         isActive: role.isActive,
         isSystemRole: role.isSystemRole,
       });
-      const perms = new Set(role.permissionNames || role.permissions || []);
-      const opState: Record<string, boolean> = { ...operations };
-      Object.keys(OPERATION_PERMISSION_MAP).forEach((key) => {
-        const reqPerms = OPERATION_PERMISSION_MAP[key];
-        opState[key] = reqPerms.every((p) => perms.has(p));
-      });
-      setOperations(opState);
+
+      const rolePermNames = role.permissionNames || role.permissions || [];
+      const selection = buildPermissionSelectionFromRole(rolePermNames, activeCatalog);
+      setPermissionSelection(selection);
+      setOperations(computeOperationsFromSelection(selection));
     } catch (err) {
       setError('Rol yüklenirken hata oluştu');
       console.error('Error loading role:', err);
@@ -145,10 +131,8 @@ export const RoleEdit = () => {
       const currentRole = await roleService.getRoleById(parseInt(id));
       const currentPermissions = new Set(currentRole.permissionNames || currentRole.permissions || []);
       const selectedPermissions = new Set<string>();
-      Object.entries(operations).forEach(([key, enabled]) => {
-        if (enabled) {
-          (OPERATION_PERMISSION_MAP[key] || []).forEach(p => selectedPermissions.add(p));
-        }
+      Object.entries(permissionSelection).forEach(([name, on]) => {
+        if (on) selectedPermissions.add(name);
       });
 
       for (const p of selectedPermissions) {
@@ -390,14 +374,21 @@ export const RoleEdit = () => {
           </div>
 
           <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-6">İşlem Yetkileri</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-6">İşlem Yetkileri (özet)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {OPERATION_LABELS.map((item) => (
                 <label key={item.key} className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={operations[item.key]}
-                    onChange={(e) => setOperations(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                    checked={!!operations[item.key]}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setPermissionSelection((prev) => {
+                        const next = mergeSelectionForOperation(prev, item.key, enabled);
+                        setOperations(computeOperationsFromSelection(next));
+                        return next;
+                      });
+                    }}
                     className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
                   />
                   <span className="text-sm text-gray-800">{item.label}</span>
@@ -405,8 +396,76 @@ export const RoleEdit = () => {
               ))}
             </div>
             <p className="mt-3 text-xs text-gray-500">
-              Not: Seçimler role bağlı permission listesine otomatik yansıtılır.
+              Bu kutular önceden tanımlı permission gruplarını işaretler. Aşağıdaki listede veritabanındaki tüm
+              permission’lar (ör. yeni ekledikleriniz) tek tek görünür.
             </p>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-6">Tüm permission’lar</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Permissionlar sayfasında oluşturduğunuz kayıtlar burada checkbox olarak listelenir.
+            </p>
+            {Array.from(groupCatalogByResource(permCatalog).entries()).map(([resource, perms]) => (
+              <div key={resource} className="mb-6 last:mb-0">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{resource}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {perms.map((p) => (
+                    <label key={p.name} className="flex items-start space-x-2 rounded border border-gray-100 p-2">
+                      <input
+                        type="checkbox"
+                        checked={!!permissionSelection[p.name]}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setPermissionSelection((prev) => {
+                            const next = { ...prev, [p.name]: checked };
+                            setOperations(computeOperationsFromSelection(next));
+                            return next;
+                          });
+                        }}
+                        className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded shrink-0"
+                      />
+                      <span className="text-sm text-gray-800">
+                        <span className="font-medium">{p.displayName || p.name}</span>
+                        <span className="block text-xs text-gray-500 font-mono">{p.name}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {(() => {
+              const catalogNameSet = new Set(permCatalog.map((p) => p.name));
+              const orphanNames = Object.keys(permissionSelection).filter((n) => !catalogNameSet.has(n));
+              if (orphanNames.length === 0) return null;
+              return (
+                <div className="mt-6 pt-4 border-t border-amber-200">
+                  <h4 className="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-2">
+                    Rolde var, katalogda yok (eski / silinmiş tanım)
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {orphanNames.sort().map((name) => (
+                      <label key={name} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={!!permissionSelection[name]}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setPermissionSelection((prev) => {
+                              const next = { ...prev, [name]: checked };
+                              setOperations(computeOperationsFromSelection(next));
+                              return next;
+                            });
+                          }}
+                          className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                        />
+                        <span className="text-sm font-mono text-gray-800">{name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Role Information */}

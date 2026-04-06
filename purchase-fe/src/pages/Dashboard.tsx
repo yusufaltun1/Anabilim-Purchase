@@ -4,14 +4,16 @@ import { Navigation } from '../components/Navigation';
 import { purchaseRequestService } from '../services/purchase-request.service';
 import { PurchaseRequest } from '../types/purchase-request';
 import { authService } from '../services/auth.service';
+import { getSeenPendingApprovalIds, pruneSeenPendingApprovals } from '../utils/dashboard-pending-seen';
 
 export const Dashboard = () => {
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<PurchaseRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const userInfo = authService.getUserInfo();
+  const currentUserId = authService.getCurrentUser()?.id;
 
   useEffect(() => {
     loadPurchaseRequests();
@@ -20,13 +22,31 @@ export const Dashboard = () => {
   const loadPurchaseRequests = async () => {
     try {
       setLoading(true);
-      const purchaseRequestsResponse = await purchaseRequestService.getAllRequests();
-      
+      const [purchaseRequestsResponse, pendingResponse] = await Promise.all([
+        purchaseRequestService.getAllRequests(),
+        purchaseRequestService.getPendingApprovals(),
+      ]);
+
       if (purchaseRequestsResponse.success && purchaseRequestsResponse.data) {
-        const requests = Array.isArray(purchaseRequestsResponse.data) 
-          ? purchaseRequestsResponse.data 
+        const requests = Array.isArray(purchaseRequestsResponse.data)
+          ? purchaseRequestsResponse.data
           : [purchaseRequestsResponse.data];
         setPurchaseRequests(requests);
+      }
+
+      let pending: PurchaseRequest[] = [];
+      if (pendingResponse.success && pendingResponse.data) {
+        pending = Array.isArray(pendingResponse.data) ? pendingResponse.data : [pendingResponse.data];
+        setPendingApprovals(pending);
+        const uid = authService.getCurrentUser()?.id;
+        if (uid) {
+          pruneSeenPendingApprovals(
+            uid,
+            pending.map((r) => r.id).filter((id) => id != null)
+          );
+        }
+      } else {
+        setPendingApprovals([]);
       }
     } catch (err) {
       setError('Veriler yüklenirken hata oluştu');
@@ -36,7 +56,7 @@ export const Dashboard = () => {
     }
   };
 
-
+  const seenPendingIds = currentUserId ? getSeenPendingApprovalIds(currentUserId) : new Set<number>();
 
 
 
@@ -71,12 +91,7 @@ export const Dashboard = () => {
     }).length;
   };
 
-  // Onay bekleyen satın alma taleplerini hesapla
-  const getPendingApprovalRequests = () => {
-    return purchaseRequests.filter(request => 
-      request.status === 'IN_APPROVAL'
-    ).length;
-  };
+  const getPendingApprovalRequests = () => pendingApprovals.length;
 
   // İşlemde olan satın alma taleplerini hesapla
   const getInProgressRequests = () => {
@@ -295,7 +310,8 @@ export const Dashboard = () => {
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">Onay Bekleyen Talepler</h3>
               <p className="mt-1 text-sm text-gray-500">
-                Onay sürecinde bekleyen satın alma talepleri
+                Sizin onayınızı bekleyen talepler. Sol şerit ve vurgulu arka plan: detayı henüz açmadınız;
+                soluk gri: görüntülediniz. Rozet: talebi kimin açtığı.
               </p>
             </div>
             
@@ -310,47 +326,71 @@ export const Dashboard = () => {
               </div>
             ) : (
               <div className="divide-y divide-gray-200">
-                {purchaseRequests
-                  .filter(request => 
-                    request.status === 'IN_APPROVAL'
-                  )
+                {[...pendingApprovals]
                   .sort((a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime())
                   .slice(0, 5)
-                  .map((request) => (
-                    <div key={request.id} className="p-6 hover:bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-3">
-                            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                              Onay Bekliyor
+                  .map((request) => {
+                    const isOwnRequest = currentUserId != null && request.requester?.id === currentUserId;
+                    const isSeen = seenPendingIds.has(request.id);
+                    return (
+                      <div
+                        key={request.id}
+                        className={`p-6 transition-colors ${
+                          isSeen
+                            ? 'bg-gray-50/90 hover:bg-gray-100/90'
+                            : 'bg-indigo-50/50 border-l-4 border-indigo-500 hover:bg-indigo-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center flex-wrap gap-2">
+                              {!isSeen && (
+                                <span
+                                  className="flex h-2 w-2 rounded-full bg-indigo-600 shrink-0"
+                                  title="Henüz görüntülenmedi"
+                                  aria-hidden
+                                />
+                              )}
+                              <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Onay Bekliyor
+                              </div>
+                              {isOwnRequest ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-800">
+                                  Kendi talebiniz
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-900">
+                                  Size onay bekliyor
+                                </span>
+                              )}
+                              <h4 className="text-sm font-medium text-gray-900 truncate min-w-0">
+                                {request.title || `Talep #${request.id}`}
+                              </h4>
                             </div>
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {request.title || `Talep #${request.id}`}
-                            </h4>
+                            <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                              <span>{request.requester?.firstName} {request.requester?.lastName}</span>
+                              <span>•</span>
+                              <span>{request.items?.length || 0} ürün</span>
+                              <span>•</span>
+                              <span>{new Date(request.createdAt || '').toLocaleDateString('tr-TR')}</span>
+                              {isSeen && <span className="text-gray-400">• Görüntülendi</span>}
+                            </div>
                           </div>
-                          <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
-                            <span>{request.requester?.firstName} {request.requester?.lastName}</span>
-                            <span>•</span>
-                            <span>{request.items?.length || 0} ürün</span>
-                            <span>•</span>
-                            <span>{new Date(request.createdAt || '').toLocaleDateString('tr-TR')}</span>
+                          <div className="ml-4 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/purchase-requests/${request.id}`)}
+                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                              Detay
+                            </button>
                           </div>
-                        </div>
-                        <div className="ml-4 flex-shrink-0">
-                          <button
-                            onClick={() => navigate(`/purchase-requests/${request.id}`)}
-                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                          >
-                            Detay
-                          </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                
-                {purchaseRequests.filter(request => 
-                  request.status === 'IN_APPROVAL'
-                ).length === 0 && (
+                    );
+                  })}
+
+                {pendingApprovals.length === 0 && (
                   <div className="p-6 text-center">
                     <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -364,9 +404,7 @@ export const Dashboard = () => {
               </div>
             )}
             
-            {purchaseRequests.filter(request => 
-              request.status === 'IN_APPROVAL'
-            ).length > 5 && (
+            {pendingApprovals.length > 5 && (
               <div className="px-6 py-4 border-t border-gray-200">
                 <button
                   onClick={() => navigate('/purchase-requests?status=pending')}
