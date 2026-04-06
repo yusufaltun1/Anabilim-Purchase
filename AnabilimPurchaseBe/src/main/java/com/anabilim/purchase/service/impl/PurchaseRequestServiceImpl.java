@@ -598,16 +598,13 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     @Transactional
     public PurchaseRequestDto updatePurchaseRequest(Long id, UpdatePurchaseRequestDto updateDto, String requesterEmail) {
         PurchaseRequest request = validateAndGetRequest(id);
-        User requester = validateAndGetUser(requesterEmail);
+        User editor = validateAndGetUser(requesterEmail);
         
-        // Sadece talep sahibi güncelleyebilir
-        if (!request.getRequester().getId().equals(requester.getId())) {
-            throw new ValidationException("Bu talebi sadece talep sahibi güncelleyebilir.");
-        }
-        
-        // Sadece reddedilmiş talepler güncellenebilir
-        if (request.getStatus() != RequestStatus.REJECTED) {
-            throw new ValidationException("Sadece reddedilmiş talepler güncellenebilir.");
+        boolean isOwner = request.getRequester().getId().equals(editor.getId());
+        boolean canEditWithPermission = userHasGlobalPurchaseRequestEditPermission(editor);
+        if (!isOwner && !canEditWithPermission) {
+            throw new ValidationException(
+                    "Bu talebi sadece talep sahibi veya talep düzenleme yetkisine (REQUEST_UPDATE / REQUEST_EDIT) sahip kullanıcılar güncelleyebilir.");
         }
         
         // Title ve description güncelle
@@ -658,5 +655,24 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     private User validateAndGetUser(String email) {
         return userRepository.findByEmailAndIsActiveTrue(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Kullanıcı bulunamadı: " + email));
+    }
+
+    /**
+     * Rol üzerinden REQUEST_UPDATE veya REQUEST_EDIT (Permissionlar ekranı) atanmış mı?
+     */
+    private boolean userHasGlobalPurchaseRequestEditPermission(User user) {
+        if (user.getRoles() == null) {
+            return false;
+        }
+        return user.getRoles().stream()
+                .filter(role -> role != null && Boolean.TRUE.equals(role.getIsActive()))
+                .anyMatch(role -> {
+                    if (role.getPermissions() == null) {
+                        return false;
+                    }
+                    return role.getPermissions().stream()
+                            .filter(p -> p != null && Boolean.TRUE.equals(p.getIsActive()))
+                            .anyMatch(p -> "REQUEST_UPDATE".equals(p.getName()) || "REQUEST_EDIT".equals(p.getName()));
+                });
     }
 }

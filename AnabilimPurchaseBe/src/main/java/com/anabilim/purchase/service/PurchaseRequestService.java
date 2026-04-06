@@ -34,7 +34,7 @@ public interface PurchaseRequestService {
     // Ürün işlemleri
     PurchaseRequestDto updatePurchaseRequestItems(Long id, UpdatePurchaseRequestItemsDto itemsDto);
     
-    // Talep güncelleme (sadece reddedilmiş talepler için)
+    // Talep güncelleme (talep sahibi veya REQUEST_UPDATE / REQUEST_EDIT yetkisi)
     PurchaseRequestDto updatePurchaseRequest(Long id, UpdatePurchaseRequestDto updateDto, String requesterEmail);
     
     // İptal işlemleri

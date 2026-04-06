@@ -48,7 +48,7 @@ public class MicrosoftAuthServiceImpl implements MicrosoftAuthService {
             // 5. Response oluştur
             LoginResponse response = new LoginResponse();
             response.setToken(jwtToken);
-            response.setUserInfo(createUserInfo(user));
+            response.setUserInfo(authService.buildUserInfo(user));
             
             log.info("Microsoft login successful for user: {}", request.getEmail());
             return response;
@@ -195,11 +195,4 @@ public class MicrosoftAuthServiceImpl implements MicrosoftAuthService {
         }
     }
     
-    private LoginResponse.UserInfo createUserInfo(User user) {
-        return LoginResponse.UserInfo.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .displayName(user.getFullName())
-                .build();
-    }
 }

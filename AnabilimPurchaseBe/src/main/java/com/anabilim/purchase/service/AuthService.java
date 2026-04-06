@@ -66,17 +66,7 @@ public class AuthService implements UserDetailsService {
             String token = jwtService.generateToken(userDetails);
             String refreshToken = jwtService.generateRefreshToken(userDetails);
             
-            // Kullanıcı bilgilerini hazırla
-            LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo();
-            userInfo.setId(user.getId());
-            userInfo.setEmail(user.getEmail());
-            userInfo.setFirstName(user.getFirstName());
-            userInfo.setLastName(user.getLastName());
-            userInfo.setDisplayName(user.getDisplayName());
-            userInfo.setDepartment(user.getDepartment());
-            userInfo.setPosition(user.getPosition());
-            userInfo.setRoles(getRoleNames(user));
-            userInfo.setPermissions(getPermissionNames(user));
+            LoginResponse.UserInfo userInfo = buildUserInfo(user);
             
             return new LoginResponse(token, refreshToken, "Bearer", 86400000L, userInfo);
             
@@ -114,6 +104,24 @@ public class AuthService implements UserDetailsService {
         }
         
         return authorities;
+    }
+    
+    /**
+     * Şifre ve Microsoft girişinde aynı kullanıcı bilgisinin dönmesi için tek kaynak.
+     */
+    public LoginResponse.UserInfo buildUserInfo(User user) {
+        LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo();
+        userInfo.setId(user.getId());
+        userInfo.setEmail(user.getEmail());
+        userInfo.setFirstName(user.getFirstName());
+        userInfo.setLastName(user.getLastName());
+        String display = user.getDisplayName();
+        userInfo.setDisplayName(display != null && !display.isBlank() ? display : user.getFullName());
+        userInfo.setDepartment(user.getDepartment());
+        userInfo.setPosition(user.getPosition());
+        userInfo.setRoles(getRoleNames(user));
+        userInfo.setPermissions(getPermissionNames(user));
+        return userInfo;
     }
     
     private Set<String> getRoleNames(User user) {
