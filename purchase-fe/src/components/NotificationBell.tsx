@@ -42,14 +42,19 @@ export const NotificationBell = () => {
 
   const handleNotificationClick = async (notification: Notification) => {
     setIsOpen(false);
-    navigate(`/purchase-requests/${notification.purchaseRequestId}`);
     if (!notification.isRead) {
       try {
         await notificationService.markAsRead(notification.id);
-        fetchNotifications(); // Listeyi ve sayacı yenile
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n))
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
       } catch (error) {
         console.error('Bildirim okundu olarak işaretlenemedi:', error);
       }
+    }
+    if (notification.purchaseRequestId) {
+      navigate(`/purchase-requests/${notification.purchaseRequestId}`);
     }
   };
 
