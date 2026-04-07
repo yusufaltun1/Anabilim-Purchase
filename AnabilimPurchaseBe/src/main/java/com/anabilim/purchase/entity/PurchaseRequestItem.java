@@ -86,12 +86,17 @@ public class PurchaseRequestItem {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         PurchaseRequestItem that = (PurchaseRequestItem) o;
+        // Persist edilmeden önce id null olur; bu aşamada farklı satırları eşit saymamalıyız.
+        if (this.id == null || that.id == null) {
+            return false;
+        }
         return Objects.equals(id, that.id);
     }
     
     @Override
     public int hashCode() {
-        return Objects.hash(id);
+        // id yokken her nesnenin hash'i farklı olmalı ki Set içinde ezilmesin.
+        return id != null ? id.hashCode() : System.identityHashCode(this);
     }
     
     // Yardımcı metodlar

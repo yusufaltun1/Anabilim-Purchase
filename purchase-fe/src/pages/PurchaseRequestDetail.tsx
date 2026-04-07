@@ -89,7 +89,7 @@ export const PurchaseRequestDetail = () => {
       const requestResponse = await purchaseRequestService.getRequestById(requestId);
 
       if (requestResponse.success) {
-        const req = requestResponse.data as PurchaseRequest;
+        const req = ((requestResponse.data as any)?.data ?? requestResponse.data) as PurchaseRequest;
         setRequest(req);
         const uid = authService.getCurrentUser()?.id;
         if (
@@ -378,7 +378,7 @@ export const PurchaseRequestDetail = () => {
 
               return (
                 <div
-                  key={item.id}
+                  key={`${item.id ?? 'item'}-${index}`}
                   className="mb-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg bg-white"
                 >
                   <div className="border-b border-gray-200 bg-gradient-to-r from-slate-50 to-white px-4 py-4 sm:px-6">
@@ -709,7 +709,17 @@ export const PurchaseRequestDetail = () => {
     return <div className="min-h-screen bg-gray-50"><Navigation /><div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"><div className="text-center py-12"><p className="text-gray-500">{error || 'Talep bulunamadı'}</p></div></div></div>;
   }
 
-  const counterOfferItem = request?.items?.find((i) => i.id === counterOfferPopoverItemId) ?? null;
+  const normalizedItems: PurchaseRequestItem[] = (() => {
+    const raw: any = request?.items;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray(raw?.content)) return raw.content;
+    if (Array.isArray(raw?.data)) return raw.data;
+    const vals = Object.values(raw as Record<string, any>);
+    return vals.filter((v) => v && typeof v === 'object' && ('quantity' in v || 'productName' in v || 'product' in v));
+  })();
+
+  const counterOfferItem = normalizedItems.find((i) => i.id === counterOfferPopoverItemId) ?? null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -853,7 +863,16 @@ export const PurchaseRequestDetail = () => {
               </div>
             </div>
 
-            {request.items && request.items.length > 0 && <PurchaseRequestItems items={request.items} />}
+            {normalizedItems.length > 0 ? (
+              <PurchaseRequestItems items={normalizedItems} />
+            ) : (
+              <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+                <div className="px-4 py-5 sm:px-6">
+                  <h3 className="text-lg font-medium text-gray-900">Satın alma kalemleri</h3>
+                  <p className="mt-1 text-sm text-gray-500">Bu talep için henüz kalem bulunmuyor.</p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
               <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
