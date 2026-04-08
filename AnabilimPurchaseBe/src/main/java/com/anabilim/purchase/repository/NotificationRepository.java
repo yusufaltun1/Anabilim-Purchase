@@ -25,4 +25,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      * @return Okunmamış bildirim sayısı
      */
     long countByUserIdAndIsRead(Long userId, boolean isRead);
+
+    long deleteByPurchaseRequestId(Long purchaseRequestId);
 }

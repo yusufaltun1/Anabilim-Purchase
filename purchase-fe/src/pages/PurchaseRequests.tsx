@@ -96,6 +96,27 @@ export const PurchaseRequests = () => {
     return true;
   };
 
+  const canDeleteSpecificRequest = (request: PurchaseRequest) => {
+    if (!canEditRequest) return false;
+    if (!currentUserId) return false;
+    const isOwner = request.requester?.id === currentUserId;
+    if (!isOwner) return false;
+    return request.status !== 'COMPLETED' && request.status !== 'CANCELLED';
+  };
+
+  const handleDeleteRequest = async (request: PurchaseRequest) => {
+    const confirmed = window.confirm(
+      `"${request.title || `Talep #${request.id}`}" talebini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`
+    );
+    if (!confirmed) return;
+    try {
+      await purchaseRequestService.deleteRequest(request.id);
+      await loadRequests();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Talep silinirken hata oluştu');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -153,6 +174,14 @@ export const PurchaseRequests = () => {
                           <div className="flex space-x-2">
                             <button onClick={() => navigate(`/purchase-requests/${request.id}`)} className="text-indigo-600 hover:text-indigo-900 text-sm font-medium">Detay</button>
                             {canEditSpecificRequest(request) && <button onClick={() => navigate(`/purchase-requests/edit/${request.id}`)} className="text-green-600 hover:text-green-900 text-sm font-medium">Düzenle</button>}
+                            {canDeleteSpecificRequest(request) && (
+                              <button
+                                onClick={() => handleDeleteRequest(request)}
+                                className="text-red-600 hover:text-red-900 text-sm font-medium"
+                              >
+                                Sil
+                              </button>
+                            )}
                           </div>
                         </div>
                         <div className="mt-2 sm:flex sm:justify-between">

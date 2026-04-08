@@ -65,6 +65,7 @@ export const PurchaseRequestDetail = () => {
   const canQuoteCollect = authService.hasCapability('QUOTE_COLLECT');
   const canOrderCreate = authService.hasCapability('ORDER_CREATE');
   const canEditRequest = authService.hasCapability('REQUEST_EDIT');
+  const currentUserId = authService.getCurrentUser()?.id;
 
   useEffect(() => {
     loadRequestData();
@@ -561,6 +562,33 @@ export const PurchaseRequestDetail = () => {
     loadRequestData();
   };
 
+  const canDeleteRequest =
+    !!request &&
+    !!currentUserId &&
+    request.requester?.id === currentUserId &&
+    request.status !== 'COMPLETED' &&
+    request.status !== 'CANCELLED' &&
+    canEditRequest;
+
+  const handleDeleteRequest = async () => {
+    if (!request) return;
+    const confirmed = window.confirm(
+      `"${request.title || `Talep #${request.id}`}" talebini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`
+    );
+    if (!confirmed) return;
+    try {
+      setLoading(true);
+      await purchaseRequestService.deleteRequest(request.id);
+      showNotification('Talep başarıyla silindi', 'success');
+      navigate('/purchase-requests');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Talep silinirken hata oluştu');
+      showNotification('Talep silinirken hata oluştu', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEditQuoteOpen = (quote: any) => {
     setEditingQuote(quote);
     setQuoteError(null);
@@ -791,7 +819,18 @@ export const PurchaseRequestDetail = () => {
                   {getCurrentApprover(request) && <span className="ml-4 text-sm text-gray-500">Onaylayacak: {getCurrentApprover(request)?.firstName} {getCurrentApprover(request)?.lastName}</span>}
                 </div>
               </div>
-              <div className="flex space-x-3"><button onClick={() => navigate('/purchase-requests')} className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Geri</button></div>
+              <div className="flex space-x-3">
+                {canDeleteRequest && (
+                  <button
+                    onClick={handleDeleteRequest}
+                    disabled={loading}
+                    className="px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Sil
+                  </button>
+                )}
+                <button onClick={() => navigate('/purchase-requests')} className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Geri</button>
+              </div>
             </div>
 
             <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">

@@ -53,6 +53,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     private final PurchaseRequestMapper purchaseRequestMapper;
     private final SupplierQuoteRepository supplierQuoteRepository;
     private final NotificationService notificationService;
+    private final NotificationRepository notificationRepository;
     private final SupplierRepository supplierRepository; // Supplier'ı bulmak için eklendi
     private final PurchaseRequestApprovalRepository purchaseRequestApprovalRepository;
     private final ProductRepository productRepository;
@@ -462,6 +463,9 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         if (!purchaseRequestRepository.existsById(id)) {
             throw new ResourceNotFoundException("Satın alma talebi bulunamadı: " + id);
         }
+        // FK ihlali olmaması için bağlı kayıtları önce temizle
+        notificationRepository.deleteByPurchaseRequestId(id);
+        attachmentRepository.deleteByPurchaseRequestId(id);
         purchaseRequestRepository.deleteById(id);
     }
     

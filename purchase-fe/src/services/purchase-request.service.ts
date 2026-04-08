@@ -14,6 +14,38 @@ import {
 } from '../types/purchase-request';
 
 class PurchaseRequestService {
+  private extractErrorMessage(data: any, fallback: string): string {
+    if (!data) return fallback;
+    const message = typeof data.message === 'string' ? data.message.trim() : '';
+    const isGenericValidationMessage =
+      message !== '' &&
+      /validation failed|validation error|bad request|hata oluştu|failed/i.test(message) &&
+      data.errors != null;
+    if (typeof data.error === 'string' && data.error.trim()) return data.error;
+    if (typeof data.errors === 'string' && data.errors.trim()) return data.errors;
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      const first = data.errors[0];
+      if (typeof first === 'string') return first;
+      if (first?.defaultMessage) return first.defaultMessage;
+      if (first?.message) return first.message;
+    }
+    if (data.errors && typeof data.errors === 'object') {
+      const values = Object.values(data.errors);
+      const flat: string[] = [];
+      for (const v of values) {
+        if (typeof v === 'string' && v.trim()) flat.push(v.trim());
+        else if (Array.isArray(v)) {
+          v.forEach((x) => {
+            if (typeof x === 'string' && x.trim()) flat.push(x.trim());
+          });
+        }
+      }
+      if (flat.length > 0) return flat.join('\n');
+    }
+    if (!isGenericValidationMessage && message) return message;
+    return fallback;
+  }
+
   private getHeaders(): HeadersInit {
     const token = authService.getToken();
     return {
@@ -52,7 +84,7 @@ class PurchaseRequestService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Satın alma talebi oluşturulurken bir hata oluştu');
+        throw new Error(this.extractErrorMessage(data, 'Satın alma talebi oluşturulurken bir hata oluştu'));
       }
 
       return {
@@ -219,6 +251,20 @@ class PurchaseRequestService {
     }
   }
 
+  async deleteRequest(id: number): Promise<void> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        this.extractErrorMessage(errorData, 'Talep silinirken bir hata oluştu')
+      );
+    }
+  }
+
   async addItems(id: number, items: AddItemsRequest): Promise<void> {
     const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/${id}/items`, {
       method: 'POST',
@@ -299,7 +345,9 @@ class PurchaseRequestService {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || 'Satın alma talebi ürünleri güncellenirken bir hata oluştu');
+        throw new Error(
+          this.extractErrorMessage(data, 'Satın alma talebi ürünleri güncellenirken bir hata oluştu')
+        );
       }
 
       return {
@@ -314,6 +362,52 @@ class PurchaseRequestService {
         data: null,
         message: error.message,
         timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async updateRequest(id: number, request: {
+    title: string;
+    description: string;
+    items: Array<{
+      id?: number;
+      productName: string;
+      description?: string;
+      imageBase64?: string;
+      productLink?: string;
+      quantity: number;
+      potentialSupplierIds?: number[];
+      productId?: number | null;
+      estimatedDeliveryDate?: string;
+      notes?: string;
+    }>;
+  }): Promise<PurchaseRequestItemsResponse> {
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/${id}`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify(request),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          this.extractErrorMessage(data, 'Satın alma talebi güncellenirken bir hata oluştu')
+        );
+      }
+
+      return {
+        success: true,
+        data,
+        message: 'Satın alma talebi başarıyla güncellendi',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        data: null,
+        message: error.message,
+        timestamp: new Date().toISOString(),
       };
     }
   }

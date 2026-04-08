@@ -8,4 +8,6 @@ import java.util.List;
 public interface PurchaseRequestAttachmentRepository extends JpaRepository<PurchaseRequestAttachment, Long> {
 
     List<PurchaseRequestAttachment> findByPurchaseRequestIdOrderByCreatedAtAsc(Long purchaseRequestId);
+
+    long deleteByPurchaseRequestId(Long purchaseRequestId);
 }
