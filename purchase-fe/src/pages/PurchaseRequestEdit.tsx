@@ -5,9 +5,19 @@ import { PurchaseRequestItems } from '../components/PurchaseRequestItems';
 import { purchaseRequestService } from '../services/purchase-request.service';
 import { PurchaseRequestItem, PurchaseRequest } from '../types/purchase-request';
 import { authService } from '../services/auth.service';
+import { PurchaseRequestEditRequester } from './PurchaseRequestEditRequester';
 
 export const PurchaseRequestEdit = () => {
   const canEditRequest = authService.hasCapability('REQUEST_EDIT');
+  const isPurchasingEditor =
+    authService.hasCapability('QUOTE_COLLECT') ||
+    authService.hasCapability('ORDER_CREATE') ||
+    authService.hasCapability('REQUEST_CLOSE');
+
+  if (!isPurchasingEditor) {
+    return <PurchaseRequestEditRequester />;
+  }
+
   console.log('PurchaseRequestEdit component rendered');
   const navigate = useNavigate();
   const params = useParams();

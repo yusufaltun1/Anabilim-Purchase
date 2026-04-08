@@ -115,16 +115,10 @@ export const PurchaseRequestCreate = () => {
         }, 1500);
       } else {
         setError(response.message || 'Satın alma talebi oluşturulurken bir hata oluştu');
-        setTimeout(() => {
-          navigate('/purchase-requests');
-        }, 2000);
       }
     } catch (err) {
       console.error('Error creating purchase request:', err);
-      setError('Satın alma talebi oluşturulurken bir hata oluştu');
-      setTimeout(() => {
-        navigate('/purchase-requests');
-      }, 2000);
+      setError(err instanceof Error ? err.message : 'Satın alma talebi oluşturulurken bir hata oluştu');
     } finally {
       setLoading(false);
     }
