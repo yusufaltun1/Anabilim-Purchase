@@ -9,12 +9,11 @@ import { PurchaseRequestEditRequester } from './PurchaseRequestEditRequester';
 
 export const PurchaseRequestEdit = () => {
   const canEditRequest = authService.hasCapability('REQUEST_EDIT');
-  const permissions = authService.getUserInfo()?.permissions || [];
-  // Satın almacı ekranını rol fallback'ine değil, doğrudan işlem permission'larına bağla.
+  const roles = authService.getEffectiveRoles();
+  // Eski ekran sadece satınalma rolündeki kullanıcılar için.
   const isPurchasingEditor =
-    permissions.includes('INVENTORY_READ') ||
-    permissions.includes('INVENTORY_UPDATE') ||
-    permissions.includes('REQUEST_DELETE');
+    roles.includes('SATIN_ALMA_DEPARTMANI') ||
+    roles.includes('PURCHASE_MANAGER');
 
   if (!isPurchasingEditor) {
     return <PurchaseRequestEditRequester />;
