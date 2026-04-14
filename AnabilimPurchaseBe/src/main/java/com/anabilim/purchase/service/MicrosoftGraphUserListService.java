@@ -17,6 +17,21 @@ import java.util.Optional;
 @Slf4j
 public class MicrosoftGraphUserListService {
 
+    private static final String[] USER_SELECT_FIELDS = new String[]{
+            "id",
+            "displayName",
+            "givenName",
+            "surname",
+            "mail",
+            "userPrincipalName",
+            "mobilePhone",
+            "businessPhones",
+            "jobTitle",
+            "officeLocation",
+            "preferredLanguage",
+            "accountEnabled"
+    };
+
     private final GraphServiceClient graphServiceClient;
     private final UserRepository userRepository;
 
@@ -26,23 +41,20 @@ public class MicrosoftGraphUserListService {
     @Transactional
     public void fetchAndLogUsers() {
         try {
-            UserCollectionResponse response = graphServiceClient.users().get(requestConfiguration -> {
-                requestConfiguration.queryParameters.select =
-                        new String[]{
-                                "id",
-                                "displayName",
-                                "givenName",
-                                "surname",
-                                "mail",
-                                "userPrincipalName",
-                                "mobilePhone",
-                                "businessPhones",
-                                "jobTitle",
-                                "officeLocation",
-                                "preferredLanguage",
-                                "accountEnabled"
-                        };
-            });
+            Long graphReportedTotal = null;
+            UserCollectionResponse response;
+            try {
+                response = graphServiceClient.users().get(requestConfiguration -> {
+                    requestConfiguration.queryParameters.select = USER_SELECT_FIELDS;
+                    requestConfiguration.queryParameters.count = true;
+                });
+                graphReportedTotal = response != null ? response.getOdataCount() : null;
+            } catch (Exception countRequestError) {
+                log.warn("Microsoft Graph count fetch failed, continuing without @odata.count: {}",
+                        countRequestError.getMessage());
+                response = graphServiceClient.users().get(requestConfiguration ->
+                        requestConfiguration.queryParameters.select = USER_SELECT_FIELDS);
+            }
 
             int page = 1;
             int totalUsers = 0;
@@ -88,6 +100,10 @@ public class MicrosoftGraphUserListService {
                 }
 
                 String nextLink = response.getOdataNextLink();
+                boolean hasNextPage = nextLink != null && !nextLink.isBlank();
+                log.info("Microsoft Graph users page fetched. page={}, pageSize={}, nextPage={}",
+                        page, users != null ? users.size() : 0, hasNextPage);
+
                 if (nextLink == null || nextLink.isBlank()) {
                     break;
                 }
@@ -97,8 +113,8 @@ public class MicrosoftGraphUserListService {
                 response = graphServiceClient.users().withUrl(nextLink).get();
             }
 
-            log.info("Microsoft Graph user sync completed. totalUsers={}, createdUsers={}, updatedUsers={}",
-                    totalUsers, createdUsers, updatedUsers);
+            log.info("Microsoft Graph user sync completed. graphReportedTotal={}, fetchedTotalUsers={}, createdUsers={}, updatedUsers={}",
+                    graphReportedTotal, totalUsers, createdUsers, updatedUsers);
         } catch (Exception e) {
             // Uygulama kalkışını düşürmeyelim; sadece loglayalım.
             log.warn("Microsoft Graph user list fetch failed: {}", e.getMessage(), e);
