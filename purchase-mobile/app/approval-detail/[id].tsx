@@ -55,12 +55,12 @@ export default function ApprovalDetailScreen() {
   const [returnToExpanded, setReturnToExpanded] = useState(false);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
-  const fetchRequest = async () => {
+      const fetchRequest = async () => {
     if (!id || !token) return;
-    setLoading(true);
-    try {
-      const data = await purchaseService.getRequestById(Number(id), token);
-      setRequest(data);
+        setLoading(true);
+        try {
+          const data = await purchaseService.getRequestById(Number(id), token);
+          setRequest(data);
       if ((data?.status === 'IN_APPROVAL' || data?.status === 'IN_PROGRESS') && data?.approvals?.some((a: any) => a.status === 'PENDING')) {
         if (data.nextApproverCandidates && data.nextApproverCandidates.length > 0) {
           setNextApproverCandidatesList(data.nextApproverCandidates);
@@ -78,13 +78,13 @@ export default function ApprovalDetailScreen() {
         setNextApproverUserId('');
         setSendToUserId('');
       }
-    } catch (error) {
-      console.error('Failed to fetch request details:', error);
-      Alert.alert('Hata', 'Talep detayları alınamadı.');
-    } finally {
-      setLoading(false);
-    }
-  };
+        } catch (error) {
+          console.error('Failed to fetch request details:', error);
+          Alert.alert('Hata', 'Talep detayları alınamadı.');
+        } finally {
+          setLoading(false);
+        }
+      };
 
   useEffect(() => {
     if (id && token) {
@@ -213,7 +213,7 @@ export default function ApprovalDetailScreen() {
       Alert.alert('Hata', (err as Error).message || 'Belge indirilemedi.');
     }
   };
-
+  
   const getStatusTranslationAndColor = (status: string): StatusStyle => {
     switch (status) {
       case 'IN_APPROVAL':
@@ -585,8 +585,8 @@ export default function ApprovalDetailScreen() {
                     <Ionicons name="download-outline" size={18} color="#fff" />
                     <ThemedText style={styles.downloadButtonText}>İndir</ThemedText>
                   </TouchableOpacity>
-                </View>
-              ))}
+          </View>
+        ))}
             </View>
           )}
           <TouchableOpacity

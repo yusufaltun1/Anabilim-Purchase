@@ -55,4 +55,11 @@ public class PurchaseRequestApproval {
     
     @Column(name = "action_taken_at")
     private LocalDateTime actionTakenAt;
+
+    /**
+     * Üst onaycı zincirde bir sonraki yönetici yokken talebi bir kullanıcıya ilettiğinde (sendToUser) oluşan adım.
+     * Satın alma dashboard'unda bu talepler ayrı listelenir.
+     */
+    @Column(name = "forwarded_from_senior", nullable = false, columnDefinition = "boolean default false")
+    private boolean forwardedFromSenior = false;
 } 

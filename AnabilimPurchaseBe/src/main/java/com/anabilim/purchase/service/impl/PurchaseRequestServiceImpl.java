@@ -209,6 +209,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 nextApproval.setRequiredRole("MANAGER");
                 nextApproval.setStepOrder(nextStepOrder);
                 nextApproval.setStatus(ApprovalStatus.PENDING);
+                nextApproval.setForwardedFromSenior(true);
                 approvalRepository.save(nextApproval);
                 request.setStatus(RequestStatus.IN_APPROVAL);
                 String message = String.format("'%s' başlıklı talep %s tarafından size iletildi.", request.getTitle(), approver.getFirstName());
@@ -494,6 +495,18 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
         List<PurchaseRequestApproval> approvals = purchaseRequestApprovalRepository.findByApproverAndStatus(approver, ApprovalStatus.PENDING);
         List<PurchaseRequest> requests = approvals.stream().map(PurchaseRequestApproval::getPurchaseRequest).collect(Collectors.toCollection(ArrayList::new));
+        return purchaseRequestMapper.toDtoList(requests);
+    }
+
+    @Override
+    public List<PurchaseRequestDto> getSeniorForwardedPendingApprovalsForUser(String approverEmail) {
+        User approver = validateAndGetUser(approverEmail);
+        List<PurchaseRequestApproval> approvals = approvalRepository.findByApproverAndStatusAndForwardedFromSenior(
+                approver, ApprovalStatus.PENDING, true);
+        List<PurchaseRequest> requests = approvals.stream()
+                .map(PurchaseRequestApproval::getPurchaseRequest)
+                .distinct()
+                .collect(Collectors.toCollection(ArrayList::new));
         return purchaseRequestMapper.toDtoList(requests);
     }
     

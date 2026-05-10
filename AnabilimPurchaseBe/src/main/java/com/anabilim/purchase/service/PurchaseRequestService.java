@@ -30,6 +30,11 @@ public interface PurchaseRequestService {
     PurchaseRequestDto approvePurchaseRequest(Long id, String approverEmail, ApprovePurchaseRequestDto approveDto);
     PurchaseRequestDto rejectPurchaseRequest(Long id, String approverEmail, ApprovePurchaseRequestDto rejectDto);
     List<PurchaseRequestDto> getPendingApprovalsForUser(String approverEmail);
+
+    /**
+     * Üst onaycı tarafından onaylanıp aşağıya (ör. satın almacıya) iletilmiş, hâlâ onay bekleyen talepler.
+     */
+    List<PurchaseRequestDto> getSeniorForwardedPendingApprovalsForUser(String approverEmail);
     
     // Ürün işlemleri
     PurchaseRequestDto updatePurchaseRequestItems(Long id, UpdatePurchaseRequestItemsDto itemsDto);

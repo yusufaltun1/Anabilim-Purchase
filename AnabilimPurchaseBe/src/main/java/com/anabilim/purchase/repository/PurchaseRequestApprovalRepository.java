@@ -22,6 +22,10 @@ public interface PurchaseRequestApprovalRepository extends JpaRepository<Purchas
     
     @EntityGraph(attributePaths = {"purchaseRequest", "approver"})
     List<PurchaseRequestApproval> findByApproverAndStatus(User approver, ApprovalStatus status);
+
+    @EntityGraph(attributePaths = {"purchaseRequest", "approver"})
+    List<PurchaseRequestApproval> findByApproverAndStatusAndForwardedFromSenior(
+            User approver, ApprovalStatus status, Boolean forwardedFromSenior);
     
     @EntityGraph(attributePaths = {"purchaseRequest", "approver"})
     Optional<PurchaseRequestApproval> findByPurchaseRequestAndStepOrder(PurchaseRequest purchaseRequest, Integer stepOrder);

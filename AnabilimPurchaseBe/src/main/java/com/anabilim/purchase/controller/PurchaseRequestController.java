@@ -106,6 +106,13 @@ public class PurchaseRequestController {
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(purchaseRequestService.getPendingApprovalsForUser(userDetails.getUsername()));
     }
+
+    @GetMapping("/pending-approvals/senior-forwarded")
+    public ResponseEntity<List<PurchaseRequestDto>> getSeniorForwardedPendingApprovals(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(
+                purchaseRequestService.getSeniorForwardedPendingApprovalsForUser(userDetails.getUsername()));
+    }
     
     @PutMapping("/{id}/items")
     public ResponseEntity<PurchaseRequestDto> updatePurchaseRequestItems(

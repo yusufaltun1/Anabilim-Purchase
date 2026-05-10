@@ -225,6 +225,47 @@ class PurchaseRequestService {
     }
   }
 
+  /** Üst onaycıdan size iletilmiş (zincirde üst kalmadığında yönlendirme) — satın alma dashboard */
+  async getSeniorForwardedPendingApprovals(): Promise<PurchaseRequestResponse> {
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/purchase-requests/pending-approvals/senior-forwarded`,
+        {
+          method: 'GET',
+          headers: this.getHeaders(),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: data.message || 'İletilen talepler alınamadı',
+          data: [],
+          timestamp: new Date().toISOString(),
+          errorCode: 'FETCH_ERROR'
+        };
+      }
+
+      return {
+        success: true,
+        message: 'İletilen talepler alındı',
+        data: Array.isArray(data) ? data : (data.data || []),
+        timestamp: new Date().toISOString(),
+        errorCode: null
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'İletilen talepler alınamadı',
+        data: [],
+        timestamp: new Date().toISOString(),
+        errorCode: 'FETCH_ERROR'
+      };
+    }
+  }
+
   async approveRequest(id: number, action: ApprovalAction): Promise<void> {
     const response = await fetch(`${API_CONFIG.BASE_URL}/api/purchase-requests/${id}/approve`, {
       method: 'POST',
