@@ -129,10 +129,17 @@ export const PurchaseRequestDetail = () => {
   };
 
   const selectableCandidates = nextApproverCandidatesList.filter((c) => c.userId != null);
-  const handleApprove = async () => {
-    const candidates = nextApproverCandidatesList;
+  const hasSendDownUi = Boolean(
+    request?.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0
+  );
+
+  const handleApprove = async (completeChain = false) => {
     if (selectableCandidates.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) {
       showNotification('Birden fazla üst grubunuz var. Lütfen onayı hangi üst gruba ileteceğinizi seçin.', 'error');
+      return;
+    }
+    if (hasSendDownUi && !completeChain && (sendToUserId === '' || sendToUserId == null)) {
+      showNotification('İletmek için listeden bir kişi seçin veya Tamamen onayla ile süreci sonlandırın.', 'error');
       return;
     }
     try {
@@ -144,10 +151,19 @@ export const PurchaseRequestDetail = () => {
         return;
       }
 
+      let sendToUserIdPayload: number | null | undefined = undefined;
+      if (request?.hasNoNextApprover) {
+        if (hasSendDownUi) {
+          sendToUserIdPayload = completeChain ? null : Number(sendToUserId);
+        } else {
+          sendToUserIdPayload = null;
+        }
+      }
+
       const payload = {
         comment: actionComment,
         nextApproverUserId: selectableCandidates.length >= 1 ? (nextApproverUserId === '' ? selectableCandidates[0].userId! : nextApproverUserId) : undefined,
-        sendToUserId: request?.hasNoNextApprover ? (sendToUserId === '' ? null : sendToUserId) : undefined,
+        sendToUserId: sendToUserIdPayload,
       };
       await purchaseRequestService.approveRequest(parseInt(id), payload);
       setNextApproverUserId('');
@@ -1029,13 +1045,17 @@ export const PurchaseRequestDetail = () => {
                     {request.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0 && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Üst onaycı bulunmuyor</label>
-                        <p className="mt-1 text-xs text-gray-500 mb-2">Talebi aşağıdaki kişilere iletebilir veya tamamen onaylayabilirsiniz.</p>
+                        <p className="mt-1 text-xs text-gray-500 mb-2">
+                          Talebi aşağıdaki kişilerden birine iletmek için seçim yapın. Onay zincirini burada sonlandırmak için alttaki
+                          <span className="font-medium text-gray-700"> Tamamen onayla </span>
+                          düğmesini kullanın.
+                        </p>
                         <select
                           className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
                           value={sendToUserId}
                           onChange={(e) => setSendToUserId(e.target.value === '' ? '' : Number(e.target.value))}
                         >
-                          <option value="">Tamamen onayla</option>
+                          <option value="">— İletilecek kişiyi seçin —</option>
                           {request.sendDownCandidates.map((c) => (
                             <option key={c.userId} value={c.userId}>
                               {c.userName} ({c.label})
@@ -1045,15 +1065,42 @@ export const PurchaseRequestDetail = () => {
                       </div>
                     )}
                     <textarea rows={3} className="shadow-sm block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Onay yorumu ekleyin (opsiyonel)..." value={actionComment} onChange={(e) => setActionComment(e.target.value)} />
-                    <div className="mt-5 flex space-x-3">
-                      <button
-                        onClick={handleApprove}
-                        disabled={loading || (selectableCandidates.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Onayla
-                      </button>
-                      <button onClick={() => setShowRejectModal(true)} disabled={loading} className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">Reddet</button>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      {hasSendDownUi ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(false)}
+                            disabled={
+                              loading ||
+                              (selectableCandidates.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
+                              sendToUserId === '' ||
+                              sendToUserId == null
+                            }
+                            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Kişiye ilet
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(true)}
+                            disabled={loading || (selectableCandidates.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))}
+                            className="inline-flex items-center px-4 py-2 border border-green-700 rounded-md shadow-sm text-sm font-medium text-green-800 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Tamamen onayla
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleApprove(false)}
+                          disabled={loading || (selectableCandidates.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))}
+                          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Onayla
+                        </button>
+                      )}
+                      <button type="button" onClick={() => setShowRejectModal(true)} disabled={loading} className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">Reddet</button>
                     </div>
                   </div>
                 </div>

@@ -184,6 +184,9 @@ export default function RequestDetailScreen() {
   const isRequester = user?.email === request.requester.email;
 
   const selectableNext = nextApproverCandidatesList.filter((c) => c.userId != null);
+  const hasSendDownUi = Boolean(
+    request.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0
+  );
   const openRejectModal = () => {
     const list = request?.sendDownCandidates?.length
       ? request.sendDownCandidates.map((c) => ({
@@ -198,18 +201,33 @@ export default function RequestDetailScreen() {
 
   const returnToFullList = [{ id: 0, label: 'Tamamen reddet (talep kapanır)' }, ...returnToOptions];
 
-  const handleApprove = async () => {
+  const handleApprove = async (completeChain = false) => {
     if (!token) return;
     if (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) {
       Alert.alert('Uyarı', 'Birden fazla üst grubunuz var. Lütfen onayı hangi üst gruba ileteceğinizi seçin.');
       return;
     }
+    const hasSendDown = Boolean(
+      request?.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0
+    );
+    if (hasSendDown && !completeChain && (sendToUserId === '' || sendToUserId == null)) {
+      Alert.alert('Uyarı', 'İletmek için listeden bir kişi seçin veya Tamamen onayla ile süreci sonlandırın.');
+      return;
+    }
     setIsSubmitting(true);
     try {
+      let sendToUserIdPayload: number | null | undefined = undefined;
+      if (request?.hasNoNextApprover) {
+        if (hasSendDown) {
+          sendToUserIdPayload = completeChain ? null : Number(sendToUserId);
+        } else {
+          sendToUserIdPayload = null;
+        }
+      }
       const payload = {
         comment: approvalComment.trim() || undefined,
         nextApproverUserId: selectableNext.length >= 1 ? (nextApproverUserId === '' ? selectableNext[0].userId! : nextApproverUserId) : undefined,
-        sendToUserId: request?.hasNoNextApprover ? (sendToUserId === '' ? null : sendToUserId) : undefined,
+        sendToUserId: sendToUserIdPayload,
       };
       await purchaseService.approveRequest(Number(id), token, payload);
       Alert.alert('Başarılı', 'Talep onaylandı.', [
@@ -369,6 +387,63 @@ export default function RequestDetailScreen() {
               </View>
             </View>
           </Card>
+
+          {canApproveOrReject && nextApproverCandidatesList.length > 0 && (
+            <Card style={StyleSheet.flatten([styles.infoCard, { backgroundColor: colors.background }])}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="arrow-up-circle" size={18} color={colors.primary} />
+                <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Onayı hangi üst gruba ileteceksiniz?</ThemedText>
+              </View>
+              <TouchableOpacity
+                style={[styles.pickerTouch, { borderColor: colors.border }]}
+                onPress={() => setPickModal('nextApprover')}
+                disabled={selectableNext.length <= 1}
+              >
+                <ThemedText style={{ color: colors.text }}>
+                  {selectableNext.length <= 1 && nextApproverCandidatesList.length > 0
+                    ? (nextApproverCandidatesList.find((c) => c.userId != null)
+                        ? `${nextApproverCandidatesList.find((c) => c.userId != null)!.userName} (${nextApproverCandidatesList.find((c) => c.userId != null)!.groupName})`
+                        : 'Tek üst grup')
+                    : nextApproverUserId
+                      ? nextApproverCandidatesList.find((c) => c.userId === nextApproverUserId)
+                        ? `${nextApproverCandidatesList.find((c) => c.userId === nextApproverUserId)!.userName} (${nextApproverCandidatesList.find((c) => c.userId === nextApproverUserId)!.groupName})`
+                        : 'Seçin'
+                      : '— Seçin —'}
+                </ThemedText>
+                <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+              {selectableNext.length <= 1 && (
+                <ThemedText style={[styles.attachmentHint, { color: colors.textSecondary }]}>
+                  Tek üst grubunuz var; onay bu kişiye iletilecek.
+                </ThemedText>
+              )}
+            </Card>
+          )}
+
+          {canApproveOrReject && request.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0 && (
+            <Card style={StyleSheet.flatten([styles.infoCard, { backgroundColor: colors.background }])}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="arrow-down-circle" size={18} color={colors.primary} />
+                <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Üst onaycı bulunmuyor</ThemedText>
+              </View>
+              <ThemedText style={[styles.attachmentHint, { color: colors.textSecondary, marginBottom: 8 }]}>
+                İletmek için kişi seçin. Zinciri sonlandırmak için alttaki Tamamen onayla düğmesini kullanın.
+              </ThemedText>
+              <TouchableOpacity
+                style={[styles.pickerTouch, { borderColor: colors.border }]}
+                onPress={() => setPickModal('sendDown')}
+              >
+                <ThemedText style={{ color: colors.text }}>
+                  {sendToUserId === ''
+                    ? '— İletilecek kişiyi seçin —'
+                    : request.sendDownCandidates?.find((c) => c.userId === sendToUserId)
+                      ? `${request.sendDownCandidates.find((c) => c.userId === sendToUserId)!.userName} (${request.sendDownCandidates.find((c) => c.userId === sendToUserId)!.label})`
+                      : '— İletilecek kişiyi seçin —'}
+                </ThemedText>
+                <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </Card>
+          )}
 
           {/* Products Card */}
           <Card style={StyleSheet.flatten([styles.infoCard, { backgroundColor: colors.background }])}>
@@ -540,14 +615,69 @@ export default function RequestDetailScreen() {
             <Ionicons name="close-circle" size={20} color="#FFFFFF" />
             <ThemedText style={styles.buttonText}>Reddet</ThemedText>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.approveButton, { backgroundColor: colors.primary }, (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ? styles.buttonDisabled : undefined]}
-            onPress={handleApprove}
-            disabled={isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))}
-          >
-            <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-            <ThemedText style={styles.buttonText}>Onayla</ThemedText>
-          </TouchableOpacity>
+          {hasSendDownUi ? (
+            <View style={{ flex: 2, gap: 8 }}>
+              <TouchableOpacity
+                style={[
+                  styles.approveButton,
+                  { backgroundColor: colors.primary, paddingVertical: 12 },
+                  (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
+                  sendToUserId === '' ||
+                  sendToUserId == null
+                    ? styles.buttonDisabled
+                    : undefined,
+                ]}
+                onPress={() => handleApprove(false)}
+                disabled={
+                  isSubmitting ||
+                  (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
+                  sendToUserId === '' ||
+                  sendToUserId == null
+                }
+              >
+                <Ionicons name="arrow-redo" size={18} color="#FFFFFF" />
+                <ThemedText style={styles.buttonText}>Kişiye ilet</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.approveButton,
+                  {
+                    backgroundColor: colors.background,
+                    borderWidth: 2,
+                    borderColor: colors.primary,
+                    paddingVertical: 12,
+                  },
+                  selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)
+                    ? styles.buttonDisabled
+                    : undefined,
+                ]}
+                onPress={() => handleApprove(true)}
+                disabled={
+                  isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
+                }
+              >
+                <Ionicons name="checkmark-done" size={18} color={colors.primary} />
+                <ThemedText style={[styles.buttonText, { color: colors.primary }]}>Tamamen onayla</ThemedText>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.approveButton,
+                { backgroundColor: colors.primary },
+                selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)
+                  ? styles.buttonDisabled
+                  : undefined,
+              ]}
+              onPress={() => handleApprove(false)}
+              disabled={
+                isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
+              }
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.buttonText}>Onayla</ThemedText>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -691,15 +821,15 @@ export default function RequestDetailScreen() {
             )}
             {pickModal === 'sendDown' && request?.sendDownCandidates && (
               <FlatList
-                data={[{ userId: 0, userName: 'Tamamen onayla', label: '' }, ...request.sendDownCandidates]}
-                keyExtractor={(item) => item.userId === 0 ? 'full' : `s-${item.userId}`}
+                data={request.sendDownCandidates}
+                keyExtractor={(item) => `s-${item.userId}`}
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.pickerItem}
-                    onPress={() => { setSendToUserId(item.userId === 0 ? '' : item.userId); setPickModal(null); }}
+                    onPress={() => { setSendToUserId(item.userId); setPickModal(null); }}
                   >
                     <ThemedText style={styles.pickerItemText}>
-                      {item.userId === 0 ? 'Tamamen onayla' : `${item.userName} (${item.label})`}
+                      {`${item.userName} (${item.label})`}
                     </ThemedText>
                   </TouchableOpacity>
                 )}
