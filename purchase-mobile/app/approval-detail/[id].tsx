@@ -116,17 +116,32 @@ export default function ApprovalDetailScreen() {
 
   const returnToFullList = [{ id: 0, label: 'Tamamen reddet (talep kapanır)' }, ...returnToOptions];
 
-  const handleApprove = async () => {
+  const handleApprove = async (completeChain = false) => {
     if (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) {
       Alert.alert('Uyarı', 'Birden fazla üst grubunuz var. Lütfen onayı hangi üst gruba ileteceğinizi seçin.');
       return;
     }
+    const hasSendDown = Boolean(
+      request?.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0
+    );
+    if (hasSendDown && !completeChain && (sendToUserId === '' || sendToUserId == null)) {
+      Alert.alert('Uyarı', 'İletmek için listeden bir kişi seçin veya Tamamen onayla ile süreci sonlandırın.');
+      return;
+    }
     setIsSubmitting(true);
     try {
+      let sendToUserIdPayload: number | null | undefined = undefined;
+      if (request?.hasNoNextApprover) {
+        if (hasSendDown) {
+          sendToUserIdPayload = completeChain ? null : Number(sendToUserId);
+        } else {
+          sendToUserIdPayload = null;
+        }
+      }
       const payload: { comment?: string; nextApproverUserId?: number; sendToUserId?: number | null } = {
         comment: approvalComment.trim() || undefined,
         nextApproverUserId: selectableNext.length >= 1 ? (nextApproverUserId === '' ? selectableNext[0].userId! : nextApproverUserId) : undefined,
-        sendToUserId: request?.hasNoNextApprover ? (sendToUserId === '' ? null : sendToUserId) : undefined,
+        sendToUserId: sendToUserIdPayload,
       };
       await purchaseService.approveRequest(Number(id), token!, payload);
       Alert.alert('Başarılı', 'Talep onaylandı.', [
@@ -282,6 +297,9 @@ export default function ApprovalDetailScreen() {
 
   const statusStyle = getStatusTranslationAndColor(request.status);
   const canApproveOrReject = request.status === 'IN_APPROVAL' || request.status === 'PENDING' || request.status === 'IN_PROGRESS';
+  const hasSendDownUi = Boolean(
+    request.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0
+  );
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -543,7 +561,7 @@ export default function ApprovalDetailScreen() {
               <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Üst onaycı bulunmuyor</ThemedText>
             </View>
             <ThemedText style={[styles.hint, { color: colors.textSecondary, marginBottom: 8 }]}>
-              Talebi aşağıdaki kişilere iletebilir veya tamamen onaylayabilirsiniz.
+              İletmek için kişi seçin. Zinciri sonlandırmak için alttaki Tamamen onayla düğmesini kullanın.
             </ThemedText>
             <TouchableOpacity
               style={[styles.pickerTouch, { borderColor: colors.border }]}
@@ -551,10 +569,10 @@ export default function ApprovalDetailScreen() {
             >
               <ThemedText style={{ color: colors.text }}>
                 {sendToUserId === ''
-                  ? 'Tamamen onayla'
+                  ? '— İletilecek kişiyi seçin —'
                   : request.sendDownCandidates?.find((c) => c.userId === sendToUserId)
                     ? `${request.sendDownCandidates.find((c) => c.userId === sendToUserId)!.userName} (${request.sendDownCandidates.find((c) => c.userId === sendToUserId)!.label})`
-                    : 'Tamamen onayla'}
+                    : '— İletilecek kişiyi seçin —'}
               </ThemedText>
               <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -635,14 +653,69 @@ export default function ApprovalDetailScreen() {
             <Ionicons name="close-circle" size={20} color="#FFFFFF" />
             <ThemedText style={styles.buttonText}>Reddet</ThemedText>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.approveButton, { backgroundColor: colors.primary }, (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ? styles.buttonDisabled : undefined]}
-            onPress={handleApprove}
-            disabled={isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))}
-          >
-            <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-            <ThemedText style={styles.buttonText}>Onayla</ThemedText>
-          </TouchableOpacity>
+          {hasSendDownUi ? (
+            <View style={{ flex: 2, gap: 8 }}>
+              <TouchableOpacity
+                style={[
+                  styles.approveButton,
+                  { backgroundColor: colors.primary, paddingVertical: 12 },
+                  (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
+                  sendToUserId === '' ||
+                  sendToUserId == null
+                    ? styles.buttonDisabled
+                    : undefined,
+                ]}
+                onPress={() => handleApprove(false)}
+                disabled={
+                  isSubmitting ||
+                  (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
+                  sendToUserId === '' ||
+                  sendToUserId == null
+                }
+              >
+                <Ionicons name="arrow-redo" size={18} color="#FFFFFF" />
+                <ThemedText style={styles.buttonText}>Kişiye ilet</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.approveButton,
+                  {
+                    backgroundColor: colors.background,
+                    borderWidth: 2,
+                    borderColor: colors.primary,
+                    paddingVertical: 12,
+                  },
+                  selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)
+                    ? styles.buttonDisabled
+                    : undefined,
+                ]}
+                onPress={() => handleApprove(true)}
+                disabled={
+                  isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
+                }
+              >
+                <Ionicons name="checkmark-done" size={18} color={colors.primary} />
+                <ThemedText style={[styles.buttonText, { color: colors.primary }]}>Tamamen onayla</ThemedText>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.approveButton,
+                { backgroundColor: colors.primary },
+                selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)
+                  ? styles.buttonDisabled
+                  : undefined,
+              ]}
+              onPress={() => handleApprove(false)}
+              disabled={
+                isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
+              }
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.buttonText}>Onayla</ThemedText>
+            </TouchableOpacity>
+          )}
       </View>
       )}
 
@@ -745,15 +818,15 @@ export default function ApprovalDetailScreen() {
             )}
             {pickModal === 'sendDown' && request?.sendDownCandidates && (
               <FlatList
-                data={[{ userId: 0, userName: 'Tamamen onayla', label: '' }, ...request.sendDownCandidates]}
-                keyExtractor={(item) => item.userId === 0 ? 'full' : `s-${item.userId}`}
+                data={request.sendDownCandidates}
+                keyExtractor={(item) => `s-${item.userId}`}
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.pickerItem}
-                    onPress={() => { setSendToUserId(item.userId === 0 ? '' : item.userId); setPickModal(null); }}
+                    onPress={() => { setSendToUserId(item.userId); setPickModal(null); }}
                   >
                     <ThemedText style={styles.pickerItemText}>
-                      {item.userId === 0 ? 'Tamamen onayla' : `${item.userName} (${item.label})`}
+                      {`${item.userName} (${item.label})`}
                     </ThemedText>
                   </TouchableOpacity>
                 )}
