@@ -66,6 +66,9 @@ export interface Product {
   currentStock?: number;
   canAssign?: boolean;
   mustReturnFirst?: boolean;
+  ipAddress?: string;
+  macAddress?: string;
+  warrantyExpiryDate?: string;
 }
 
 export interface CreateProductRequest {

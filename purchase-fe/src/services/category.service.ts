@@ -27,7 +27,7 @@ class CategoryService {
       isActive: (apiCategory.active ?? apiCategory.isActive ?? true) as boolean,
       productType: apiCategory.productType as CategoryProductType,
       minStockNotifyAt: (apiCategory.minStockNotifyAt as number | null) ?? null,
-      requestable: apiCategory.requestable ?? false,
+      requestable: (apiCategory.requestable as boolean | undefined) ?? false,
       totalQuantity: (apiCategory.totalQuantity as number) ?? 0,
       assignedQuantity: (apiCategory.assignedQuantity as number) ?? 0,
       availableQuantity: (apiCategory.availableQuantity as number) ?? 0,
