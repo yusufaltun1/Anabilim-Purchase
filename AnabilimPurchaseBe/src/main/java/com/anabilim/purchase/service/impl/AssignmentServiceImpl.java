@@ -4,7 +4,9 @@ import com.anabilim.purchase.dto.request.CreateAssignmentDto;
 import com.anabilim.purchase.dto.response.AssignmentDto;
 import com.anabilim.purchase.entity.*;
 import com.anabilim.purchase.entity.enums.AssignmentStatus;
+import com.anabilim.purchase.entity.enums.StockItemStatus;
 import com.anabilim.purchase.exception.ResourceNotFoundException;
+import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.mapper.AssignmentMapper;
 import com.anabilim.purchase.repository.*;
 import com.anabilim.purchase.service.AssignmentService;
@@ -49,6 +51,8 @@ public class AssignmentServiceImpl implements AssignmentService {
             if (!stockItem.getProduct().getId().equals(product.getId())) {
                 throw new IllegalArgumentException("StockItem bu ürüne ait değil");
             }
+
+            validateStockItemAssignable(stockItem);
             
             assignment.setStockItem(stockItem);
         }
@@ -90,6 +94,20 @@ public class AssignmentServiceImpl implements AssignmentService {
         createStockMovementForAssignment(savedAssignment);
         
         return assignmentMapper.toDto(savedAssignment);
+    }
+
+    private void validateStockItemAssignable(StockItem stockItem) {
+        if (StockItemStatus.IN_USE.equals(stockItem.getStatus())
+                || StockItemStatus.ASSIGNED.equals(stockItem.getStatus())) {
+            throw new ValidationException("Cihaz kullanımda veya atanmış. Önce depoya iade edin.");
+        }
+        if (!StockItemStatus.IN_STOCK.equals(stockItem.getStatus())) {
+            throw new ValidationException("Sadece depoda (hazır) durumundaki cihazlar atanabilir veya zimmetlenebilir.");
+        }
+        if (stockItem.getAssetCondition() != null
+                && Boolean.FALSE.equals(stockItem.getAssetCondition().getAllowsAssignment())) {
+            throw new ValidationException("Seçilen durum dağıtılamaz; atama yapılamaz.");
+        }
     }
     
     @Override

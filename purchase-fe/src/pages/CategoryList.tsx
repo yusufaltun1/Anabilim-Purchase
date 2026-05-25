@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { categoryService } from '../services/category.service';
-import { Category } from '../types/category';
+import { Category, CATEGORY_PRODUCT_TYPE_OPTIONS } from '../types/category';
+
+const productTypeLabel = (type?: string) =>
+  CATEGORY_PRODUCT_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type ?? '-';
 
 export const CategoryList = () => {
   const navigate = useNavigate();
@@ -10,36 +13,7 @@ export const CategoryList = () => {
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showActiveOnly, setShowActiveOnly] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
-
-  // Tüm kategori ID'lerini recursive olarak topla
-  const getAllCategoryIds = (categories: Category[]): number[] => {
-    const ids: number[] = [];
-    
-    const collectIds = (cats: Category[]) => {
-      cats.forEach(cat => {
-        ids.push(cat.id);
-        if (cat.subCategories && cat.subCategories.length > 0) {
-          collectIds(cat.subCategories);
-        }
-      });
-    };
-    
-    collectIds(categories);
-    return ids;
-  };
-
-  // Kategorileri aktif/pasif olarak işaretle
-  const markCategoriesAsActive = (categories: Category[], activeIds: number[]): Category[] => {
-    return categories.map(cat => ({
-      ...cat,
-      isActive: activeIds.includes(cat.id),
-      subCategories: cat.subCategories ? markCategoriesAsActive(cat.subCategories, activeIds) : []
-    }));
-  };
-
-
+  const [showActiveOnly, setShowActiveOnly] = useState(true);
 
   useEffect(() => {
     loadCategories();
@@ -49,50 +23,17 @@ export const CategoryList = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      let categoriesData: Category[];
-      
       if (showActiveOnly) {
-        // Backend'den sadece aktif kategorileri al
         const response = await categoryService.getActiveCategories();
-        if (response.success) {
-          categoriesData = Array.isArray(response.data) ? response.data : [response.data];
-          console.log('Active categories from backend:', categoriesData);
+        if (response.success && response.data) {
+          setCategories(Array.isArray(response.data) ? response.data : [response.data]);
         } else {
-          setError(response.message);
-          return;
+          setError(response.message ?? 'Yüklenemedi');
         }
       } else {
-        // Backend'den tüm kategorileri al ve aktif olanları işaretle
-        const allCategories = await categoryService.getAllCategories();
-        const activeResponse = await categoryService.getActiveCategories();
-        
-        let activeCategoryIds: number[] = [];
-        if (activeResponse.success) {
-          const activeCategories = Array.isArray(activeResponse.data) ? activeResponse.data : [activeResponse.data];
-          activeCategoryIds = getAllCategoryIds(activeCategories);
-        }
-        
-        // Tüm kategorileri al ve aktif olanları işaretle
-        categoriesData = markCategoriesAsActive(allCategories, activeCategoryIds);
-        console.log('All categories with active status marked:', categoriesData);
+        setCategories(await categoryService.getAllCategories());
       }
-      
-      console.log('Categories to render:', categoriesData);
-      console.log('Categories with isActive status:', categoriesData.map(cat => ({ 
-        id: cat.id, 
-        name: cat.name, 
-        isActive: cat.isActive,
-        code: cat.code 
-      })));
-      setCategories(categoriesData);
-      
-      // Tüm kategorileri ve alt kategorileri otomatik olarak genişlet
-      const allCategoryIds = getAllCategoryIds(categoriesData);
-      setExpandedCategories(allCategoryIds);
-      console.log('Auto-expanded category IDs:', allCategoryIds);
-    } catch (err) {
-      console.error('Error loading categories:', err);
+    } catch {
       setError('Kategoriler yüklenirken hata oluştu');
     } finally {
       setLoading(false);
@@ -104,264 +45,155 @@ export const CategoryList = () => {
       await loadCategories();
       return;
     }
-
     try {
       setLoading(true);
-      setError(null);
-      console.log('Searching for categories with term:', searchTerm);
-      
       const response = await categoryService.searchCategories(searchTerm);
-      console.log('Search response:', response);
-      
-      if (response.success) {
-        const searchResults = Array.isArray(response.data) ? response.data : [response.data];
-        console.log('Search results:', searchResults);
-        
-        // Arama sonuçlarını aktif/pasif olarak işaretle
-        const activeResponse = await categoryService.getActiveCategories();
-        let activeCategoryIds: number[] = [];
-        if (activeResponse.success) {
-          const activeCategories = Array.isArray(activeResponse.data) ? activeResponse.data : [activeResponse.data];
-          activeCategoryIds = getAllCategoryIds(activeCategories);
-        }
-        
-        const markedSearchResults = markCategoriesAsActive(searchResults, activeCategoryIds);
-        console.log('Marked search results:', markedSearchResults);
-        
-        setCategories(markedSearchResults);
-        
-        // Arama sonuçlarını da genişlet
-        const searchResultIds = getAllCategoryIds(markedSearchResults);
-        setExpandedCategories(searchResultIds);
-      } else {
-        setError(response.message);
+      if (response.success && response.data) {
+        setCategories(Array.isArray(response.data) ? response.data : []);
       }
-    } catch (err) {
-      console.error('Error searching categories:', err);
-      setError('Kategori araması yapılırken hata oluştu');
+    } catch {
+      setError('Arama sırasında hata oluştu');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Bu kategoriyi silmek istediğinizden emin misiniz?')) {
-      return;
-    }
-
+    if (!window.confirm('Bu kategoriyi silmek istediğinizden emin misiniz?')) return;
     try {
-      setError(null);
       await categoryService.deleteCategory(id);
       await loadCategories();
-    } catch (err) {
-      console.error('Error deleting category:', err);
+    } catch {
       setError('Kategori silinirken hata oluştu');
     }
   };
 
-  const toggleExpand = (categoryId: number) => {
-    setExpandedCategories(prev => 
-      prev.includes(categoryId)
-        ? prev.filter(id => id !== categoryId)
-        : [...prev, categoryId]
-    );
-  };
-
-  const renderCategoryTree = (category: Category, level: number = 0) => {
-    if (!category) {
-      console.warn('Attempting to render undefined category');
-      return null;
-    }
-
-    console.log('Rendering category:', { id: category.id, name: category.name, level });
-    const isExpanded = expandedCategories.includes(category.id);
-    const hasSubCategories = category.subCategories && category.subCategories.length > 0;
-
-    return (
-      <div key={category.id} className="border-b border-gray-200 last:border-b-0">
-        <div 
-          className="flex items-center py-4 hover:bg-gray-50"
-          style={{ paddingLeft: `${level * 1.5}rem` }}
-        >
-          <div className="flex items-center flex-1">
-            {hasSubCategories && (
-              <button
-                onClick={() => toggleExpand(category.id)}
-                className="mr-2 text-gray-500 hover:text-gray-700 focus:outline-none"
-              >
-                <svg
-                  className={`w-4 h-4 transition-transform ${isExpanded ? 'transform rotate-90' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center">
-                <span className="font-medium text-gray-900 truncate">{category.name}</span>
-                <span className="ml-2 text-sm text-gray-500">[{category.code}]</span>
-                <span className={`ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  category.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {category.isActive ? 'Aktif' : 'Pasif'}
-                </span>
-              </div>
-              {category.description && (
-                <p className="mt-1 text-sm text-gray-500 truncate">{category.description}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center space-x-2 ml-4">
-            <button
-              onClick={() => {
-                console.log('Navigating to category detail:', category.id);
-                navigate(`/categories/${category.id}`);
-              }}
-              className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-            >
-              Detay
-            </button>
-            <button
-              onClick={() => {
-                console.log('Navigating to category edit:', category.id);
-                navigate(`/categories/edit/${category.id}`);
-              }}
-              className="text-yellow-600 hover:text-yellow-900 text-sm font-medium"
-            >
-              Düzenle
-            </button>
-            <button
-              onClick={() => handleDelete(category.id)}
-              className="text-red-600 hover:text-red-900 text-sm font-medium"
-            >
-              Sil
-            </button>
-          </div>
-        </div>
-        {isExpanded && hasSubCategories && (
-          <div>
-            {category.subCategories!.map(subCategory => 
-              renderCategoryTree(subCategory, level + 1)
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const filtered = categories.filter(
+    (c) =>
+      !searchTerm.trim() ||
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.code ?? '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
-      
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-900">Kategoriler</h1>
             <button
+              type="button"
               onClick={() => navigate('/categories/create')}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
             >
-              Yeni Kategori
+              Yeni Oluştur
             </button>
           </div>
 
-          <div className="mb-6 flex items-center space-x-4">
-            <div className="flex-1">
-              <div className="mt-1 flex rounded-md shadow-sm">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="Kategori ara..."
-                />
-                <button
-                  onClick={() => {
-                    console.log('Search button clicked with term:', searchTerm);
-                    handleSearch();
-                  }}
-                  className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Ara
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center">
+          <div className="mb-6 flex flex-wrap items-center gap-4">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Kategori ara..."
+              className="flex-1 min-w-[200px] px-3 py-2 rounded-md border border-gray-300 sm:text-sm"
+            />
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm bg-white"
+            >
+              Ara
+            </button>
+            <label className="flex items-center text-sm text-gray-700">
               <input
                 type="checkbox"
-                id="activeOnly"
                 checked={showActiveOnly}
                 onChange={(e) => setShowActiveOnly(e.target.checked)}
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                className="mr-2"
               />
-              <label htmlFor="activeOnly" className="ml-2 block text-sm text-gray-900">
-                Sadece Aktif Kategoriler
-              </label>
-            </div>
+              Sadece aktif
+            </label>
           </div>
 
-          {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                </div>
-              </div>
-            </div>
-          )}
+          {error && <div className="mb-4 text-sm text-red-600">{error}</div>}
 
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-            </div>
-          ) : (
-            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-              <div className="divide-y divide-gray-200">
-                {categories.length > 0 ? (
-                  <>
-                    {searchTerm && (
-                      <div className="p-4 bg-blue-50 border-b border-blue-200">
-                        <p className="text-sm text-blue-800">
-                          "{searchTerm}" için {categories.length} sonuç bulundu
-                        </p>
-                      </div>
-                    )}
-                    {categories.map(category => renderCategoryTree(category))}
-                  </>
-                ) : (
-                  <div className="p-4 text-center text-gray-500">
-                    {searchTerm ? (
-                      <div>
-                        <p>"{searchTerm}" için sonuç bulunamadı</p>
-                        <button
-                          onClick={() => {
-                            setSearchTerm('');
-                            loadCategories();
-                          }}
-                          className="mt-2 text-indigo-600 hover:text-indigo-900 text-sm"
+          <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+            {loading ? (
+              <div className="p-8 text-center text-gray-500">Yükleniyor...</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">Kategori bulunamadı</div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tip</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Toplam</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Atanan</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Kalan</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filtered.map((category) => (
+                    <tr
+                      key={category.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => navigate(`/categories/${category.id}`)}
+                    >
+                      <td className="px-4 py-4">
+                        <div className="font-medium text-gray-900">{category.name}</div>
+                        <div className="text-sm text-gray-500">{category.code}</div>
+                        <span
+                          className={`mt-1 inline-flex px-2 text-xs rounded-full ${
+                            category.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}
                         >
-                          Tüm kategorileri göster
+                          {category.isActive ? 'Aktif' : 'Pasif'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-600">{productTypeLabel(category.productType)}</td>
+                      <td className="px-4 py-4 text-sm text-right">{category.totalQuantity ?? 0}</td>
+                      <td className="px-4 py-4 text-sm text-right">{category.assignedQuantity ?? 0}</td>
+                      <td className="px-4 py-4 text-sm text-right font-medium">
+                        <span
+                          className={
+                            category.minStockNotifyAt != null &&
+                            (category.availableQuantity ?? 0) <= category.minStockNotifyAt
+                              ? 'text-red-600'
+                              : 'text-gray-900'
+                          }
+                        >
+                          {category.availableQuantity ?? 0}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/categories/edit/${category.id}`)}
+                          className="text-yellow-600 text-sm font-medium"
+                        >
+                          Düzenle
                         </button>
-                      </div>
-                    ) : (
-                      <p>Henüz kategori bulunmuyor</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(category.id)}
+                          className="text-red-600 text-sm font-medium"
+                        >
+                          Sil
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
-}; 
+};

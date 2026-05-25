@@ -57,6 +57,50 @@ public class StockItem {
     
     @Column(name = "location_details")
     private String locationDetails;
+
+    @Column(name = "asset_label")
+    private String assetLabel;
+
+    @Column(name = "domain_name")
+    private String domainName;
+
+    @Column(name = "ip_address")
+    private String ipAddress;
+
+    @Column(name = "mac_address")
+    private String macAddress;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "device_model_id")
+    private DeviceModel deviceModel;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "asset_condition_id")
+    private AssetCondition assetCondition;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_parent_location_id")
+    private Location defaultParentLocation;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_child_location_id")
+    private Location defaultChildLocation;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "school_id")
+    private School school;
+
+    @Column(name = "order_number")
+    private String orderNumber;
+
+    @Column(name = "byod")
+    private Boolean byod = false;
+
+    @Column(name = "warranty_months")
+    private Integer warrantyMonths;
+
+    @Column(name = "lifespan_end_date")
+    private LocalDateTime lifespanEndDate;
     
     @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;

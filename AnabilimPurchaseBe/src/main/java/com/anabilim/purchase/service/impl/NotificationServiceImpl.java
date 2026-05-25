@@ -57,6 +57,23 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional
+    public void createSystemNotification(User user, String message) {
+        Notification notification = new Notification();
+        notification.setUser(user);
+        notification.setMessage(message);
+        notification.setPurchaseRequest(null);
+        notification.setRead(false);
+        Notification saved = notificationRepository.save(notification);
+        try {
+            mailService.sendNotificationEmail(user, saved);
+        } catch (Exception ignored) {
+            // iş akışını bozma
+        }
+        sendExpoPushNotification(user, message, null);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<NotificationDto> getNotificationsForUser(String userEmail) {
         User user = findUserByEmail(userEmail);

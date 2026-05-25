@@ -108,6 +108,17 @@ public class Product {
     // Seri numaralı ürünler için StockItem ilişkisi
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<StockItem> stockItems = new HashSet<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "device_model_id")
+    private DeviceModel deviceModel;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "purchase_request_id")
+    private PurchaseRequest purchaseRequest;
+
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ProductImage> images = new HashSet<>();
     
     // Yardımcı metodlar
     public boolean isLowStock() {

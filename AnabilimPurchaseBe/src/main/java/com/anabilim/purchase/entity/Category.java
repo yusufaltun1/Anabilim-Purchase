@@ -1,5 +1,6 @@
 package com.anabilim.purchase.entity;
 
+import com.anabilim.purchase.entity.enums.ProductType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -33,13 +34,17 @@ public class Category {
     
     @Column(name = "description")
     private String description;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
-    private Category parent;
-    
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
-    private Set<Category> subCategories = new HashSet<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "product_type")
+    private ProductType productType = ProductType.CONSUMABLE;
+
+    /** Kalan miktar bu değere veya altına düştüğünde günlük bildirim gönderilir */
+    @Column(name = "min_stock_notify_at")
+    private Integer minStockNotifyAt;
+
+    @Column(name = "requestable")
+    private Boolean requestable = false;
     
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
     private Set<Product> products = new HashSet<>();
@@ -57,21 +62,6 @@ public class Category {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-    
-    // Yardımcı metodlar
-    public void addSubCategory(Category subCategory) {
-        subCategories.add(subCategory);
-        subCategory.setParent(this);
-    }
-    
-    public void removeSubCategory(Category subCategory) {
-        subCategories.remove(subCategory);
-        subCategory.setParent(null);
-    }
-    
-    public boolean hasSubCategories() {
-        return !subCategories.isEmpty();
-    }
     
     public boolean hasProducts() {
         return !products.isEmpty();

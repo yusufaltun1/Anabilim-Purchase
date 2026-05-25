@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+
 @Component
 public class LocationMapper {
 
@@ -21,24 +22,18 @@ public class LocationMapper {
         LocationDto locationDto = new LocationDto();
         locationDto.setName(location.getName());
         locationDto.setDescription(location.getDescription());
-        locationDto.setId(location.getId().intValue());
+        locationDto.setId(location.getId());
+        if (location.getParent() != null) {
+            locationDto.setParentId(location.getParent().getId());
+        }
         return locationDto;
-
     }
 
-    public Location toEntity(Location location) {
-        LocationDto locationDto = new LocationDto();
-        locationDto.setName(location.getName());
-        locationDto.setDescription(location.getDescription());
-        return location;
-    }
     public List<LocationDto> toDto(List<Location> locations) {
         List<LocationDto> locationDtos = new ArrayList<>();
         for (Location location : locations) {
             locationDtos.add(toDto(location));
-
         }
         return locationDtos;
     }
-
 }

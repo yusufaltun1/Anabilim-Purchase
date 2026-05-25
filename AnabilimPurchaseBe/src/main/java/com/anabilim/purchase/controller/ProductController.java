@@ -3,6 +3,8 @@ package com.anabilim.purchase.controller;
 import com.anabilim.purchase.dto.request.CreateProductDto;
 import com.anabilim.purchase.dto.request.UpdateProductDto;
 import com.anabilim.purchase.dto.response.ProductDto;
+import com.anabilim.purchase.dto.response.ProductProcurementSummaryDto;
+import com.anabilim.purchase.service.ProductProcurementService;
 import com.anabilim.purchase.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductProcurementService productProcurementService;
 
     @PostMapping
     public ResponseEntity<ProductDto> createProduct(@Valid @RequestBody CreateProductDto createDto) {
@@ -84,5 +87,10 @@ public class ProductController {
     public ResponseEntity<Void> removeSupplier(@PathVariable Long productId, @PathVariable Long supplierId) {
         productService.removeSupplier(productId, supplierId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/procurement")
+    public ResponseEntity<ProductProcurementSummaryDto> getProductProcurement(@PathVariable Long id) {
+        return ResponseEntity.ok(productProcurementService.getProcurementSummary(id));
     }
 } 

@@ -38,6 +38,34 @@ export interface Product {
   minQuantity?: number;
   maxQuantity?: number;
   suppliers?: any[];
+  imageUrls?: string[];
+  assetLabel?: string;
+  domainName?: string;
+  deviceModelId?: number;
+  deviceModelName?: string;
+  assetConditionId?: number;
+  assetConditionName?: string;
+  allowsAssignment?: boolean;
+  purchaseRequestId?: number;
+  purchaseRequestTitle?: string;
+  notes?: string;
+  schoolId?: number;
+  schoolName?: string;
+  orderNumber?: string;
+  byod?: boolean;
+  warrantyMonths?: number;
+  lifespanEndDate?: string;
+  purchaseDate?: string;
+  purchasePrice?: number;
+  primarySupplierId?: number;
+  primarySupplierName?: string;
+  defaultParentLocationId?: number;
+  defaultChildLocationId?: number;
+  stockItemStatus?: string;
+  stockItemId?: number;
+  currentStock?: number;
+  canAssign?: boolean;
+  mustReturnFirst?: boolean;
 }
 
 export interface CreateProductRequest {
@@ -46,6 +74,7 @@ export interface CreateProductRequest {
   code: string;
   serialNumber?: string;
   imageUrl?: string;
+  imageUrls?: string[];
   unitOfMeasure: string;
   productType: ProductType;
   categoryId: number | null;
@@ -53,6 +82,24 @@ export interface CreateProductRequest {
   maxQuantity: number;
   estimatedUnitPrice: number;
   currency: string;
+  assetLabel?: string;
+  domainName?: string;
+  deviceModelId?: number | null;
+  assetConditionId?: number | null;
+  defaultParentLocationId?: number | null;
+  defaultChildLocationId?: number | null;
+  warrantyExpiryDate?: string;
+  warrantyMonths?: number | null;
+  lifespanEndDate?: string;
+  purchaseDate?: string;
+  purchasePrice?: number | null;
+  orderNumber?: string;
+  byod?: boolean;
+  schoolId?: number | null;
+  notes?: string;
+  supplierIds?: number[];
+  ipAddress?: string;
+  macAddress?: string;
 }
 
 export interface UpdateProductRequest {
@@ -68,7 +115,52 @@ export interface UpdateProductRequest {
   maxQuantity?: number;
   estimatedUnitPrice?: number;
   currency?: string;
-  active: boolean; // Backend'in beklediği alan adı
+  active: boolean;
+  imageUrls?: string[];
+  assetLabel?: string;
+  domainName?: string;
+  deviceModelId?: number | null;
+  assetConditionId?: number | null;
+  defaultParentLocationId?: number | null;
+  defaultChildLocationId?: number | null;
+  warrantyExpiryDate?: string;
+  warrantyMonths?: number | null;
+  lifespanEndDate?: string;
+  purchaseDate?: string;
+  purchasePrice?: number | null;
+  orderNumber?: string;
+  byod?: boolean;
+  schoolId?: number | null;
+  notes?: string;
+  supplierIds?: number[];
+  ipAddress?: string;
+  macAddress?: string;
+  serialnumber?: string;
+}
+
+export interface ProductProcurementSummary {
+  purchaseRequests: RelatedPurchaseRequestRow[];
+  purchaseOrders: RelatedPurchaseOrderRow[];
+}
+
+export interface RelatedPurchaseRequestRow {
+  requestId: number;
+  title: string;
+  status: string;
+  requestItemId: number;
+  quantity?: number;
+  requestCreatedAt?: string;
+}
+
+export interface RelatedPurchaseOrderRow {
+  orderId: number;
+  orderCode: string;
+  status: string;
+  quantity?: number;
+  unitPrice?: number;
+  totalPrice?: number;
+  currency?: string;
+  createdAt?: string;
 }
 
 export interface ProductResponse {

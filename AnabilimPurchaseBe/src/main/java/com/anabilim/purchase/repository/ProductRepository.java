@@ -33,4 +33,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     
     @Query("SELECT p FROM Product p WHERE p.isActive = true AND p.category.name LIKE %:categoryName%")
     List<Product> findByActiveTrueAndCategoryNameContaining(@Param("categoryName") String categoryName);
+
+    @Query("SELECT COALESCE(SUM(p.currentStock), 0) FROM Product p WHERE p.category.id = :categoryId AND p.isActive = true")
+    long sumCurrentStockByCategoryId(@Param("categoryId") Long categoryId);
+
+    @Query("SELECT p.category.id, COALESCE(SUM(p.currentStock), 0) FROM Product p WHERE p.isActive = true GROUP BY p.category.id")
+    List<Object[]> sumCurrentStockGroupByCategoryId();
 } 

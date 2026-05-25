@@ -232,6 +232,17 @@ class ProductService {
     }
   }
 
+  async getProductProcurement(productId: number) {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/products/${productId}/procurement`, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+    if (!response.ok) {
+      throw new Error('Satın alma geçmişi yüklenemedi');
+    }
+    return response.json();
+  }
+
   async removeSupplierFromProduct(productId: number, supplierId: number): Promise<void> {
     const response = await fetch(`${API_CONFIG.BASE_URL}/api/products/${productId}/suppliers/${supplierId}`, {
       method: 'DELETE',

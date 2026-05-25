@@ -2,7 +2,7 @@ package com.anabilim.purchase.mapper;
 
 import com.anabilim.purchase.dto.request.CreateProductDto;
 import com.anabilim.purchase.dto.request.UpdateProductDto;
-import com.anabilim.purchase.dto.response.CategoryDto;
+import com.anabilim.purchase.dto.response.CategoryBasicDto;
 import com.anabilim.purchase.dto.response.ProductDto;
 import com.anabilim.purchase.entity.Product;
 import com.anabilim.purchase.entity.Supplier;
@@ -59,7 +59,7 @@ public class ProductMapper {
 
 
         if (product.getCategory() != null) {
-            dto.setCategory(new CategoryDto.CategoryBasicDto(
+            dto.setCategory(new CategoryBasicDto(
                     product.getCategory().getId(),
                     product.getCategory().getName(),
                     product.getCategory().getCode()

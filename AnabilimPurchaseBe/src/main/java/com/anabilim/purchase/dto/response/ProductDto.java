@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -16,7 +17,7 @@ public class ProductDto {
     private String name;
     private String code;
     private String description;
-    private CategoryDto.CategoryBasicDto category;
+    private CategoryBasicDto category;
     private String productType;
     private String unit;
     private String serialNumber;
@@ -28,6 +29,40 @@ public class ProductDto {
     private boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private List<String> imageUrls;
+    private String assetLabel;
+    private String domainName;
+    private Long deviceModelId;
+    private String deviceModelName;
+    private Long assetConditionId;
+    private String assetConditionName;
+    private Boolean allowsAssignment;
+    private Long defaultParentLocationId;
+    private Long defaultChildLocationId;
+    private Long purchaseRequestId;
+    private String purchaseRequestTitle;
+    private LocalDateTime warrantyExpiryDate;
+    private Integer warrantyMonths;
+    private LocalDateTime lifespanEndDate;
+    private LocalDateTime purchaseDate;
+    private BigDecimal purchasePrice;
+    private String orderNumber;
+    private Boolean byod;
+    private Long schoolId;
+    private String schoolName;
+    private String notes;
+    private Long primarySupplierId;
+    private String primarySupplierName;
+    private String ipAddress;
+    private String macAddress;
+
+    /** Liste: stok kalemi durumu */
+    private String stockItemStatus;
+    private Long stockItemId;
+    private Integer currentStock;
+    private boolean canAssign;
+    private boolean mustReturnFirst;
     
     @Data
     @NoArgsConstructor

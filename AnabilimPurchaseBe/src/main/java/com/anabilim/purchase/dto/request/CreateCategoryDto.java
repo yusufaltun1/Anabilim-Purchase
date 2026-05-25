@@ -1,6 +1,8 @@
 package com.anabilim.purchase.dto.request;
 
+import com.anabilim.purchase.entity.enums.ProductType;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -22,6 +24,12 @@ public class CreateCategoryDto {
     
     @Size(max = 500, message = "Açıklama en fazla 500 karakter olabilir")
     private String description;
-    
-    private Long parentId;
+
+    @NotNull(message = "Ürün tipi seçilmelidir")
+    private ProductType productType;
+
+    /** Kalan miktar bu değere düştüğünde bildirim gönderilir */
+    private Integer minStockNotifyAt;
+
+    private Boolean requestable;
 } 

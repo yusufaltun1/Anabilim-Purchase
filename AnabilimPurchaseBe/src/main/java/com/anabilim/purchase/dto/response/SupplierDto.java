@@ -26,7 +26,7 @@ public class SupplierDto {
     private String iban;
     private boolean isActive;
     private boolean isPreferred;
-    private Set<CategoryDto.CategoryBasicDto> categories;
+    private Set<CategoryBasicDto> categories;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 } 

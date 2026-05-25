@@ -16,6 +16,8 @@ public interface NotificationService {
      */
     void createNotification(User user, String message, PurchaseRequest request);
 
+    void createSystemNotification(User user, String message);
+
     /**
      * Belirli bir kullanıcının tüm bildirimlerini getirir.
      * @param userEmail Kullanıcının e-posta adresi

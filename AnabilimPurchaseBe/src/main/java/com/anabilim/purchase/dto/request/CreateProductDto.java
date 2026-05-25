@@ -8,6 +8,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -48,5 +50,29 @@ public class CreateProductDto {
 
     private String imageUrl;
 
+    private List<String> imageUrls;
+
     private Set<Long> supplierIds;
+
+    /** Demirbaş etiketi (barkod) */
+    private String assetLabel;
+    /** Domain adı */
+    private String domainName;
+    private String serialNumber;
+    private Long deviceModelId;
+    private Long assetConditionId;
+    private Long defaultParentLocationId;
+    private Long defaultChildLocationId;
+    private Long purchaseRequestId;
+    private LocalDateTime warrantyExpiryDate;
+    private Integer warrantyMonths;
+    private LocalDateTime lifespanEndDate;
+    private LocalDateTime purchaseDate;
+    private BigDecimal purchasePrice;
+    private String orderNumber;
+    private Boolean byod;
+    private Long schoolId;
+    private String notes;
+    private String ipAddress;
+    private String macAddress;
 } 

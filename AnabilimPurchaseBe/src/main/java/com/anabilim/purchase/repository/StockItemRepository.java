@@ -35,4 +35,29 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
     @Query("SELECT COUNT(si) FROM StockItem si WHERE si.product.id = :productId AND si.status = 'IN_STOCK' AND si.isActive = true")
     long countInStockByProductId(@Param("productId") Long productId);
 
+    @Query("SELECT si FROM StockItem si JOIN FETCH si.product p WHERE p.category.id = :categoryId AND si.isActive = true")
+    List<StockItem> findByCategoryId(@Param("categoryId") Long categoryId);
+
+    List<StockItem> findByProductIdOrderByIdAsc(Long productId);
+
+    Optional<StockItem> findFirstByProductIdAndIsActiveTrueOrderByIdAsc(Long productId);
+
+    @Query("SELECT COUNT(si) FROM StockItem si WHERE si.product.category.id = :categoryId AND si.isActive = true")
+    long countByCategoryId(@Param("categoryId") Long categoryId);
+
+    @Query("SELECT COUNT(si) FROM StockItem si WHERE si.product.category.id = :categoryId AND si.status = 'IN_STOCK' AND si.isActive = true")
+    long countInStockByCategoryId(@Param("categoryId") Long categoryId);
+
+    @Query("SELECT COUNT(si) FROM StockItem si WHERE si.product.category.id = :categoryId AND si.status IN ('ASSIGNED', 'IN_USE') AND si.isActive = true")
+    long countAssignedByCategoryId(@Param("categoryId") Long categoryId);
+
+    @Query("SELECT si.product.category.id, COUNT(si) FROM StockItem si WHERE si.isActive = true GROUP BY si.product.category.id")
+    List<Object[]> countTotalGroupByCategoryId();
+
+    @Query("SELECT si.product.category.id, COUNT(si) FROM StockItem si WHERE si.status IN ('ASSIGNED', 'IN_USE') AND si.isActive = true GROUP BY si.product.category.id")
+    List<Object[]> countAssignedGroupByCategoryId();
+
+    @Query("SELECT si.product.category.id, COUNT(si) FROM StockItem si WHERE si.status = 'IN_STOCK' AND si.isActive = true GROUP BY si.product.category.id")
+    List<Object[]> countInStockGroupByCategoryId();
+
 }

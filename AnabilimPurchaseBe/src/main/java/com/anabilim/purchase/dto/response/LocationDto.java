@@ -10,15 +10,17 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LocationDto {
 
+    private Long id;
     private String name;
     private String description;
-    private int id;
-
+    private Long parentId;
 
     public LocationDto(Location location) {
+        this.id = location.getId();
         this.name = location.getName();
         this.description = location.getDescription();
-
+        if (location.getParent() != null) {
+            this.parentId = location.getParent().getId();
+        }
     }
-
 }

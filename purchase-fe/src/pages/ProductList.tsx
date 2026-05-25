@@ -2,22 +2,31 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { ProductLabelPrint } from '../components/ProductLabelPrint';
+import { ActiveFiltersBar } from '../components/ActiveFiltersBar';
+import { SearchableCategorySelect } from '../components/common/SearchableCategorySelect';
+import { SearchableSupplierSelect } from '../components/common/SearchableSupplierSelect';
 import { productService } from '../services/product.service';
 import { categoryService } from '../services/category.service';
-import { Product, PRODUCT_TYPE_LABELS, ProductType } from '../types/product';
-import { Category } from '../types/category';
+import { inventoryService } from '../services/inventory.service';
+import { schoolService } from '../services/school.service';
+import { supplierService } from '../services/supplier.service';
+import { Product, PRODUCT_TYPE_LABELS } from '../types/product';
+import { Category, CATEGORY_PRODUCT_TYPE_OPTIONS } from '../types/category';
+import { Supplier } from '../types/supplier';
+import { School } from '../types/school';
+import {
+  ProductListFilters,
+  applyProductListFilters,
+  buildProductFilterChips,
+  clearProductFilterKey,
+  countActiveProductFilters,
+  defaultProductListFilters,
+  hasActiveProductFilters,
+} from '../utils/productListFilters';
 
-interface Filters {
-  search: string;
-  categoryId: number | null;
-  productType: ProductType | 'ALL';
-  activeStatus: 'ALL' | 'ACTIVE' | 'INACTIVE';
-  minPrice: string;
-  maxPrice: string;
-  unitOfMeasure: string;
-  sortBy: 'name' | 'code' | 'price' | 'createdAt';
-  sortOrder: 'asc' | 'desc';
-}
+const filterInputClass =
+  'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500';
+const filterLabelClass = 'block text-sm font-medium text-gray-700 mb-1';
 
 export const ProductList = () => {
   const navigate = useNavigate();
@@ -26,21 +35,18 @@ export const ProductList = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [deviceModels, setDeviceModels] = useState<{ id: number; name: string }[]>([]);
+  const [conditions, setConditions] = useState<{ id: number; name: string }[]>([]);
+  const [parentLocs, setParentLocs] = useState<{ id: number; name: string }[]>([]);
+  const [filterChildLocs, setFilterChildLocs] = useState<{ id: number; name: string }[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [printingProduct, setPrintingProduct] = useState<Product | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  
-  const [filters, setFilters] = useState<Filters>({
-    search: '',
-    categoryId: null,
-    productType: 'ALL',
-    activeStatus: 'ALL',
-    minPrice: '',
-    maxPrice: '',
-    unitOfMeasure: '',
-    sortBy: 'name',
-    sortOrder: 'asc',
-  });
+  const [chipSearch, setChipSearch] = useState('');
+
+  const [filters, setFilters] = useState<ProductListFilters>(defaultProductListFilters());
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -48,18 +54,43 @@ export const ProductList = () => {
   useEffect(() => {
     loadProducts();
     loadCategories();
+    loadFilterMasters();
   }, []);
+
+  useEffect(() => {
+    if (filters.parentLocationId) {
+      inventoryService.getChildLocations(filters.parentLocationId).then(setFilterChildLocs).catch(() => setFilterChildLocs([]));
+    } else {
+      setFilterChildLocs([]);
+    }
+  }, [filters.parentLocationId]);
 
   const loadCategories = async () => {
     try {
       const response = await categoryService.getActiveCategories();
-      if (response.success) {
-        const categoriesData = Array.isArray(response.data) ? response.data : [response.data];
-        setCategories(categoriesData);
+      if (response.success && response.data) {
+        setCategories(Array.isArray(response.data) ? response.data : [response.data]);
+      } else {
+        setCategories(await categoryService.getAllCategories());
       }
     } catch (err) {
       console.error('Error loading categories:', err);
     }
+  };
+
+  const loadFilterMasters = async () => {
+    const [schoolList, supplierList, models, conds, parents] = await Promise.all([
+      schoolService.getActiveSchools().catch(() => []),
+      supplierService.getActiveSuppliers().catch(() => []),
+      inventoryService.getDeviceModels().catch(() => []),
+      inventoryService.getAssetConditions().catch(() => []),
+      inventoryService.getParentLocations().catch(() => []),
+    ]);
+    setSchools(schoolList);
+    setSuppliers(supplierList);
+    setDeviceModels(models);
+    setConditions(conds);
+    setParentLocs(parents);
   };
 
   const loadProducts = async () => {
@@ -84,78 +115,23 @@ export const ProductList = () => {
     }
   };
 
-  // Filtreleme ve sıralama
-  const filteredAndSortedProducts = useMemo(() => {
-    let filtered = [...allProducts];
+  const filterLookup = useMemo(
+    () => ({
+      categories,
+      schools: schools.map((s) => ({ id: s.id, name: s.name })),
+      suppliers: suppliers.map((s) => ({ id: s.id, name: s.name })),
+      models: deviceModels,
+      conditions,
+      parentLocs,
+      childLocs: filterChildLocs,
+    }),
+    [categories, schools, suppliers, deviceModels, conditions, parentLocs, filterChildLocs]
+  );
 
-    // Arama filtresi
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.name.toLowerCase().includes(searchLower) ||
-          p.code.toLowerCase().includes(searchLower) ||
-          (p.description && p.description.toLowerCase().includes(searchLower))
-      );
-    }
-
-    // Kategori filtresi
-    if (filters.categoryId) {
-      filtered = filtered.filter((p) => p.category?.id === filters.categoryId);
-    }
-
-    // Ürün tipi filtresi
-    if (filters.productType !== 'ALL') {
-      filtered = filtered.filter((p) => p.productType === filters.productType);
-    }
-
-    // Aktif/Pasif filtresi
-    if (filters.activeStatus !== 'ALL') {
-      filtered = filtered.filter((p) => {
-        const isActive = p.active !== undefined ? p.active : p.isActive !== false;
-        return filters.activeStatus === 'ACTIVE' ? isActive : !isActive;
-      });
-    }
-
-    // Fiyat aralığı filtresi
-    if (filters.minPrice) {
-      const minPrice = parseFloat(filters.minPrice);
-      filtered = filtered.filter((p) => (p.estimatedUnitPrice || 0) >= minPrice);
-    }
-    if (filters.maxPrice) {
-      const maxPrice = parseFloat(filters.maxPrice);
-      filtered = filtered.filter((p) => (p.estimatedUnitPrice || 0) <= maxPrice);
-    }
-
-    // Birim filtresi
-    if (filters.unitOfMeasure) {
-      filtered = filtered.filter((p) => p.unitOfMeasure === filters.unitOfMeasure);
-    }
-
-    // Sıralama
-    filtered.sort((a, b) => {
-      let comparison = 0;
-      switch (filters.sortBy) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name, 'tr');
-          break;
-        case 'code':
-          comparison = a.code.localeCompare(b.code, 'tr');
-          break;
-        case 'price':
-          comparison = (a.estimatedUnitPrice || 0) - (b.estimatedUnitPrice || 0);
-          break;
-        case 'createdAt':
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          comparison = dateA - dateB;
-          break;
-      }
-      return filters.sortOrder === 'asc' ? comparison : -comparison;
-    });
-
-    return filtered;
-  }, [allProducts, filters]);
+  const filteredAndSortedProducts = useMemo(
+    () => applyProductListFilters(allProducts, filters, chipSearch),
+    [allProducts, filters, chipSearch]
+  );
 
   // Pagination hesaplamaları
   const totalPages = Math.ceil(filteredAndSortedProducts.length / itemsPerPage);
@@ -184,35 +160,31 @@ export const ProductList = () => {
     setCurrentPage(1);
   };
 
-  const handleFilterChange = (key: keyof Filters, value: any) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+  const handleFilterChange = <K extends keyof ProductListFilters>(key: K, value: ProductListFilters[K]) => {
+    setFilters((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === 'parentLocationId') {
+        next.childLocationId = null;
+      }
+      return next;
+    });
+    setCurrentPage(1);
+  };
+
+  const filterChips = useMemo(() => buildProductFilterChips(filters, filterLookup), [filters, filterLookup]);
+
+  const removeFilterChip = (key: string) => {
+    setFilters((prev) => clearProductFilterKey(prev, key));
+    setCurrentPage(1);
   };
 
   const resetFilters = () => {
-    setFilters({
-      search: '',
-      categoryId: null,
-      productType: 'ALL',
-      activeStatus: 'ALL',
-      minPrice: '',
-      maxPrice: '',
-      unitOfMeasure: '',
-      sortBy: 'name',
-      sortOrder: 'asc',
-    });
+    setChipSearch('');
+    setFilters(defaultProductListFilters());
+    setCurrentPage(1);
   };
 
-  const hasActiveFilters = () => {
-    return (
-      filters.search !== '' ||
-      filters.categoryId !== null ||
-      filters.productType !== 'ALL' ||
-      filters.activeStatus !== 'ALL' ||
-      filters.minPrice !== '' ||
-      filters.maxPrice !== '' ||
-      filters.unitOfMeasure !== ''
-    );
-  };
+  const activeFilterCount = countActiveProductFilters(filters);
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
@@ -257,7 +229,7 @@ export const ProductList = () => {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-4 py-2 border rounded-md shadow-sm text-sm font-medium ${
-                  showFilters || hasActiveFilters()
+                  showFilters || hasActiveProductFilters(filters)
                     ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
                     : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                 }`}
@@ -267,17 +239,9 @@ export const ProductList = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
                   Filtrele
-                  {hasActiveFilters() && (
+                  {activeFilterCount > 0 && (
                     <span className="bg-indigo-600 text-white rounded-full px-2 py-0.5 text-xs">
-                      {[
-                        filters.search && 1,
-                        filters.categoryId && 1,
-                        filters.productType !== 'ALL' && 1,
-                        filters.activeStatus !== 'ALL' && 1,
-                        filters.minPrice && 1,
-                        filters.maxPrice && 1,
-                        filters.unitOfMeasure && 1,
-                      ].filter(Boolean).length}
+                      {activeFilterCount}
                     </span>
                   )}
                 </span>
@@ -297,7 +261,7 @@ export const ProductList = () => {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Filtreler</h2>
                 <div className="flex gap-2">
-                  {hasActiveFilters() && (
+                  {activeFilterCount > 0 && (
                     <button
                       onClick={resetFilters}
                       className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
@@ -316,138 +280,283 @@ export const ProductList = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {/* Arama */}
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Arama</label>
-                  <input
-                    type="text"
-                    placeholder="Ürün adı, kod..."
-                    value={filters.search}
-                    onChange={(e) => handleFilterChange('search', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Genel</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div className="md:col-span-2">
+                      <label className={filterLabelClass}>Arama</label>
+                      <input
+                        type="text"
+                        placeholder="Ad, kod, etiket, seri no, sipariş no, IP…"
+                        value={filters.search}
+                        onChange={(e) => handleFilterChange('search', e.target.value)}
+                        className={filterInputClass}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className={filterLabelClass}>Kategori</label>
+                      <SearchableCategorySelect
+                        categories={categories}
+                        value={filters.categoryId}
+                        onChange={(cat) => handleFilterChange('categoryId', cat?.id ?? null)}
+                        placeholder="Kategori ara…"
+                        allowClear
+                      />
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Ürün tipi</label>
+                      <select
+                        value={filters.productType}
+                        onChange={(e) => handleFilterChange('productType', e.target.value)}
+                        className={filterInputClass}
+                      >
+                        <option value="ALL">Tümü</option>
+                        {CATEGORY_PRODUCT_TYPE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Kayıt durumu</label>
+                      <select
+                        value={filters.activeStatus}
+                        onChange={(e) => handleFilterChange('activeStatus', e.target.value as ProductListFilters['activeStatus'])}
+                        className={filterInputClass}
+                      >
+                        <option value="ALL">Tümü</option>
+                        <option value="ACTIVE">Aktif</option>
+                        <option value="INACTIVE">Pasif</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Kategori */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
-                  <select
-                    value={filters.categoryId || ''}
-                    onChange={(e) => handleFilterChange('categoryId', e.target.value ? parseInt(e.target.value) : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">Tümü</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Demirbaş</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div>
+                      <label className={filterLabelClass}>Şirket</label>
+                      <select
+                        value={filters.schoolId ?? ''}
+                        onChange={(e) => handleFilterChange('schoolId', e.target.value ? Number(e.target.value) : null)}
+                        className={filterInputClass}
+                      >
+                        <option value="">Tümü</option>
+                        {schools.map((s) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Model</label>
+                      <select
+                        value={filters.deviceModelId ?? ''}
+                        onChange={(e) => handleFilterChange('deviceModelId', e.target.value ? Number(e.target.value) : null)}
+                        className={filterInputClass}
+                      >
+                        <option value="">Tümü</option>
+                        {deviceModels.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Cihaz durumu</label>
+                      <select
+                        value={filters.assetConditionId ?? ''}
+                        onChange={(e) => handleFilterChange('assetConditionId', e.target.value ? Number(e.target.value) : null)}
+                        className={filterInputClass}
+                      >
+                        <option value="">Tümü</option>
+                        {conditions.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Demirbaş etiketi</label>
+                      <select
+                        value={filters.hasAssetLabel}
+                        onChange={(e) => handleFilterChange('hasAssetLabel', e.target.value as ProductListFilters['hasAssetLabel'])}
+                        className={filterInputClass}
+                      >
+                        <option value="ALL">Tümü</option>
+                        <option value="YES">Etiketli</option>
+                        <option value="NO">Etiketsiz</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Üst konum</label>
+                      <select
+                        value={filters.parentLocationId ?? ''}
+                        onChange={(e) => handleFilterChange('parentLocationId', e.target.value ? Number(e.target.value) : null)}
+                        className={filterInputClass}
+                      >
+                        <option value="">Tümü</option>
+                        {parentLocs.map((l) => (
+                          <option key={l.id} value={l.id}>{l.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Alt konum</label>
+                      <select
+                        value={filters.childLocationId ?? ''}
+                        onChange={(e) => handleFilterChange('childLocationId', e.target.value ? Number(e.target.value) : null)}
+                        className={filterInputClass}
+                        disabled={!filters.parentLocationId}
+                      >
+                        <option value="">Tümü</option>
+                        {filterChildLocs.map((l) => (
+                          <option key={l.id} value={l.id}>{l.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>BYOD</label>
+                      <select
+                        value={filters.byod}
+                        onChange={(e) => handleFilterChange('byod', e.target.value as ProductListFilters['byod'])}
+                        className={filterInputClass}
+                      >
+                        <option value="ALL">Tümü</option>
+                        <option value="YES">Evet</option>
+                        <option value="NO">Hayır</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Stok kalemi durumu</label>
+                      <select
+                        value={filters.stockStatus}
+                        onChange={(e) => handleFilterChange('stockStatus', e.target.value as ProductListFilters['stockStatus'])}
+                        className={filterInputClass}
+                      >
+                        <option value="ALL">Tümü</option>
+                        <option value="IN_STOCK">Stokta</option>
+                        <option value="ASSIGNED">Zimmetli</option>
+                        <option value="IN_USE">Kullanımda</option>
+                        <option value="MAINTENANCE">Bakımda</option>
+                        <option value="RETIRED">Emekli</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Zimmet / kullanım</label>
+                      <select
+                        value={filters.assignmentStatus}
+                        onChange={(e) => handleFilterChange('assignmentStatus', e.target.value as ProductListFilters['assignmentStatus'])}
+                        className={filterInputClass}
+                      >
+                        <option value="ALL">Tümü</option>
+                        <option value="CAN_ASSIGN">Zimmetlenebilir</option>
+                        <option value="IN_USE">Önce iade gerekli</option>
+                        <option value="NOT_ASSIGNABLE">Dağıtılamaz</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Ürün Tipi */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ürün Tipi</label>
-                  <select
-                    value={filters.productType}
-                    onChange={(e) => handleFilterChange('productType', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="ALL">Tümü</option>
-                    <option value={ProductType.CONSUMABLE}>Sarf Malzemesi</option>
-                    <option value={ProductType.SEMI_FIXED_ASSET}>Yarı Sabit Kıymet</option>
-                    <option value={ProductType.FIXED_ASSET}>Sabit Kıymet</option>
-                  </select>
-                </div>
-
-                {/* Aktif/Pasif */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Durum</label>
-                  <select
-                    value={filters.activeStatus}
-                    onChange={(e) => handleFilterChange('activeStatus', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="ALL">Tümü</option>
-                    <option value="ACTIVE">Aktif</option>
-                    <option value="INACTIVE">Pasif</option>
-                  </select>
-                </div>
-
-                {/* Min Fiyat */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Min. Fiyat (₺)</label>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={filters.minPrice}
-                    onChange={(e) => handleFilterChange('minPrice', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-
-                {/* Max Fiyat */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max. Fiyat (₺)</label>
-                  <input
-                    type="number"
-                    placeholder="∞"
-                    value={filters.maxPrice}
-                    onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-
-                {/* Birim */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Birim</label>
-                  <select
-                    value={filters.unitOfMeasure}
-                    onChange={(e) => handleFilterChange('unitOfMeasure', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">Tümü</option>
-                    <option value="PIECE">Adet</option>
-                    <option value="METER">Metre</option>
-                    <option value="LITER">Litre</option>
-                    <option value="KILOGRAM">Kilogram</option>
-                    <option value="BOX">Kutu</option>
-                    <option value="PACKAGE">Paket</option>
-                    <option value="SET">Takım</option>
-                    <option value="PAIR">Çift</option>
-                  </select>
-                </div>
-
-                {/* Sıralama */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sırala</label>
-                  <div className="flex gap-2">
-                    <select
-                      value={filters.sortBy}
-                      onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="name">Ad</option>
-                      <option value="code">Kod</option>
-                      <option value="price">Fiyat</option>
-                      <option value="createdAt">Tarih</option>
-                    </select>
-                    <button
-                      onClick={() => handleFilterChange('sortOrder', filters.sortOrder === 'asc' ? 'desc' : 'asc')}
-                      className="px-3 py-2 border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      title={filters.sortOrder === 'asc' ? 'Artan' : 'Azalan'}
-                    >
-                      {filters.sortOrder === 'asc' ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      )}
-                    </button>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Sipariş & fiyat</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div className="md:col-span-2">
+                      <label className={filterLabelClass}>Tedarikçi</label>
+                      <SearchableSupplierSelect
+                        suppliers={suppliers}
+                        value={filters.supplierId}
+                        onChange={(s) => handleFilterChange('supplierId', s?.id ?? null)}
+                        placeholder="Tedarikçi ara…"
+                        allowClear
+                      />
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Sipariş numarası</label>
+                      <input
+                        type="text"
+                        value={filters.orderNumber}
+                        onChange={(e) => handleFilterChange('orderNumber', e.target.value)}
+                        className={filterInputClass}
+                        placeholder="Kısmi eşleşme"
+                      />
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Min. tahmini fiyat (₺)</label>
+                      <input
+                        type="number"
+                        value={filters.minPrice}
+                        onChange={(e) => handleFilterChange('minPrice', e.target.value)}
+                        className={filterInputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Max. tahmini fiyat (₺)</label>
+                      <input
+                        type="number"
+                        value={filters.maxPrice}
+                        onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
+                        className={filterInputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Min. satın alma (₺)</label>
+                      <input
+                        type="number"
+                        value={filters.minPurchasePrice}
+                        onChange={(e) => handleFilterChange('minPurchasePrice', e.target.value)}
+                        className={filterInputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Max. satın alma (₺)</label>
+                      <input
+                        type="number"
+                        value={filters.maxPurchasePrice}
+                        onChange={(e) => handleFilterChange('maxPurchasePrice', e.target.value)}
+                        className={filterInputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Birim</label>
+                      <select
+                        value={filters.unitOfMeasure}
+                        onChange={(e) => handleFilterChange('unitOfMeasure', e.target.value)}
+                        className={filterInputClass}
+                      >
+                        <option value="">Tümü</option>
+                        <option value="PIECE">Adet</option>
+                        <option value="METER">Metre</option>
+                        <option value="LITER">Litre</option>
+                        <option value="KILOGRAM">Kilogram</option>
+                        <option value="BOX">Kutu</option>
+                        <option value="PACKAGE">Paket</option>
+                        <option value="SET">Takım</option>
+                        <option value="PAIR">Çift</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>Sırala</label>
+                      <div className="flex gap-2">
+                        <select
+                          value={filters.sortBy}
+                          onChange={(e) => handleFilterChange('sortBy', e.target.value as ProductListFilters['sortBy'])}
+                          className={`${filterInputClass} flex-1`}
+                        >
+                          <option value="name">Ad</option>
+                          <option value="code">Kod</option>
+                          <option value="price">Tahmini fiyat</option>
+                          <option value="purchasePrice">Satın alma fiyatı</option>
+                          <option value="createdAt">Oluşturma tarihi</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleFilterChange('sortOrder', filters.sortOrder === 'asc' ? 'desc' : 'asc')}
+                          className="px-3 py-2 border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+                          title={filters.sortOrder === 'asc' ? 'Artan' : 'Azalan'}
+                        >
+                          {filters.sortOrder === 'asc' ? '↑' : '↓'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -456,7 +565,7 @@ export const ProductList = () => {
               <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
                 <p className="text-sm text-gray-600">
                   <span className="font-semibold">{filteredAndSortedProducts.length}</span> ürün bulundu
-                  {hasActiveFilters() && (
+                  {activeFilterCount > 0 && (
                     <span className="ml-2 text-indigo-600">
                       ({allProducts.length} toplam üründen)
                     </span>
@@ -478,6 +587,14 @@ export const ProductList = () => {
               </div>
             </div>
           )}
+
+          <ActiveFiltersBar
+            chips={filterChips}
+            search={chipSearch}
+            onSearchChange={setChipSearch}
+            onRemoveChip={removeFilterChip}
+            onClearAll={resetFilters}
+          />
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -581,7 +698,7 @@ export const ProductList = () => {
             </div>
           ) : products.length === 0 ? (
             <div className="bg-white shadow rounded-lg p-6 text-center text-gray-500">
-              {hasActiveFilters() ? 'Filtre kriterlerinize uygun ürün bulunamadı.' : 'Henüz hiç ürün bulunmuyor.'}
+              {hasActiveProductFilters(filters) || chipSearch ? 'Filtre kriterlerinize uygun ürün bulunamadı.' : 'Henüz hiç ürün bulunmuyor.'}
             </div>
           ) : (
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
@@ -618,6 +735,20 @@ export const ProductList = () => {
                             <p className="px-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                               {formatCurrency(product.estimatedUnitPrice || 0)}
                             </p>
+                            {product.mustReturnFirst && (
+                              <span className="text-xs text-orange-600 font-medium" title="Önce depoya iade">
+                                Kullanımda
+                              </span>
+                            )}
+                            {product.canAssign && (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/products/${product.id}?assign=1`)}
+                                className="text-green-600 hover:text-green-900 font-medium text-sm"
+                              >
+                                Zimmetle
+                              </button>
+                            )}
                             <button
                               onClick={() => navigate(`/products/${product.id}`)}
                               className="text-indigo-600 hover:text-indigo-900 font-medium"

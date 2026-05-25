@@ -15,6 +15,7 @@ import { School } from '../types/school';
 import { Location } from '../types/location';
 import { formatDate } from '../utils/date';
 import { useNotification } from '../contexts/NotificationContext';
+import { ProductProcurementSummary } from '../types/product';
 
 export const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +50,8 @@ export const ProductDetail = () => {
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [procurement, setProcurement] = useState<ProductProcurementSummary | null>(null);
+  const [procurementLoading, setProcurementLoading] = useState(false);
 
   useEffect(() => {
     loadProductData();
@@ -73,12 +76,54 @@ export const ProductDetail = () => {
       console.log('Product type:', response.productType);
       
       setProduct(response);
+      loadProcurement(parseInt(id!));
     } catch (err: any) {
       console.error('Error loading product:', err);
       setError(err.message || 'Ürün bilgileri yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadProcurement = async (productId: number) => {
+    try {
+      setProcurementLoading(true);
+      const data = await productService.getProductProcurement(productId);
+      setProcurement(data);
+    } catch (err) {
+      console.error('Error loading procurement:', err);
+      setProcurement({ purchaseRequests: [], purchaseOrders: [] });
+    } finally {
+      setProcurementLoading(false);
+    }
+  };
+
+  const requestStatusLabel = (status: string) => {
+    const map: Record<string, string> = {
+      DRAFT: 'Taslak',
+      IN_APPROVAL: 'Onay Bekliyor',
+      APPROVED: 'Onaylandı',
+      REJECTED: 'Reddedildi',
+      CANCELLED: 'İptal Edildi',
+      IN_PROGRESS: 'İşlemde',
+      PARTIAL_APPROVAL: 'Kısmi Onay',
+      COMPLETED: 'Tamamlandı',
+      PENDING: 'Beklemede',
+    };
+    return map[status] || status;
+  };
+
+  const orderStatusLabel = (status: string) => {
+    const map: Record<string, string> = {
+      DRAFT: 'Taslak',
+      PENDING: 'Beklemede',
+      CONFIRMED: 'Onaylandı',
+      SHIPPED: 'Kargoda',
+      DELIVERED: 'Teslim Edildi',
+      CANCELLED: 'İptal',
+      REJECTED: 'Reddedildi',
+    };
+    return map[status] || status;
   };
 
 
@@ -577,6 +622,121 @@ export const ProductDetail = () => {
                   </dd>
                 </div>
               </dl>
+            </div>
+          </div>
+
+          <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+            <div className="px-4 py-5 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Satın alma talepleri</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Bu ürünün kalemi olarak yer aldığı onaylı veya süreçteki talepler
+              </p>
+            </div>
+            <div className="border-t border-gray-200">
+              {procurementLoading ? (
+                <div className="px-4 py-6 flex justify-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
+                </div>
+              ) : procurement?.purchaseRequests && procurement.purchaseRequests.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talep</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Durum</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Miktar</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tarih</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" />
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {procurement.purchaseRequests.map((row) => (
+                        <tr key={row.requestItemId}>
+                          <td className="px-4 py-3 text-sm text-gray-900">{row.title}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{requestStatusLabel(row.status)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{row.quantity ?? '—'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {row.requestCreatedAt ? formatDate(row.requestCreatedAt) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/purchase-requests/${row.requestId}`)}
+                              className="text-indigo-600 hover:text-indigo-900 font-medium"
+                            >
+                              Detay
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="px-4 py-4 text-sm text-gray-500">Bu ürünle ilişkili satın alma talebi bulunamadı.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+            <div className="px-4 py-5 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Siparişler</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Bu ürün kalemi üzerinden oluşturulan siparişler
+              </p>
+            </div>
+            <div className="border-t border-gray-200">
+              {procurementLoading ? (
+                <div className="px-4 py-6 flex justify-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
+                </div>
+              ) : procurement?.purchaseOrders && procurement.purchaseOrders.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sipariş No</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Durum</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Miktar</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tutar</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tarih</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" />
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {procurement.purchaseOrders.map((row) => (
+                        <tr key={row.orderId}>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.orderCode}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{orderStatusLabel(row.status)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{row.quantity ?? '—'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {row.totalPrice != null
+                              ? Number(row.totalPrice).toLocaleString('tr-TR', {
+                                  style: 'currency',
+                                  currency: row.currency || 'TRY',
+                                })
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {row.createdAt ? formatDate(row.createdAt) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/purchase-orders/${row.orderId}`)}
+                              className="text-indigo-600 hover:text-indigo-900 font-medium"
+                            >
+                              Detay
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="px-4 py-4 text-sm text-gray-500">Bu ürünle ilişkili sipariş bulunamadı.</p>
+              )}
             </div>
           </div>
 

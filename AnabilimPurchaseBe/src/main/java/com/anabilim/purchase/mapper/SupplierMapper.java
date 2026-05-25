@@ -2,7 +2,7 @@ package com.anabilim.purchase.mapper;
 
 import com.anabilim.purchase.dto.request.CreateSupplierDto;
 import com.anabilim.purchase.dto.request.UpdateSupplierDto;
-import com.anabilim.purchase.dto.response.CategoryDto;
+import com.anabilim.purchase.dto.response.CategoryBasicDto;
 import com.anabilim.purchase.dto.response.SupplierDto;
 import com.anabilim.purchase.entity.Category;
 import com.anabilim.purchase.entity.Supplier;
@@ -109,7 +109,7 @@ public class SupplierMapper {
         
         if (supplier.getCategories() != null) {
             dto.setCategories(supplier.getCategories().stream()
-                    .map(category -> new CategoryDto.CategoryBasicDto(
+                    .map(category -> new CategoryBasicDto(
                             category.getId(),
                             category.getName(),
                             category.getCode()))
