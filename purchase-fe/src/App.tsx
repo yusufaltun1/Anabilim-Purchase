@@ -42,6 +42,7 @@ import { PersonnelList } from './pages/PersonnelList';
 import { PersonnelCreate } from './pages/PersonnelCreate';
 import { PersonnelDetail } from './pages/PersonnelDetail';
 import { PrivateRoute } from './components/PrivateRoute';
+import { CapabilityRoute } from './components/CapabilityRoute';
 import TransferList from './components/transfer/TransferList';
 import TransferCreate from './components/transfer/TransferCreate';
 import TransferDetail from './components/transfer/TransferDetail';
@@ -202,7 +203,9 @@ function App({ instance }: AppProps) {
                 path="/products" 
                 element={
                   <PrivateRoute>
-                    <ProductList />
+                    <CapabilityRoute capability="INVENTORY_VIEW">
+                      <ProductList />
+                    </CapabilityRoute>
                   </PrivateRoute>
                 } 
               />
@@ -210,7 +213,9 @@ function App({ instance }: AppProps) {
                 path="/products/create" 
                 element={
                   <PrivateRoute>
-                    <ProductCreate />
+                    <CapabilityRoute capability="INVENTORY_MANAGE">
+                      <ProductCreate />
+                    </CapabilityRoute>
                   </PrivateRoute>
                 } 
               />
@@ -218,7 +223,19 @@ function App({ instance }: AppProps) {
                 path="/products/edit/:id" 
                 element={
                   <PrivateRoute>
-                    <ProductEdit />
+                    <CapabilityRoute capability="INVENTORY_MANAGE">
+                      <ProductEdit />
+                    </CapabilityRoute>
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/products/:id/suppliers/add" 
+                element={
+                  <PrivateRoute>
+                    <CapabilityRoute capability="INVENTORY_MANAGE">
+                      <ProductSupplierAdd />
+                    </CapabilityRoute>
                   </PrivateRoute>
                 } 
               />
@@ -226,7 +243,9 @@ function App({ instance }: AppProps) {
                 path="/products/:id" 
                 element={
                   <PrivateRoute>
-                    <ProductDetail />
+                    <CapabilityRoute capability="INVENTORY_VIEW">
+                      <ProductDetail />
+                    </CapabilityRoute>
                   </PrivateRoute>
                 } 
               />
@@ -371,17 +390,16 @@ function App({ instance }: AppProps) {
                 } 
               />
               <Route path="/transfers" element={<PrivateRoute><TransferList /></PrivateRoute>} />
-              <Route path="/categories" element={<PrivateRoute><CategoryList /></PrivateRoute>} />
-              <Route path="/categories/create" element={<PrivateRoute><CategoryCreate /></PrivateRoute>} />
-              <Route path="/categories/edit/:id" element={<PrivateRoute><CategoryEdit /></PrivateRoute>} />
-              <Route path="/categories/:id" element={<PrivateRoute><CategoryDetail /></PrivateRoute>} />
+              <Route path="/categories" element={<PrivateRoute><CapabilityRoute capability="INVENTORY_VIEW"><CategoryList /></CapabilityRoute></PrivateRoute>} />
+              <Route path="/categories/create" element={<PrivateRoute><CapabilityRoute capability="INVENTORY_MANAGE"><CategoryCreate /></CapabilityRoute></PrivateRoute>} />
+              <Route path="/categories/edit/:id" element={<PrivateRoute><CapabilityRoute capability="INVENTORY_MANAGE"><CategoryEdit /></CapabilityRoute></PrivateRoute>} />
+              <Route path="/categories/:id" element={<PrivateRoute><CapabilityRoute capability="INVENTORY_VIEW"><CategoryDetail /></CapabilityRoute></PrivateRoute>} />
               <Route path="/transfers/create" element={<PrivateRoute><TransferCreate /></PrivateRoute>} />
               <Route path="/transfers/:id" element={<PrivateRoute><TransferDetail /></PrivateRoute>} />
-              <Route path="/products/:id/suppliers/add" element={<PrivateRoute><ProductSupplierAdd /></PrivateRoute>} />
-              <Route path="/locations" element={<PrivateRoute><LocationList /></PrivateRoute>} />
-              <Route path="/locations/create" element={<PrivateRoute><LocationCreate /></PrivateRoute>} />
-              <Route path="/locations/:id" element={<PrivateRoute><LocationDetail /></PrivateRoute>} />
-              <Route path="/locations/edit/:id" element={<PrivateRoute><LocationEdit /></PrivateRoute>} />
+              <Route path="/locations" element={<PrivateRoute><CapabilityRoute capability="INVENTORY_VIEW"><LocationList /></CapabilityRoute></PrivateRoute>} />
+              <Route path="/locations/create" element={<PrivateRoute><CapabilityRoute capability="INVENTORY_MANAGE"><LocationCreate /></CapabilityRoute></PrivateRoute>} />
+              <Route path="/locations/:id" element={<PrivateRoute><CapabilityRoute capability="INVENTORY_VIEW"><LocationDetail /></CapabilityRoute></PrivateRoute>} />
+              <Route path="/locations/edit/:id" element={<PrivateRoute><CapabilityRoute capability="INVENTORY_MANAGE"><LocationEdit /></CapabilityRoute></PrivateRoute>} />
               <Route path="/user-groups/whiteboard" element={<PrivateRoute><UserGroupWhiteboard /></PrivateRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

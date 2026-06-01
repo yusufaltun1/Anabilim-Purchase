@@ -11,6 +11,8 @@ export const Navigation = () => {
   const userInfo = authService.getUserInfo();
   const effectiveUserInfo = authService.getEffectiveUserInfo();
   const canSystemManage = authService.hasCapability('SYSTEM_MANAGE');
+  const canInventoryView = authService.hasCapability('INVENTORY_VIEW');
+  const canInventoryManage = authService.hasCapability('INVENTORY_MANAGE');
   const canQuoteCollect = authService.hasCapability('QUOTE_COLLECT');
   const canOrderCreate = authService.hasCapability('ORDER_CREATE');
   const canRequestView = authService.hasCapability('REQUEST_VIEW');
@@ -18,6 +20,7 @@ export const Navigation = () => {
   const perspectiveRole = authService.getPerspectiveRole() || '';
   const [isSystemMenuOpen, setIsSystemMenuOpen] = useState(false);
   const [isTransferMenuOpen, setIsTransferMenuOpen] = useState(false);
+  const [isInventoryMenuOpen, setIsInventoryMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -28,12 +31,13 @@ export const Navigation = () => {
 
   const isSystemRoute = () => [
     '/workflows', '/workflows/create', '/roles', '/roles/create',
-    '/users', '/users/create', '/products', '/products/create',
-    '/categories', '/categories/create', '/suppliers', '/suppliers/create',
+    '/users', '/users/create', '/suppliers', '/suppliers/create',
     '/warehouses', '/warehouses/create', '/schools', '/schools/create',
-    '/personnel', '/personnel/create', '/locations', '/locations/create',
-    '/user-groups'
-  ].some(path => location.pathname.startsWith(path));
+    '/personnel', '/personnel/create', '/user-groups',
+  ].some((path) => location.pathname.startsWith(path));
+
+  const isInventoryRoute = () =>
+    ['/products', '/categories', '/locations'].some((path) => location.pathname.startsWith(path));
 
   const isTransferRoute = () => location.pathname.startsWith('/transfers');
 
@@ -63,6 +67,30 @@ export const Navigation = () => {
                 Dashboard
               </button>
               
+              {canInventoryView && (
+              <div className="relative">
+                <button onClick={() => setIsInventoryMenuOpen(!isInventoryMenuOpen)} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center ${isInventoryRoute() ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+                  <span>Envanter</span>
+                  <svg className={`ml-2 h-4 w-4 transition-transform ${isInventoryMenuOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {isInventoryMenuOpen && (
+                  <div className="absolute z-10 mt-2 w-52 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5" onMouseLeave={() => setIsInventoryMenuOpen(false)}>
+                    <div className="py-1">
+                      <button onClick={() => { navigate('/products'); setIsInventoryMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/products') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Ürünler</button>
+                      {canInventoryManage && (
+                        <button onClick={() => { navigate('/products/create'); setIsInventoryMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname === '/products/create' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Yeni ürün</button>
+                      )}
+                      <button onClick={() => { navigate('/categories'); setIsInventoryMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/categories') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Kategoriler</button>
+                      {canInventoryManage && (
+                        <button onClick={() => { navigate('/categories/create'); setIsInventoryMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname === '/categories/create' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Yeni kategori</button>
+                      )}
+                      <button onClick={() => { navigate('/locations'); setIsInventoryMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/locations') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Lokasyonlar</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              )}
+
               {canSystemManage && (
               <div className="relative">
                 <button onClick={() => setIsTransferMenuOpen(!isTransferMenuOpen)} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center ${isTransferRoute() ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
@@ -93,12 +121,9 @@ export const Navigation = () => {
                       <button onClick={() => { navigate('/roles'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/roles') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Roller</button>
                       <button onClick={() => { navigate('/permissions'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/permissions') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Permissionlar</button>
                       <button onClick={() => { navigate('/users'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/users') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Kullanıcılar</button>
-                      <button onClick={() => { navigate('/products'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/products') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Ürünler</button>
-                      <button onClick={() => { navigate('/categories'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/categories') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Kategoriler</button>
                       <button onClick={() => { navigate('/suppliers'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/suppliers') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Tedarikçiler</button>
                       <button onClick={() => { navigate('/schools'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/schools') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Okullar</button>
                       <button onClick={() => { navigate('/personnel'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/personnel') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Personel</button>
-                      <button onClick={() => { navigate('/locations'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/locations') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Lokasyonlar</button>
                       <button onClick={() => { navigate('/user-groups/whiteboard'); setIsSystemMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/user-groups') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Kullanıcı Grupları</button>
                     </div>
                   </div>

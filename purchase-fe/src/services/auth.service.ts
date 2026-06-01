@@ -20,7 +20,9 @@ export type AppCapability =
   | 'QUOTE_COLLECT'
   | 'ORDER_CREATE'
   | 'REQUEST_CLOSE'
-  | 'SYSTEM_MANAGE';
+  | 'SYSTEM_MANAGE'
+  | 'INVENTORY_VIEW'
+  | 'INVENTORY_MANAGE';
 
 interface LoginResponse {
   success: boolean;
@@ -151,6 +153,23 @@ export const authService = {
         return hasRole(['SATIN_ALMA_DEPARTMANI', 'BILGI_ISLEM_DEPARTMANI', 'SYSTEM_ADMIN', 'PURCHASE_MANAGER']);
       case 'SYSTEM_MANAGE':
         return hasRole(['BILGI_ISLEM_DEPARTMANI', 'SYSTEM_ADMIN']);
+      case 'INVENTORY_VIEW':
+        return (
+          permissions.includes('INVENTORY_READ') ||
+          permissions.includes('INVENTORY_UPDATE') ||
+          hasRole([
+            'SATIN_ALMA_DEPARTMANI',
+            'BILGI_ISLEM_DEPARTMANI',
+            'SYSTEM_ADMIN',
+            'PURCHASE_MANAGER',
+            'MANAGER',
+          ])
+        );
+      case 'INVENTORY_MANAGE':
+        return (
+          permissions.includes('INVENTORY_UPDATE') ||
+          hasRole(['SATIN_ALMA_DEPARTMANI', 'BILGI_ISLEM_DEPARTMANI', 'SYSTEM_ADMIN', 'PURCHASE_MANAGER'])
+        );
       default:
         return false;
     }

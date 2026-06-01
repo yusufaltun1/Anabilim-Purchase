@@ -5,6 +5,7 @@ import { ProductLabelPrint } from '../components/ProductLabelPrint';
 import { ActiveFiltersBar } from '../components/ActiveFiltersBar';
 import { SearchableCategorySelect } from '../components/common/SearchableCategorySelect';
 import { SearchableSupplierSelect } from '../components/common/SearchableSupplierSelect';
+import { authService } from '../services/auth.service';
 import { productService } from '../services/product.service';
 import { categoryService } from '../services/category.service';
 import { inventoryService } from '../services/inventory.service';
@@ -30,6 +31,7 @@ const filterLabelClass = 'block text-sm font-medium text-gray-700 mb-1';
 
 export const ProductList = () => {
   const navigate = useNavigate();
+  const canInventoryManage = authService.hasCapability('INVENTORY_MANAGE');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -246,12 +248,14 @@ export const ProductList = () => {
                   )}
                 </span>
               </button>
-              <button
-                onClick={() => navigate('/products/create')}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Yeni Ürün
-              </button>
+              {canInventoryManage && (
+                <button
+                  onClick={() => navigate('/products/create')}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Yeni Ürün
+                </button>
+              )}
             </div>
           </div>
 
@@ -755,24 +759,28 @@ export const ProductList = () => {
                             >
                               Detay
                             </button>
-                            <button
-                              onClick={() => navigate(`/products/edit/${product.id}`)}
-                              className="text-yellow-600 hover:text-yellow-900 font-medium"
-                            >
-                              Düzenle
-                            </button>
+                            {canInventoryManage && (
+                              <button
+                                onClick={() => navigate(`/products/edit/${product.id}`)}
+                                className="text-yellow-600 hover:text-yellow-900 font-medium"
+                              >
+                                Düzenle
+                              </button>
+                            )}
                             <button
                               onClick={() => setPrintingProduct(product)}
                               className="text-blue-600 hover:text-blue-900 font-medium"
                             >
                               Bas
                             </button>
-                            <button
-                              onClick={() => handleDelete(product.id)}
-                              className="text-red-600 hover:text-red-900 font-medium"
-                            >
-                              Sil
-                            </button>
+                            {canInventoryManage && (
+                              <button
+                                onClick={() => handleDelete(product.id)}
+                                className="text-red-600 hover:text-red-900 font-medium"
+                              >
+                                Sil
+                              </button>
+                            )}
                           </div>
                         </div>
                         <div className="mt-2 sm:flex sm:justify-between">

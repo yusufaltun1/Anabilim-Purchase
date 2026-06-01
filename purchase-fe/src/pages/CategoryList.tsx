@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
+import { authService } from '../services/auth.service';
 import { categoryService } from '../services/category.service';
 import { Category, CATEGORY_PRODUCT_TYPE_OPTIONS } from '../types/category';
 
@@ -9,6 +10,7 @@ const productTypeLabel = (type?: string) =>
 
 export const CategoryList = () => {
   const navigate = useNavigate();
+  const canInventoryManage = authService.hasCapability('INVENTORY_MANAGE');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -82,13 +84,15 @@ export const CategoryList = () => {
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-900">Kategoriler</h1>
-            <button
-              type="button"
-              onClick={() => navigate('/categories/create')}
-              className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-            >
-              Yeni Oluştur
-            </button>
+            {canInventoryManage && (
+              <button
+                type="button"
+                onClick={() => navigate('/categories/create')}
+                className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+              >
+                Yeni Oluştur
+              </button>
+            )}
           </div>
 
           <div className="mb-6 flex flex-wrap items-center gap-4">
@@ -171,20 +175,24 @@ export const CategoryList = () => {
                         </span>
                       </td>
                       <td className="px-4 py-4 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/categories/edit/${category.id}`)}
-                          className="text-yellow-600 text-sm font-medium"
-                        >
-                          Düzenle
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(category.id)}
-                          className="text-red-600 text-sm font-medium"
-                        >
-                          Sil
-                        </button>
+                        {canInventoryManage && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/categories/edit/${category.id}`)}
+                              className="text-yellow-600 text-sm font-medium"
+                            >
+                              Düzenle
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(category.id)}
+                              className="text-red-600 text-sm font-medium"
+                            >
+                              Sil
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -10,6 +10,8 @@ export const OPERATION_PERMISSION_MAP: Record<string, string[]> = {
   ORDER_CREATE: ['INVENTORY_UPDATE'],
   REQUEST_CLOSE: ['REQUEST_DELETE'],
   SYSTEM_MANAGE: ['WORKFLOW_CREATE', 'WORKFLOW_READ', 'WORKFLOW_UPDATE', 'WORKFLOW_DELETE'],
+  INVENTORY_VIEW: ['INVENTORY_READ'],
+  INVENTORY_MANAGE: ['INVENTORY_UPDATE'],
 };
 
 export const OPERATION_LABELS: Array<{ key: string; label: string }> = [
@@ -21,6 +23,8 @@ export const OPERATION_LABELS: Array<{ key: string; label: string }> = [
   { key: 'ORDER_CREATE', label: 'Sipariş Oluşturma' },
   { key: 'REQUEST_CLOSE', label: 'Talep Kapatma' },
   { key: 'SYSTEM_MANAGE', label: 'Sistem Yönetimi' },
+  { key: 'INVENTORY_VIEW', label: 'Envanter Görüntüleme' },
+  { key: 'INVENTORY_MANAGE', label: 'Envanter Yönetimi' },
 ];
 
 export const OPERATION_KEYS = Object.keys(OPERATION_PERMISSION_MAP);
