@@ -49,6 +49,7 @@ export interface Category {
   totalQuantity?: number;
   assignedQuantity?: number;
   availableQuantity?: number;
+  activeProductCount?: number;
 }
 
 export interface CategoryDetail extends Category {

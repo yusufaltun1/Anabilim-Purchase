@@ -135,6 +135,7 @@ export const CategoryList = () => {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tip</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ürün</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Toplam</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Atanan</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Kalan</th>
@@ -160,6 +161,9 @@ export const CategoryList = () => {
                         </span>
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-600">{productTypeLabel(category.productType)}</td>
+                      <td className="px-4 py-4 text-sm text-right font-medium text-gray-900">
+                        {category.activeProductCount ?? 0}
+                      </td>
                       <td className="px-4 py-4 text-sm text-right">{category.totalQuantity ?? 0}</td>
                       <td className="px-4 py-4 text-sm text-right">{category.assignedQuantity ?? 0}</td>
                       <td className="px-4 py-4 text-sm text-right font-medium">

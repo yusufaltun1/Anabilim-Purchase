@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
-import { ProductLabelPrint } from '../components/ProductLabelPrint';
+import { ProductListPanel } from '../components/product/ProductListPanel';
 import { ActiveFiltersBar } from '../components/ActiveFiltersBar';
 import { SearchableCategorySelect } from '../components/common/SearchableCategorySelect';
 import { SearchableSupplierSelect } from '../components/common/SearchableSupplierSelect';
@@ -11,7 +11,7 @@ import { categoryService } from '../services/category.service';
 import { inventoryService } from '../services/inventory.service';
 import { schoolService } from '../services/school.service';
 import { supplierService } from '../services/supplier.service';
-import { Product, PRODUCT_TYPE_LABELS } from '../types/product';
+import { Product } from '../types/product';
 import { Category, CATEGORY_PRODUCT_TYPE_OPTIONS } from '../types/category';
 import { Supplier } from '../types/supplier';
 import { School } from '../types/school';
@@ -43,8 +43,6 @@ export const ProductList = () => {
   const [conditions, setConditions] = useState<{ id: number; name: string }[]>([]);
   const [parentLocs, setParentLocs] = useState<{ id: number; name: string }[]>([]);
   const [filterChildLocs, setFilterChildLocs] = useState<{ id: number; name: string }[]>([]);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [printingProduct, setPrintingProduct] = useState<Product | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [chipSearch, setChipSearch] = useState('');
 
@@ -187,37 +185,6 @@ export const ProductList = () => {
   };
 
   const activeFilterCount = countActiveProductFilters(filters);
-
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      await productService.deleteProduct(id);
-      await loadProducts(); // Listeyi yenile
-      setError(null);
-    } catch (err: any) {
-      console.error('Error deleting product:', err);
-      setError(err.message || 'Ürün silinirken bir hata oluştu');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatCurrency = (amount: number, currency?: string) => {
-    try {
-      return new Intl.NumberFormat('tr-TR', {
-        style: 'currency',
-        currency: currency || 'TRY'
-      }).format(amount);
-    } catch (error) {
-      // Fallback format if currency formatting fails
-      return `${amount.toLocaleString('tr-TR')} ₺`;
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -700,135 +667,16 @@ export const ProductList = () => {
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
             </div>
-          ) : products.length === 0 ? (
-            <div className="bg-white shadow rounded-lg p-6 text-center text-gray-500">
-              {hasActiveProductFilters(filters) || chipSearch ? 'Filtre kriterlerinize uygun ürün bulunamadı.' : 'Henüz hiç ürün bulunmuyor.'}
-            </div>
           ) : (
-            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-              <ul className="divide-y divide-gray-200">
-                {products.map((product) => (
-                  <li key={product.id}>
-                    <div className="block hover:bg-gray-50">
-                      <div className="px-4 py-4 sm:px-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div>
-                              <p className="text-sm font-medium text-indigo-600 truncate">
-                                {product.name}
-                              </p>
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                {product.code}
-                              </span>
-                              {product.productType && (
-                                <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                  {PRODUCT_TYPE_LABELS[product.productType]?.label || product.productType}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-4">
-                            {product.imageUrl && (
-                              <img
-                                src={product.imageUrl}
-                                alt={product.name}
-                                className="h-12 w-12 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => setSelectedImage(product.imageUrl)}
-                              />
-                            )}
-                            <p className="px-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                              {formatCurrency(product.estimatedUnitPrice || 0)}
-                            </p>
-                            {product.mustReturnFirst && (
-                              <span className="text-xs text-orange-600 font-medium" title="Önce depoya iade">
-                                Kullanımda
-                              </span>
-                            )}
-                            {product.canAssign && (
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/products/${product.id}?assign=1`)}
-                                className="text-green-600 hover:text-green-900 font-medium text-sm"
-                              >
-                                Zimmetle
-                              </button>
-                            )}
-                            <button
-                              onClick={() => navigate(`/products/${product.id}`)}
-                              className="text-indigo-600 hover:text-indigo-900 font-medium"
-                            >
-                              Detay
-                            </button>
-                            {canInventoryManage && (
-                              <button
-                                onClick={() => navigate(`/products/edit/${product.id}`)}
-                                className="text-yellow-600 hover:text-yellow-900 font-medium"
-                              >
-                                Düzenle
-                              </button>
-                            )}
-                            <button
-                              onClick={() => setPrintingProduct(product)}
-                              className="text-blue-600 hover:text-blue-900 font-medium"
-                            >
-                              Bas
-                            </button>
-                            {canInventoryManage && (
-                              <button
-                                onClick={() => handleDelete(product.id)}
-                                className="text-red-600 hover:text-red-900 font-medium"
-                              >
-                                Sil
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-2 sm:flex sm:justify-between">
-                          <div className="sm:flex">
-                            <p className="flex items-center text-sm text-gray-500">
-                              {product.description}
-                            </p>
-                          </div>
-                          <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                            <p>
-                              Miktar: {product.minQuantity} - {product.maxQuantity} {product.unitOfMeasure}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Resim Modal */}
-          {selectedImage && (
-            <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
-              <button
-                onClick={() => setSelectedImage(null)}
-                className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70 transition-all z-10"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <img
-                src={selectedImage}
-                alt="Büyük resim görünümü"
-                className="max-w-[80vw] max-h-[80vh] object-contain rounded-lg shadow-xl"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          )}
-
-          {/* Yazdırma Component */}
-          {printingProduct && (
-            <ProductLabelPrint
-              productId={printingProduct.id}
-              productName={printingProduct.name}
-              onClose={() => setPrintingProduct(null)}
+            <ProductListPanel
+              products={products}
+              showHeader={false}
+              emptyMessage={
+                hasActiveProductFilters(filters) || chipSearch
+                  ? 'Filtre kriterlerinize uygun ürün bulunamadı.'
+                  : 'Henüz hiç ürün bulunmuyor.'
+              }
+              onRefresh={loadProducts}
             />
           )}
         </div>

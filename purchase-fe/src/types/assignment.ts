@@ -39,6 +39,7 @@ export interface Assignment {
 export interface CreateAssignmentRequest {
   productId: number;
   stockItemId?: number;
+  warehouseId?: number;
   quantity?: number;
   assignedUserId?: number;
   assignedSchoolId?: number;

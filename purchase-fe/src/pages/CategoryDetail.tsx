@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
+import { CategoryProductListSection } from '../components/product/CategoryProductListSection';
 import { categoryService } from '../services/category.service';
+import { productService } from '../services/product.service';
+import { authService } from '../services/auth.service';
 import type { CategoryDetail as CategoryDetailData } from '../types/category';
 import { CATEGORY_PRODUCT_TYPE_OPTIONS } from '../types/category';
+import { Product } from '../types/product';
 
 const isFixedAssetType = (type?: string) =>
   type === 'FIXED_ASSET' || type === 'IT_HARDWARE';
@@ -14,29 +18,55 @@ const productTypeLabel = (type?: string) =>
 export const CategoryDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const canInventoryManage = authService.hasCapability('INVENTORY_MANAGE');
+  const categoryId = id ? parseInt(id, 10) : NaN;
+
   const [loading, setLoading] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<CategoryDetailData | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
 
-  useEffect(() => {
-    loadDetail();
-  }, [id]);
+  const loadProducts = useCallback(async () => {
+    if (!categoryId || Number.isNaN(categoryId)) return;
+    try {
+      setProductsLoading(true);
+      const list = await productService.getProductsByCategory(categoryId);
+      setProducts(list);
+    } catch {
+      setProducts([]);
+    } finally {
+      setProductsLoading(false);
+    }
+  }, [categoryId]);
 
-  const loadDetail = async () => {
+  const loadDetail = useCallback(async () => {
+    if (!categoryId || Number.isNaN(categoryId)) return;
     try {
       setLoading(true);
       setError(null);
-      const response = await categoryService.getCategoryDetail(parseInt(id!, 10));
-      if (response.success && response.data) {
-        setDetail(response.data);
+      const [detailRes] = await Promise.all([
+        categoryService.getCategoryDetail(categoryId),
+        loadProducts(),
+      ]);
+      if (detailRes.success && detailRes.data) {
+        setDetail(detailRes.data);
       } else {
-        setError(response.message ?? 'Detay yüklenemedi');
+        setError(detailRes.message ?? 'Detay yüklenemedi');
       }
     } catch {
       setError('Kategori detayı yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
+  }, [categoryId, loadProducts]);
+
+  useEffect(() => {
+    loadDetail();
+  }, [loadDetail]);
+
+  const refreshAll = () => {
+    loadDetail();
   };
 
   if (loading && !detail) {
@@ -56,7 +86,7 @@ export const CategoryDetail = () => {
     );
   }
 
-  const showFixedAssetList = isFixedAssetType(detail.productType);
+  const showWarehouseBreakdown = !isFixedAssetType(detail.productType);
   const lowStock =
     detail.minStockNotifyAt != null && (detail.availableQuantity ?? 0) <= detail.minStockNotifyAt;
 
@@ -91,9 +121,13 @@ export const CategoryDetail = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white shadow rounded-lg p-4">
-              <p className="text-sm text-gray-500">Toplam</p>
+              <p className="text-sm text-gray-500">Ürün sayısı</p>
+              <p className="text-2xl font-semibold">{detail.activeProductCount ?? products.length}</p>
+            </div>
+            <div className="bg-white shadow rounded-lg p-4">
+              <p className="text-sm text-gray-500">Toplam (stok)</p>
               <p className="text-2xl font-semibold">{detail.totalQuantity ?? 0}</p>
             </div>
             <div className="bg-white shadow rounded-lg p-4">
@@ -115,37 +149,27 @@ export const CategoryDetail = () => {
             </div>
           )}
 
-          {showFixedAssetList ? (
-            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-              <div className="px-4 py-5 border-b">
-                <h3 className="text-lg font-medium text-gray-900">Kategorideki ürünler</h3>
-              </div>
-              {(detail.stockItems?.length ?? 0) === 0 ? (
-                <p className="p-6 text-gray-500 text-sm">Bu kategoride kayıtlı cihaz yok.</p>
-              ) : (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs text-gray-500 uppercase">Ürün</th>
-                      <th className="px-4 py-3 text-left text-xs text-gray-500 uppercase">Seri No</th>
-                      <th className="px-4 py-3 text-left text-xs text-gray-500 uppercase">Durum</th>
-                      <th className="px-4 py-3 text-left text-xs text-gray-500 uppercase">Depo</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {detail.stockItems?.map((item) => (
-                      <tr key={item.id}>
-                        <td className="px-4 py-3 text-sm">{item.productName ?? item.productCode}</td>
-                        <td className="px-4 py-3 text-sm">{item.serialNumber ?? '-'}</td>
-                        <td className="px-4 py-3 text-sm">{item.status ?? '-'}</td>
-                        <td className="px-4 py-3 text-sm">{item.warehouseName ?? '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          ) : (
+          <div className="mb-6">
+            <CategoryProductListSection
+              products={products}
+              loading={productsLoading}
+              showAssetFilters={isFixedAssetType(detail.productType)}
+              onRefresh={refreshAll}
+              headerAction={
+                canInventoryManage ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/products/create')}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    Yeni ürün
+                  </button>
+                ) : undefined
+              }
+            />
+          </div>
+
+          {showWarehouseBreakdown && (
             <div className="bg-white shadow overflow-hidden sm:rounded-lg">
               <div className="px-4 py-5 border-b">
                 <h3 className="text-lg font-medium text-gray-900">Depo özeti</h3>

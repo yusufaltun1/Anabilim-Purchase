@@ -20,7 +20,9 @@ import { Category, CATEGORY_PRODUCT_TYPE_OPTIONS } from '../../types/category';
 import { CreateProductRequest, Product, ProductType, UpdateProductRequest } from '../../types/product';
 import { School } from '../../types/school';
 import { Supplier } from '../../types/supplier';
-import { isAssetProductType, normalizeProductType } from '../../utils/productType';
+import { UnitOfMeasureLabels, getLabelToUnit } from '../../types/enums';
+import { PRODUCT_FIELD_LABELS } from '../../utils/apiErrors';
+import { resolveProductType } from '../../utils/productType';
 
 type Mode = 'create' | 'edit';
 
@@ -53,10 +55,18 @@ const toDateTimePayload = (date?: string) => (date ? `${date}T00:00:00` : undefi
 const productTypeLabel = (type: string) =>
   CATEGORY_PRODUCT_TYPE_OPTIONS.find((o) => o.value === type)?.label || type || '—';
 
+const fieldError = (fieldErrors: Record<string, string>, ...keys: string[]) => {
+  for (const key of keys) {
+    if (fieldErrors[key]) return fieldErrors[key];
+  }
+  return undefined;
+};
+
 export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFormProps) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Category[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -74,13 +84,12 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     [categories, form.categoryId]
   );
 
-  const effectiveProductType = normalizeProductType(selectedCategory?.productType ?? form.productType);
-  const showAssetFields = mode === 'create' || isAssetProductType(effectiveProductType);
+  const effectiveProductType = resolveProductType(selectedCategory?.productType ?? form.productType);
 
   useEffect(() => {
     (async () => {
-      await loadMasters();
-      if (mode === 'edit' && productId) await loadProduct(productId);
+      const cats = await loadMasters();
+      if (mode === 'edit' && productId) await loadProduct(productId, cats);
     })();
   }, [mode, productId]);
 
@@ -92,7 +101,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     }
   }, [form.categoryId]);
 
-  const loadMasters = async () => {
+  const loadMasters = async (): Promise<Category[]> => {
     try {
       const [catsRes, models, conds, parents, schoolList] = await Promise.all([
         categoryService.getActiveCategories(),
@@ -101,11 +110,14 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
         inventoryService.getParentLocations().catch(() => []),
         schoolService.getActiveSchools().catch(() => []),
       ]);
+      let loadedCategories: Category[] = [];
       if (catsRes.success && catsRes.data) {
-        setCategories(Array.isArray(catsRes.data) ? catsRes.data : [catsRes.data]);
+        loadedCategories = Array.isArray(catsRes.data) ? catsRes.data : [catsRes.data];
+        setCategories(loadedCategories);
       } else {
         try {
-          setCategories(await categoryService.getAllCategories());
+          loadedCategories = await categoryService.getAllCategories();
+          setCategories(loadedCategories);
         } catch {
           setError('Kategoriler yüklenemedi');
         }
@@ -114,23 +126,28 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
       setConditions(conds);
       setParentLocs(parents);
       setSchools(schoolList);
+      return loadedCategories;
     } catch {
       setError('Form verileri yüklenirken hata oluştu');
+      return [];
     }
   };
 
-  const loadProduct = async (id: number) => {
+  const loadProduct = async (id: number, categoriesList: Category[]) => {
     try {
       setLoading(true);
       const p: Product = await productService.getProductById(id);
+      const categoryId = p.category?.id ?? null;
+      const matchedCategory = categoriesList.find((c) => c.id === categoryId);
+      const resolvedType = resolveProductType(matchedCategory?.productType ?? p.productType);
       setForm({
         name: p.name,
         code: p.code,
         description: p.description || '',
         serialNumber: p.serialNumber || '',
-        categoryId: p.category?.id ?? null,
-        productType: (p.productType as ProductType) || ProductType.CONSUMABLE,
-        unitOfMeasure: 'PIECE',
+        categoryId,
+        productType: (resolvedType || ProductType.CONSUMABLE) as ProductType,
+        unitOfMeasure: getLabelToUnit(p.unitOfMeasure || (p as Product & { unit?: string }).unit || 'PIECE'),
         minQuantity: p.minQuantity ?? 1,
         maxQuantity: p.maxQuantity ?? 100,
         estimatedUnitPrice: p.estimatedUnitPrice ?? 0,
@@ -172,10 +189,11 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
   };
 
   const onCategoryChange = (cat: Category | null) => {
+    const resolved = resolveProductType(cat?.productType);
     setForm((prev) => ({
       ...prev,
       categoryId: cat?.id ?? null,
-      productType: (cat?.productType as ProductType) || ProductType.FIXED_ASSET,
+      productType: (resolved || ProductType.CONSUMABLE) as ProductType,
     }));
     setSupplierId(null);
   };
@@ -206,6 +224,8 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
 
   const buildPayload = () => ({
     ...form,
+    productType: (resolveProductType(selectedCategory?.productType ?? form.productType) ||
+      form.productType) as ProductType,
     imageUrl: form.imageUrls?.[0],
     supplierIds: supplierId ? [supplierId] : [],
     purchaseDate: toDateTimePayload(form.purchaseDate),
@@ -222,20 +242,34 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     try {
       setLoading(true);
       setError(null);
+      setFieldErrors({});
       const payload = buildPayload();
+      const handleFailure = (res: { message: string; fieldErrors?: Record<string, string> }) => {
+        const errors = res.fieldErrors ?? {};
+        setFieldErrors(errors);
+        setError(res.message);
+      };
       if (mode === 'create') {
         const res = await productService.createProduct(payload);
-        if (!res.success) throw new Error(res.message);
+        if (!res.success) {
+          handleFailure(res);
+          return;
+        }
       } else if (productId) {
+        const serial = form.serialNumber?.trim();
         const res = await productService.updateProduct(productId, {
           ...payload,
           active,
-          serialnumber: form.serialNumber,
+          ...(serial ? { serialnumber: serial } : {}),
         } as UpdateProductRequest);
-        if (!res.success) throw new Error(res.message);
+        if (!res.success) {
+          handleFailure(res);
+          return;
+        }
       }
       onSuccess();
     } catch (err: unknown) {
+      setFieldErrors({});
       setError(err instanceof Error ? err.message : 'Kayıt başarısız');
     } finally {
       setLoading(false);
@@ -277,21 +311,32 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
 
   return (
     <form onSubmit={submit} className="space-y-6">
-      {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      {(error || Object.keys(fieldErrors).length > 0) && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error && <p className="font-medium">{error}</p>}
+          {Object.keys(fieldErrors).length > 0 && (
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {Object.entries(fieldErrors).map(([field, msg]) => (
+                <li key={field}>
+                  <span className="font-medium">{PRODUCT_FIELD_LABELS[field] || field}:</span> {msg}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       <FormSection title="Genel bilgiler" description="Ürün tanımı ve kategori">
         <div className={formGrid}>
-          <FormField label="Ürün adı" required>
+          <FormField label="Ürün adı" required error={fieldError(fieldErrors, 'name')}>
             <input
-              className={formInput}
+              className={`${formInput}${fieldError(fieldErrors, 'name') ? ' border-red-500' : ''}`}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
             />
           </FormField>
-          <FormField label="Ürün kodu (iç SKU)" hint="Boş bırakılırsa otomatik oluşturulur">
+          <FormField label="Ürün kodu (iç SKU)" hint="Boş bırakılırsa otomatik oluşturulur" error={fieldError(fieldErrors, 'code')}>
             <input
               className={`${formInput} uppercase`}
               value={form.code}
@@ -299,7 +344,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
               placeholder="Otomatik"
             />
           </FormField>
-          <FormField label="Kategori" required className="sm:col-span-2">
+          <FormField label="Kategori" required className="sm:col-span-2" error={fieldError(fieldErrors, 'categoryId')}>
             <SearchableCategorySelect
               categories={categories}
               value={form.categoryId}
@@ -331,9 +376,78 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
         )}
       </FormSection>
 
-      {showAssetFields && (
-        <>
-          <FormSection title="Demirbaş bilgileri" description="Cihaz kimliği, model ve konum">
+      <FormSection title="Stok ve fiyat" description="Miktar limitleri ve tahmini birim fiyat">
+        <div className={formGrid}>
+          <FormField label="Açıklama" className="sm:col-span-2" error={fieldError(fieldErrors, 'description')}>
+            <textarea
+              className={formTextarea}
+              rows={3}
+              value={form.description || ''}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Ürün açıklaması"
+            />
+          </FormField>
+          <FormField label="Ölçü birimi" error={fieldError(fieldErrors, 'unitOfMeasure')}>
+            <select
+              className={formSelect}
+              value={form.unitOfMeasure}
+              onChange={(e) => setForm({ ...form, unitOfMeasure: e.target.value })}
+            >
+              {Object.entries(UnitOfMeasureLabels).map(([code, label]) => (
+                <option key={code} value={code}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Min. miktar" error={fieldError(fieldErrors, 'minQuantity')}>
+            <input
+              type="number"
+              min={0}
+              className={formInput}
+              value={form.minQuantity}
+              onChange={(e) => setForm({ ...form, minQuantity: Number(e.target.value) })}
+            />
+          </FormField>
+          <FormField label="Max. miktar" error={fieldError(fieldErrors, 'maxQuantity')}>
+            <input
+              type="number"
+              min={0}
+              className={formInput}
+              value={form.maxQuantity}
+              onChange={(e) => setForm({ ...form, maxQuantity: Number(e.target.value) })}
+            />
+          </FormField>
+          <FormField label="Tahmini birim fiyat" error={fieldError(fieldErrors, 'estimatedUnitPrice')}>
+            <div className="flex rounded-md shadow-sm">
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                className={`${formInput} rounded-r-none`}
+                value={form.estimatedUnitPrice}
+                onChange={(e) => setForm({ ...form, estimatedUnitPrice: Number(e.target.value) })}
+              />
+              <span className="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-600">
+                {form.currency || 'TRY'}
+              </span>
+            </div>
+          </FormField>
+          <FormField label="Para birimi" error={fieldError(fieldErrors, 'currency')}>
+            <select
+              className={formSelect}
+              value={form.currency}
+              onChange={(e) => setForm({ ...form, currency: e.target.value })}
+            >
+              <option value="TRY">TRY</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+          </FormField>
+        </div>
+      </FormSection>
+
+      <FormSection title="Demirbaş bilgileri" description="Cihaz kimliği, model ve konum">
             <div className={formGrid}>
               <FormField label="Şirket">
                 <select
@@ -364,9 +478,12 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                 </InputWithButton>
               </FormField>
 
-              <FormField label="Seri no">
+              <FormField
+                label="Seri no"
+                error={fieldError(fieldErrors, 'serialNumber', 'serialnumber')}
+              >
                 <input
-                  className={formInput}
+                  className={`${formInput}${fieldError(fieldErrors, 'serialNumber', 'serialnumber') ? ' border-red-500' : ''}`}
                   value={form.serialNumber || ''}
                   onChange={(e) => setForm({ ...form, serialNumber: e.target.value })}
                 />
@@ -610,8 +727,6 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
               </FormField>
             </div>
           </FormSection>
-        </>
-      )}
 
       <FormSection title="Görseller">
         <FormField label="Dosya yükle" hint="jpg, webp, png, gif, svg — en fazla 8 MB">

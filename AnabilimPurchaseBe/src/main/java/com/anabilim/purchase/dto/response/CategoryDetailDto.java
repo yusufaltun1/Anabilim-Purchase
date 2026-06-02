@@ -26,6 +26,7 @@ public class CategoryDetailDto {
     private int totalQuantity;
     private int assignedQuantity;
     private int availableQuantity;
+    private int activeProductCount;
 
     private List<CategoryWarehouseStockDto> warehouseBreakdown = new ArrayList<>();
     private List<StockItemDto> stockItems = new ArrayList<>();

@@ -21,7 +21,7 @@ public class UpdateProductDto {
     @Size(min = 2, max = 100, message = "Ürün adı 2-100 karakter arasında olmalıdır")
     private String name;
 
-    @Size(min = 2, max = 100, message = "Ürün adı 2-100 karakter arasında olmalıdır")
+    @Size(max = 100, message = "Seri numarası en fazla 100 karakter olabilir")
     private String serialnumber;
 
 

@@ -6,18 +6,20 @@ interface FormFieldProps {
   htmlFor?: string;
   required?: boolean;
   hint?: string;
+  error?: string;
   className?: string;
   children: ReactNode;
 }
 
-export const FormField = ({ label, htmlFor, required, hint, className = '', children }: FormFieldProps) => (
+export const FormField = ({ label, htmlFor, required, hint, error, className = '', children }: FormFieldProps) => (
   <div className={className}>
     <label htmlFor={htmlFor} className={formLabel}>
       {label}
       {required && <span className="text-red-500 ml-0.5">*</span>}
     </label>
     {children}
-    {hint && <p className="mt-1 text-xs text-gray-500">{hint}</p>}
+    {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    {hint && !error && <p className="mt-1 text-xs text-gray-500">{hint}</p>}
   </div>
 );
 

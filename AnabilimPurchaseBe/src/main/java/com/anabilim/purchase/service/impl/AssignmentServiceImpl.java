@@ -31,6 +31,7 @@ public class AssignmentServiceImpl implements AssignmentService {
     private final AssignmentMapper assignmentMapper;
     private final StockMovementRepository stockMovementRepository;
     private final WarehouseStockRepository warehouseStockRepository;
+    private final WarehouseRepository warehouseRepository;
     
     @Override
     public AssignmentDto createAssignment(CreateAssignmentDto dto) {
@@ -91,7 +92,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         Assignment savedAssignment = assignmentRepository.save(assignment);
         
         // Depodan çıkış kaydı oluştur
-        createStockMovementForAssignment(savedAssignment);
+        createStockMovementForAssignment(savedAssignment, dto.getWarehouseId());
         
         return assignmentMapper.toDto(savedAssignment);
     }
@@ -362,14 +363,14 @@ public class AssignmentServiceImpl implements AssignmentService {
     /**
      * Zimmet yapıldığında depodan çıkış kaydı oluşturur
      */
-    private void createStockMovementForAssignment(Assignment assignment) {
+    private void createStockMovementForAssignment(Assignment assignment, Long preferredWarehouseId) {
         Product product = assignment.getProduct();
-        
+
         // Ürünün stok takip tipini kontrol et
         if (product.getStockTrackingType() == null) {
             return; // Stok takibi yapılmayan ürünler için hareket kaydı oluşturma
         }
-        
+
         // Seri numaralı ürünler için StockItem'dan warehouse bilgisini al
         if (assignment.getStockItem() != null) {
             StockItem stockItem = assignment.getStockItem();
@@ -404,17 +405,24 @@ public class AssignmentServiceImpl implements AssignmentService {
             }
         } else {
             // Miktar bazlı ürünler için WarehouseStock'tan çıkış yap
-            // Varsayılan depo veya belirtilen depodan çıkış
-            List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(product);
-            
-            if (!warehouseStocks.isEmpty()) {
-                // İlk depodan çıkış yap (veya en çok stoku olan depodan)
-                WarehouseStock warehouseStock = warehouseStocks.stream()
-                        .filter(ws -> ws.getCurrentStock() >= assignment.getQuantity())
-                        .findFirst()
-                        .orElse(warehouseStocks.get(0));
-                
-                if (warehouseStock.getCurrentStock() >= assignment.getQuantity()) {
+            WarehouseStock warehouseStock = null;
+            if (preferredWarehouseId != null) {
+                Warehouse warehouse = warehouseRepository.findById(preferredWarehouseId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Depo bulunamadı: " + preferredWarehouseId));
+                warehouseStock = warehouseStockRepository.findByWarehouseAndProduct(warehouse, product)
+                        .orElseThrow(() -> new ResourceNotFoundException(
+                                "Ürün bu depoda stok kaydına sahip değil: depo=" + preferredWarehouseId));
+            } else {
+                List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(product);
+                if (!warehouseStocks.isEmpty()) {
+                    warehouseStock = warehouseStocks.stream()
+                            .filter(ws -> ws.getCurrentStock() >= assignment.getQuantity())
+                            .findFirst()
+                            .orElse(warehouseStocks.get(0));
+                }
+            }
+
+            if (warehouseStock != null && warehouseStock.getCurrentStock() >= assignment.getQuantity()) {
                     // Çıkış hareketi oluştur
                     StockMovement movement = new StockMovement();
                     movement.setWarehouseStock(warehouseStock);
@@ -430,11 +438,14 @@ public class AssignmentServiceImpl implements AssignmentService {
                                             assignment.getLocationName())));
                     
                     stockMovementRepository.save(movement);
-                }
+            } else if (warehouseStock != null) {
+                throw new ValidationException(
+                        "Depoda yeterli stok yok. Mevcut: " + warehouseStock.getCurrentStock()
+                                + ", istenen: " + assignment.getQuantity());
             }
         }
     }
-    
+
     /**
      * Zimmet geri alındığında depoya giriş kaydı oluşturur
      */

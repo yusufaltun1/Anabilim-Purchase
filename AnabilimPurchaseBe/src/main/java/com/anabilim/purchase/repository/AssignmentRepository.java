@@ -85,4 +85,10 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
 
     @Query("SELECT a.product.category.id, COALESCE(SUM(a.quantity), 0) FROM Assignment a WHERE a.status = 'ACTIVE' AND a.isActive = true GROUP BY a.product.category.id")
     List<Object[]> sumActiveQuantityGroupByCategoryId();
+
+    @Query("SELECT COUNT(a) FROM Assignment a WHERE a.product.category.id = :categoryId AND a.status = 'ACTIVE' AND a.isActive = true")
+    long countActiveByCategoryId(@Param("categoryId") Long categoryId);
+
+    @Query("SELECT a.product.category.id, COUNT(a) FROM Assignment a WHERE a.status = 'ACTIVE' AND a.isActive = true AND a.product.category.id IS NOT NULL GROUP BY a.product.category.id")
+    List<Object[]> countActiveAssignmentsGroupByCategoryId();
 }

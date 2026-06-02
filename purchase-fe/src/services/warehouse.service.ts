@@ -225,6 +225,20 @@ class WarehouseService {
     return response.data;
   }
 
+  async getProductStockItemsList(productId: number): Promise<StockItem[]> {
+    const response = await axiosInstance.get<{ success?: boolean; data?: StockItem[] } | StockItem[]>(
+      `/api/v1/stock-items/product/${productId}`
+    );
+    const body = response.data;
+    if (body && typeof body === 'object' && 'data' in body && Array.isArray(body.data)) {
+      return body.data;
+    }
+    if (Array.isArray(body)) {
+      return body;
+    }
+    return [];
+  }
+
   async createStockItem(request: CreateStockItemRequest): Promise<WarehouseResponse> {
     const response = await axiosInstance.post<StockItem>('/api/v1/stock-items', request);
     return {

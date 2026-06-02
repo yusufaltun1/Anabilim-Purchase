@@ -20,6 +20,8 @@ public class CreateAssignmentDto {
     
     private Long stockItemId; // Seri numaralı ürünler için
     
+    private Long warehouseId; // Miktar bazlı zimmet için çıkış yapılacak depo
+    
     @Positive(message = "Miktar pozitif olmalıdır")
     private Integer quantity = 1; // SEMI_FIXED_ASSET için
     

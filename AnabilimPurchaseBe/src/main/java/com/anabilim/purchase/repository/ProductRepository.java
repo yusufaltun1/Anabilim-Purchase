@@ -39,4 +39,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @Query("SELECT p.category.id, COALESCE(SUM(p.currentStock), 0) FROM Product p WHERE p.isActive = true GROUP BY p.category.id")
     List<Object[]> sumCurrentStockGroupByCategoryId();
+
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.category.id = :categoryId AND p.isActive = true")
+    long countActiveByCategoryId(@Param("categoryId") Long categoryId);
+
+    @Query("SELECT p.category.id, COUNT(p) FROM Product p WHERE p.isActive = true AND p.category.id IS NOT NULL GROUP BY p.category.id")
+    List<Object[]> countActiveProductsGroupByCategoryId();
 } 

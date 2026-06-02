@@ -1,4 +1,5 @@
 import { API_CONFIG } from '../config/api.config';
+import { parseApiErrorResponse } from '../utils/apiErrors';
 import { authService } from './auth.service';
 import { Product, CreateProductRequest, UpdateProductRequest, ProductResponse } from '../types/product';
 
@@ -22,7 +23,14 @@ class ProductService {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || 'Ürün oluşturulurken bir hata oluştu');
+        const parsed = parseApiErrorResponse(data);
+        return {
+          success: false,
+          data: null,
+          message: parsed.message || 'Ürün oluşturulurken bir hata oluştu',
+          fieldErrors: parsed.fieldErrors,
+          timestamp: new Date().toISOString(),
+        };
       }
 
       return {
@@ -31,11 +39,12 @@ class ProductService {
         message: 'Ürün başarıyla oluşturuldu',
         timestamp: new Date().toISOString()
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Ürün oluşturulurken bir hata oluştu';
       return {
         success: false,
         data: null,
-        message: error.message,
+        message,
         timestamp: new Date().toISOString()
       };
     }
@@ -56,7 +65,14 @@ class ProductService {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || 'Ürün güncellenirken bir hata oluştu');
+        const parsed = parseApiErrorResponse(data);
+        return {
+          success: false,
+          data: null,
+          message: parsed.message || 'Ürün güncellenirken bir hata oluştu',
+          fieldErrors: parsed.fieldErrors,
+          timestamp: new Date().toISOString(),
+        };
       }
 
       return {
@@ -65,11 +81,12 @@ class ProductService {
         message: 'Ürün başarıyla güncellendi',
         timestamp: new Date().toISOString()
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Ürün güncellenirken bir hata oluştu';
       return {
         success: false,
         data: null,
-        message: error.message,
+        message,
         timestamp: new Date().toISOString()
       };
     }
@@ -181,17 +198,25 @@ class ProductService {
     }
   }
 
-  async getProductsByCategory(categoryId: number): Promise<ProductResponse> {
+  async getProductsByCategory(categoryId: number): Promise<Product[]> {
     const response = await fetch(`${API_CONFIG.BASE_URL}/api/products/category/${categoryId}`, {
       method: 'GET',
       headers: this.getHeaders(),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch products by category');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error((errorData as { message?: string }).message || 'Kategori ürünleri yüklenemedi');
     }
 
-    return await response.json();
+    const data = await response.json();
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (data && Array.isArray((data as ProductResponse).data)) {
+      return (data as ProductResponse).data as Product[];
+    }
+    return [];
   }
 
   async getProductsBySupplier(supplierId: number): Promise<ProductResponse> {

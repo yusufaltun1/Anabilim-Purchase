@@ -169,6 +169,7 @@ export interface RelatedPurchaseOrderRow {
 export interface ProductResponse {
   success: boolean;
   message: string;
-  data: Product | Product[];
+  data: Product | Product[] | null;
   timestamp: string;
+  fieldErrors?: Record<string, string>;
 } 

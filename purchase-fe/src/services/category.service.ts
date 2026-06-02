@@ -31,6 +31,7 @@ class CategoryService {
       totalQuantity: (apiCategory.totalQuantity as number) ?? 0,
       assignedQuantity: (apiCategory.assignedQuantity as number) ?? 0,
       availableQuantity: (apiCategory.availableQuantity as number) ?? 0,
+      activeProductCount: (apiCategory.activeProductCount as number) ?? 0,
     };
   }
 
@@ -38,6 +39,7 @@ class CategoryService {
     const base = this.mapApiCategory(data);
     return {
       ...base,
+      activeProductCount: (data.activeProductCount as number) ?? base.activeProductCount ?? 0,
       warehouseBreakdown: (data.warehouseBreakdown as CategoryDetail['warehouseBreakdown']) ?? [],
       stockItems: (data.stockItems as CategoryDetail['stockItems']) ?? [],
     };

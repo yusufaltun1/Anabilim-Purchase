@@ -223,6 +223,9 @@ export interface StockItem {
   isAvailable: boolean;
   isAssigned: boolean;
   currentStock?: number; // Gruplandırılmış item'lar için stok miktarı
+  assetLabel?: string;
+  /** true: stock_items tablosu; false: warehouse_stocks satırı */
+  isStockItemRecord?: boolean;
 }
 
 export interface CreateStockItemRequest {

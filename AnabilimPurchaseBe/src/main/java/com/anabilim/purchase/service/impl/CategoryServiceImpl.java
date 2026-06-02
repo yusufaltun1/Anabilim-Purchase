@@ -10,6 +10,7 @@ import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.mapper.CategoryMapper;
 import com.anabilim.purchase.repository.CategoryRepository;
+import com.anabilim.purchase.repository.ProductRepository;
 import com.anabilim.purchase.service.CategoryService;
 import com.anabilim.purchase.service.CategoryStockService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
     private final CategoryMapper categoryMapper;
     private final CategoryStockService categoryStockService;
 
@@ -116,6 +118,7 @@ public class CategoryServiceImpl implements CategoryService {
         dto.setTotalQuantity(counts.getTotalQuantity());
         dto.setAssignedQuantity(counts.getAssignedQuantity());
         dto.setAvailableQuantity(counts.getAvailableQuantity());
+        dto.setActiveProductCount((int) productRepository.countActiveByCategoryId(dto.getId()));
         return dto;
     }
 }

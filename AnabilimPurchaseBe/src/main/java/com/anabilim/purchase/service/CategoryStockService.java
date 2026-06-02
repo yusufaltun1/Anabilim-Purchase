@@ -45,6 +45,8 @@ public class CategoryStockService {
         }
         Map<Long, Long> quantityTotalByCategory = toLongMap(productRepository.sumCurrentStockGroupByCategoryId());
         Map<Long, Long> assignedByCategory = toLongMap(assignmentRepository.sumActiveQuantityGroupByCategoryId());
+        Map<Long, Long> assignmentCountByCategory = toLongMap(assignmentRepository.countActiveAssignmentsGroupByCategoryId());
+        Map<Long, Long> productCountByCategory = toLongMap(productRepository.countActiveProductsGroupByCategoryId());
         Map<Long, Long> serialTotalByCategory = toLongMap(stockItemRepository.countTotalGroupByCategoryId());
         Map<Long, Long> serialAssignedByCategory = toLongMap(stockItemRepository.countAssignedGroupByCategoryId());
         Map<Long, Long> serialAvailableByCategory = toLongMap(stockItemRepository.countInStockGroupByCategoryId());
@@ -53,13 +55,30 @@ public class CategoryStockService {
             if (dto.getId() == null) {
                 continue;
             }
+            long productCount = productCountByCategory.getOrDefault(dto.getId(), 0L);
+            dto.setActiveProductCount((int) productCount);
+
             if (isSerialTracked(dto.getProductType())) {
-                dto.setTotalQuantity(serialTotalByCategory.getOrDefault(dto.getId(), 0L).intValue());
-                dto.setAssignedQuantity(serialAssignedByCategory.getOrDefault(dto.getId(), 0L).intValue());
-                dto.setAvailableQuantity(serialAvailableByCategory.getOrDefault(dto.getId(), 0L).intValue());
+                long stockTotal = serialTotalByCategory.getOrDefault(dto.getId(), 0L);
+                long stockAssigned = serialAssignedByCategory.getOrDefault(dto.getId(), 0L);
+                long stockAvailable = serialAvailableByCategory.getOrDefault(dto.getId(), 0L);
+                long assignmentCount = assignmentCountByCategory.getOrDefault(dto.getId(), 0L);
+
+                int total = (int) Math.max(stockTotal, productCount);
+                int assigned = (int) Math.max(stockAssigned, assignmentCount);
+                int available = stockTotal > 0
+                        ? (int) stockAvailable
+                        : Math.max(0, total - assigned);
+
+                dto.setTotalQuantity(total);
+                dto.setAssignedQuantity(assigned);
+                dto.setAvailableQuantity(available);
             } else {
                 int total = quantityTotalByCategory.getOrDefault(dto.getId(), 0L).intValue();
                 int assigned = assignedByCategory.getOrDefault(dto.getId(), 0L).intValue();
+                if (total == 0 && productCount > 0) {
+                    total = (int) productCount;
+                }
                 dto.setTotalQuantity(total);
                 dto.setAssignedQuantity(assigned);
                 dto.setAvailableQuantity(Math.max(0, total - assigned));
@@ -69,13 +88,24 @@ public class CategoryStockService {
 
     public CategoryStockCountsDto getStockCounts(Long categoryId) {
         Category category = findCategory(categoryId);
+        long productCount = productRepository.countActiveByCategoryId(categoryId);
         if (isSerialTracked(category.getProductType())) {
-            long total = stockItemRepository.countByCategoryId(categoryId);
-            long assigned = stockItemRepository.countAssignedByCategoryId(categoryId);
-            long available = stockItemRepository.countInStockByCategoryId(categoryId);
-            return new CategoryStockCountsDto((int) total, (int) assigned, (int) available);
+            long stockTotal = stockItemRepository.countByCategoryId(categoryId);
+            long stockAssigned = stockItemRepository.countAssignedByCategoryId(categoryId);
+            long stockAvailable = stockItemRepository.countInStockByCategoryId(categoryId);
+            long assignmentCount = assignmentRepository.countActiveByCategoryId(categoryId);
+
+            int total = (int) Math.max(stockTotal, productCount);
+            int assigned = (int) Math.max(stockAssigned, assignmentCount);
+            int available = stockTotal > 0
+                    ? (int) stockAvailable
+                    : Math.max(0, total - assigned);
+            return new CategoryStockCountsDto(total, assigned, available);
         }
         int total = (int) productRepository.sumCurrentStockByCategoryId(categoryId);
+        if (total == 0 && productCount > 0) {
+            total = (int) productCount;
+        }
         int assigned = (int) assignmentRepository.sumActiveQuantityByCategoryId(categoryId);
         return new CategoryStockCountsDto(total, assigned, Math.max(0, total - assigned));
     }
@@ -104,6 +134,7 @@ public class CategoryStockService {
         dto.setTotalQuantity(counts.getTotalQuantity());
         dto.setAssignedQuantity(counts.getAssignedQuantity());
         dto.setAvailableQuantity(counts.getAvailableQuantity());
+        dto.setActiveProductCount((int) productRepository.countActiveByCategoryId(category.getId()));
 
         if (isSerialTracked(category.getProductType())) {
             List<StockItem> items = stockItemRepository.findByCategoryId(category.getId());

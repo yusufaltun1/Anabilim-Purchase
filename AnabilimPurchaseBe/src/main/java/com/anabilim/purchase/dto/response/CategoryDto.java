@@ -25,4 +25,6 @@ public class CategoryDto {
     private int totalQuantity;
     private int assignedQuantity;
     private int availableQuantity;
+    /** Kategorideki aktif ürün (kayıt) sayısı */
+    private int activeProductCount;
 }
