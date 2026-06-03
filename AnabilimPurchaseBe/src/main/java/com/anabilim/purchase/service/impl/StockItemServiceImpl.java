@@ -15,6 +15,7 @@ import com.anabilim.purchase.repository.SchoolRepository;
 import com.anabilim.purchase.repository.StockItemRepository;
 import com.anabilim.purchase.repository.UserRepository;
 import com.anabilim.purchase.repository.WarehouseRepository;
+import com.anabilim.purchase.service.AssetConditionSupport;
 import com.anabilim.purchase.service.StockItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class StockItemServiceImpl implements StockItemService {
     private final UserRepository userRepository;
     private final SchoolRepository schoolRepository;
     private final StockItemMapper stockItemMapper;
+    private final AssetConditionSupport assetConditionSupport;
     
     @Override
     public StockItemDto createStockItem(CreateStockItemDto dto) {
@@ -55,9 +57,8 @@ public class StockItemServiceImpl implements StockItemService {
         StockItem stockItem = stockItemMapper.toEntity(dto);
         stockItem.setProduct(product);
         stockItem.setCurrentWarehouse(warehouse);
+        assetConditionSupport.applyReadyState(stockItem);
 
-
-        
         StockItem savedStockItem = stockItemRepository.save(stockItem);
         return stockItemMapper.toDto(savedStockItem);
     }

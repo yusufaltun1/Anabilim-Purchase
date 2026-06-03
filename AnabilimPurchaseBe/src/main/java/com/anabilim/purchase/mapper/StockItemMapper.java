@@ -93,6 +93,12 @@ public class StockItemMapper {
             dto.setWarehouseName(entity.getCurrentWarehouse().getName());
         }
 
+        if (entity.getAssetCondition() != null) {
+            dto.setAssetConditionId(entity.getAssetCondition().getId());
+            dto.setAssetConditionName(entity.getAssetCondition().getName());
+            dto.setAllowsAssignment(entity.getAssetCondition().getAllowsAssignment());
+        }
+
         List<Assignment> assignments = assignmentRepository.findByStockItemId(entity.getId());
         if (!assignments.isEmpty()) {
             Assignment activeAssignment = assignments.stream()
@@ -121,7 +127,9 @@ public class StockItemMapper {
         
         // Hesaplanmış alanlar
         dto.setUnderWarranty(isUnderWarranty(entity.getWarrantyExpiryDate()));
-        dto.setAvailable(isAvailable(entity.getStatus()));
+        dto.setAvailable(isAvailable(entity.getStatus())
+                && (entity.getAssetCondition() == null
+                || Boolean.TRUE.equals(entity.getAssetCondition().getAllowsAssignment())));
 
         return dto;
     }

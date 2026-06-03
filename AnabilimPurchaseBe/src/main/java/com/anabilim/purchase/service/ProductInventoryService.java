@@ -21,6 +21,7 @@ public class ProductInventoryService {
 
     private final StockItemRepository stockItemRepository;
     private final ProductImageRepository productImageRepository;
+    private final AssetConditionSupport assetConditionSupport;
 
     public void enrichProductDto(ProductDto dto, Product product) {
         if (dto == null || product == null) {
@@ -109,11 +110,11 @@ public class ProductInventoryService {
             dto.setAssetConditionName(item.getAssetCondition().getName());
             dto.setAllowsAssignment(item.getAssetCondition().getAllowsAssignment());
         } else {
-            dto.setAllowsAssignment(true);
+            dto.setAllowsAssignment(false);
         }
         boolean inStock = item.isInStock();
         boolean inUse = item.isAssigned();
         dto.setMustReturnFirst(inUse && !inStock);
-        dto.setCanAssign(inStock && Boolean.TRUE.equals(dto.getAllowsAssignment()));
+        dto.setCanAssign(assetConditionSupport.isAssignable(item) && item.getCurrentWarehouse() != null);
     }
 }

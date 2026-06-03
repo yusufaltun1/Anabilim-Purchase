@@ -12,7 +12,9 @@ import com.anabilim.purchase.entity.Product;
 import com.anabilim.purchase.entity.StockMovement;
 import com.anabilim.purchase.entity.Warehouse;
 import com.anabilim.purchase.entity.WarehouseStock;
+import com.anabilim.purchase.entity.enums.MovementType;
 import com.anabilim.purchase.entity.enums.ProductType;
+import com.anabilim.purchase.service.InventoryStockReceiptService;
 import com.anabilim.purchase.repository.ProductRepository;
 import com.anabilim.purchase.repository.StockMovementRepository;
 import com.anabilim.purchase.repository.WarehouseRepository;
@@ -40,6 +42,7 @@ public class WarehouseStockController {
     private final WarehouseRepository warehouseRepository;
     private final ProductRepository productRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final InventoryStockReceiptService inventoryStockReceiptService;
 
     @GetMapping("/products")
     public ResponseEntity<Page<ProductStockSummaryDto>> getProductsWithStockSummary(
@@ -182,6 +185,10 @@ public class WarehouseStockController {
 
         stock.addMovement(movement);
         stock = warehouseStockRepository.save(stock);
+        if (MovementType.IN.equals(request.getMovementType())) {
+            inventoryStockReceiptService.afterWarehouseStockMovement(
+                    stock.getProduct(), stock.getWarehouse(), request.getMovementType());
+        }
 
         return ResponseEntity.ok(convertToMovementDto(movement));
     }
@@ -215,6 +222,9 @@ public class WarehouseStockController {
 
         stock.addMovement(movement);
         stock = warehouseStockRepository.save(stock);
+        if (MovementType.IN.equals(request.getMovementType())) {
+            inventoryStockReceiptService.afterWarehouseStockMovement(product, warehouse, request.getMovementType());
+        }
 
         return ResponseEntity.ok(convertToMovementDto(movement));
     }

@@ -53,6 +53,12 @@ public class StockItemDto {
     private List<String> additionalImages;
     
     private String notes;
+
+    private Long assetConditionId;
+
+    private String assetConditionName;
+
+    private Boolean allowsAssignment;
     
     private boolean isActive;
     

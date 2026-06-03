@@ -9,6 +9,8 @@ import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.mapper.ProductMapper;
 import com.anabilim.purchase.repository.*;
+import com.anabilim.purchase.service.AssetConditionSupport;
+import com.anabilim.purchase.service.AssetConditionSupport;
 import com.anabilim.purchase.service.ProductInventoryService;
 import com.anabilim.purchase.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,7 @@ public class ProductServiceImpl implements ProductService {
     private final PurchaseRequestRepository purchaseRequestRepository;
     private final SchoolRepository schoolRepository;
     private final ProductInventoryService productInventoryService;
+    private final AssetConditionSupport assetConditionSupport;
 
     @Override
     public ProductDto createProduct(CreateProductDto createDto) {
@@ -213,6 +216,9 @@ public class ProductServiceImpl implements ProductService {
                 dto.getWarrantyExpiryDate(), dto.getSchoolId());
         resolveStockItemRelations(item, dto.getDeviceModelId(), dto.getAssetConditionId(),
                 dto.getDefaultParentLocationId(), dto.getDefaultChildLocationId());
+        if (dto.getAssetConditionId() == null) {
+            assetConditionSupport.applyReadyState(item);
+        }
         stockItemRepository.save(item);
     }
 
@@ -259,9 +265,7 @@ public class ProductServiceImpl implements ProductService {
         if (deviceModelId != null) {
             deviceModelRepository.findById(deviceModelId).ifPresent(item::setDeviceModel);
         }
-        if (conditionId != null) {
-            assetConditionRepository.findById(conditionId).ifPresent(item::setAssetCondition);
-        }
+        assetConditionSupport.applyConditionIfMissing(item, conditionId);
         if (parentLocId != null) {
             locationRepository.findById(parentLocId).ifPresent(item::setDefaultParentLocation);
         }

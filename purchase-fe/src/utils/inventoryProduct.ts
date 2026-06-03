@@ -21,6 +21,19 @@ export function usesQuantityBasedAssignment(value?: string | null): boolean {
   return isConsumableProductType(value) || !usesSerialStockItems(value);
 }
 
+/** Zimmet listesinde gösterilebilir / seçilebilir stok satırı */
+export function isAssignableStockRow(item: StockItem): boolean {
+  if (item.isStockItemRecord === false) {
+    const qty = item.currentStock ?? 0;
+    return qty > 0 && Boolean(item.warehouseId);
+  }
+  return (
+    item.status === 'IN_STOCK' &&
+    Boolean(item.warehouseId) &&
+    item.allowsAssignment === true
+  );
+}
+
 export function shouldSendStockItemIdForAssignment(
   productType: string | null | undefined,
   selected: Pick<StockItem, 'isStockItemRecord'> | null | undefined

@@ -514,7 +514,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                 </InputWithButton>
               </FormField>
 
-              <FormField label="Durum">
+              <FormField label="Durum" hint="Zimmet için 'Hazır' ve dağıtılabilir durum seçin">
                 <InputWithButton
                   button={
                     <button type="button" className={btnInlinePrimary} onClick={createCondition}>
@@ -531,7 +531,10 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                   >
                     <option value="">Durum seç</option>
                     {conditions.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                        {c.allowsAssignment === false ? ' (zimmet yok)' : ''}
+                      </option>
                     ))}
                   </select>
                 </InputWithButton>

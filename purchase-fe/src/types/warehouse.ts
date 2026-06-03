@@ -226,6 +226,9 @@ export interface StockItem {
   assetLabel?: string;
   /** true: stock_items tablosu; false: warehouse_stocks satırı */
   isStockItemRecord?: boolean;
+  assetConditionId?: number;
+  assetConditionName?: string;
+  allowsAssignment?: boolean;
 }
 
 export interface CreateStockItemRequest {

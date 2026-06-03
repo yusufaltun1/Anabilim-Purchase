@@ -21,6 +21,7 @@ import { ProductStockMovementSection } from '../components/product/ProductStockM
 import {
   isConsumableProductType,
   shouldSendStockItemIdForAssignment,
+  isAssignableStockRow,
   usesQuantityBasedAssignment,
   usesSerialStockItems,
 } from '../utils/inventoryProduct';
@@ -182,13 +183,7 @@ export const ProductDetail = () => {
 
   const isConsumable = isConsumableProductType(product?.productType);
   const usesQuantityForZimmet = usesQuantityBasedAssignment(product?.productType);
-  const assignableForZimmet = stockItems.filter((item) => {
-    if (usesSerialStockItems(product?.productType)) {
-      return item.status === 'IN_STOCK' && Boolean(item.warehouseId);
-    }
-    const qty = item.currentStock ?? parseStockQuantityFromNotes(item.notes);
-    return qty > 0 && Boolean(item.warehouseId);
-  });
+  const assignableForZimmet = stockItems.filter((item) => isAssignableStockRow(item));
 
   const loadAssignments = async () => {
     try {
@@ -719,18 +714,20 @@ export const ProductDetail = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              item.status === 'IN_STOCK' 
-                                ? 'bg-green-100 text-green-800' 
+                              item.allowsAssignment === true && item.status === 'IN_STOCK'
+                                ? 'bg-green-100 text-green-800'
                                 : item.status === 'ASSIGNED'
                                 ? 'bg-blue-100 text-blue-800'
                                 : item.status === 'MAINTENANCE'
                                 ? 'bg-yellow-100 text-yellow-800'
                                 : 'bg-gray-100 text-gray-800'
                             }`}>
-                              {item.status === 'IN_STOCK' && 'Stokta'}
-                              {item.status === 'ASSIGNED' && 'Atanmış'}
-                              {item.status === 'MAINTENANCE' && 'Bakımda'}
-                              {item.status === 'RETIRED' && 'Emekli'}
+                              {item.assetConditionName ||
+                                (item.status === 'IN_STOCK' && 'Stokta') ||
+                                (item.status === 'ASSIGNED' && 'Atanmış') ||
+                                (item.status === 'MAINTENANCE' && 'Bakımda') ||
+                                (item.status === 'RETIRED' && 'Emekli') ||
+                                item.status}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -804,6 +801,13 @@ export const ProductDetail = () => {
           </div>
           <button
             onClick={() => {
+              if (!product?.canAssign) {
+                showNotification(
+                  'Zimmet için cihaz depoda ve durumu zimmete uygun (Hazır) olmalıdır.',
+                  'error'
+                );
+                return;
+              }
               setShowAssignmentModal(true);
               loadStockItems();
               loadUsers();
@@ -812,7 +816,13 @@ export const ProductDetail = () => {
               setUserSearchTerm('');
               setFilteredUsers([]);
             }}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            disabled={!product?.canAssign}
+            title={
+              product?.canAssign
+                ? undefined
+                : 'Durum Hazır değil, cihaz depoda değil veya stok yok'
+            }
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Zimmet Et
           </button>
@@ -1033,7 +1043,7 @@ export const ProductDetail = () => {
                           <p className="text-sm text-red-600 mt-1">
                             {usesQuantityForZimmet
                               ? 'Stokta ürün bulunan depo yok. Önce manuel stok girişi yapın.'
-                              : 'Stokta (IN_STOCK) ve depo atanmış cihaz bulunamadı.'}
+                              : 'Zimmete uygun hazır cihaz yok. Durumu Hazır yapın ve depoya giriş yapın.'}
                           </p>
                         )}
                       </div>

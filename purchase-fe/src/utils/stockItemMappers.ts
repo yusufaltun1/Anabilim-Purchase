@@ -10,7 +10,10 @@ export function mapApiStockItem(dto: StockItem): StockItem {
     status: dto.status ?? 'IN_STOCK',
     serialNumber: dto.serialNumber ?? '',
     notes: dto.notes ?? null,
-    isAvailable: dto.status === 'IN_STOCK' || dto.isAvailable === true,
+    assetConditionId: dto.assetConditionId,
+    assetConditionName: dto.assetConditionName,
+    allowsAssignment: dto.allowsAssignment,
+    isAvailable: dto.isAvailable ?? (dto.status === 'IN_STOCK' && dto.allowsAssignment !== false),
     isAssigned: dto.status === 'ASSIGNED' || dto.status === 'IN_USE' || dto.isAssigned === true,
   };
 }
