@@ -12,7 +12,7 @@ import {
 import { SearchableCategorySelect } from '../common/SearchableCategorySelect';
 import { SearchableSupplierSelect } from '../common/SearchableSupplierSelect';
 import { categoryService } from '../../services/category.service';
-import { inventoryService } from '../../services/inventory.service';
+import { AssetCondition, inventoryService } from '../../services/inventory.service';
 import { productService } from '../../services/product.service';
 import { schoolService } from '../../services/school.service';
 import { supplierService } from '../../services/supplier.service';
@@ -74,7 +74,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
   const [active, setActive] = useState(true);
   const [supplierId, setSupplierId] = useState<number | null>(null);
   const [deviceModels, setDeviceModels] = useState<{ id: number; name: string; enableIp?: boolean; enableMac?: boolean }[]>([]);
-  const [conditions, setConditions] = useState<{ id: number; name: string }[]>([]);
+  const [conditions, setConditions] = useState<AssetCondition[]>([]);
   const [parentLocs, setParentLocs] = useState<{ id: number; name: string }[]>([]);
   const [childLocs, setChildLocs] = useState<{ id: number; name: string }[]>([]);
   const [selectedModel, setSelectedModel] = useState<{ enableIp?: boolean; enableMac?: boolean } | null>(null);
