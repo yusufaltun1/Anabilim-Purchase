@@ -36,7 +36,7 @@ type StatusStyle = {
 export default function ApprovalDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const colorScheme = useColorScheme();
   const colors = AppColors[colorScheme ?? 'light'];
   const [request, setRequest] = useState<PurchaseRequest | null>(null);
@@ -101,6 +101,7 @@ export default function ApprovalDetailScreen() {
   };
 
   const selectableNext = nextApproverCandidatesList.filter((c) => c.userId != null);
+  const isSerkanBeyApprover = Boolean(user?.roles?.includes('SERKAN_BEY'));
 
   const openRejectModal = () => {
     const list = request?.sendDownCandidates?.length
@@ -124,7 +125,7 @@ export default function ApprovalDetailScreen() {
     const hasSendDown = Boolean(
       request?.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0
     );
-    if (hasSendDown && !completeChain && (sendToUserId === '' || sendToUserId == null)) {
+    if (hasSendDown && !completeChain && (sendToUserId === '' || sendToUserId == null) && !isSerkanBeyApprover) {
       Alert.alert('Uyarı', 'İletmek için listeden bir kişi seçin veya Tamamen onayla ile süreci sonlandırın.');
       return;
     }
@@ -133,7 +134,12 @@ export default function ApprovalDetailScreen() {
       let sendToUserIdPayload: number | null | undefined = undefined;
       if (request?.hasNoNextApprover) {
         if (hasSendDown) {
-          sendToUserIdPayload = completeChain ? null : Number(sendToUserId);
+          const noPersonSelected = sendToUserId === '' || sendToUserId == null;
+          if (completeChain || (isSerkanBeyApprover && noPersonSelected)) {
+            sendToUserIdPayload = null;
+          } else {
+            sendToUserIdPayload = Number(sendToUserId);
+          }
         } else {
           sendToUserIdPayload = null;
         }
@@ -144,7 +150,12 @@ export default function ApprovalDetailScreen() {
         sendToUserId: sendToUserIdPayload,
       };
       await purchaseService.approveRequest(Number(id), token!, payload);
-      Alert.alert('Başarılı', 'Talep onaylandı.', [
+      Alert.alert(
+        'Başarılı',
+        isSerkanBeyApprover && request?.hasNoNextApprover && sendToUserIdPayload == null
+          ? 'Talep onaylandı ve satın alma departmanına iletildi.'
+          : 'Talep onaylandı.',
+        [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error) {
@@ -561,7 +572,9 @@ export default function ApprovalDetailScreen() {
               <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Üst onaycı bulunmuyor</ThemedText>
             </View>
             <ThemedText style={[styles.hint, { color: colors.textSecondary, marginBottom: 8 }]}>
-              İletmek için kişi seçin. Zinciri sonlandırmak için alttaki Tamamen onayla düğmesini kullanın.
+              {isSerkanBeyApprover
+                ? 'Kişi seçmeden onaylarsanız talep satın alma departmanına iletilir. İsterseniz listeden başka bir kişi de seçebilirsiniz.'
+                : 'İletmek için kişi seçin. Zinciri sonlandırmak için alttaki Tamamen onayla düğmesini kullanın.'}
             </ThemedText>
             <TouchableOpacity
               style={[styles.pickerTouch, { borderColor: colors.border }]}
@@ -655,48 +668,98 @@ export default function ApprovalDetailScreen() {
           </TouchableOpacity>
           {hasSendDownUi ? (
             <View style={{ flex: 2, gap: 8 }}>
-              <TouchableOpacity
-                style={[
-                  styles.approveButton,
-                  { backgroundColor: colors.primary, paddingVertical: 12 },
-                  (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
-                  sendToUserId === '' ||
-                  sendToUserId == null
-                    ? styles.buttonDisabled
-                    : undefined,
-                ]}
-                onPress={() => handleApprove(false)}
-                disabled={
-                  isSubmitting ||
-                  (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
-                  sendToUserId === '' ||
-                  sendToUserId == null
-                }
-              >
-                <Ionicons name="arrow-redo" size={18} color="#FFFFFF" />
-                <ThemedText style={styles.buttonText}>Kişiye ilet</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.approveButton,
-                  {
-                    backgroundColor: colors.background,
-                    borderWidth: 2,
-                    borderColor: colors.primary,
-                    paddingVertical: 12,
-                  },
-                  selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)
-                    ? styles.buttonDisabled
-                    : undefined,
-                ]}
-                onPress={() => handleApprove(true)}
-                disabled={
-                  isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
-                }
-              >
-                <Ionicons name="checkmark-done" size={18} color={colors.primary} />
-                <ThemedText style={[styles.buttonText, { color: colors.primary }]}>Tamamen onayla</ThemedText>
-              </TouchableOpacity>
+              {isSerkanBeyApprover ? (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.approveButton,
+                      { backgroundColor: colors.primary, paddingVertical: 12 },
+                      selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)
+                        ? styles.buttonDisabled
+                        : undefined,
+                    ]}
+                    onPress={() => handleApprove(false)}
+                    disabled={
+                      isSubmitting ||
+                      (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
+                    }
+                  >
+                    <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                    <ThemedText style={styles.buttonText}>Satın almaya ilet</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.approveButton,
+                      {
+                        backgroundColor: colors.background,
+                        borderWidth: 2,
+                        borderColor: colors.primary,
+                        paddingVertical: 12,
+                      },
+                      (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
+                      sendToUserId === '' ||
+                      sendToUserId == null
+                        ? styles.buttonDisabled
+                        : undefined,
+                    ]}
+                    onPress={() => handleApprove(false)}
+                    disabled={
+                      isSubmitting ||
+                      (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
+                      sendToUserId === '' ||
+                      sendToUserId == null
+                    }
+                  >
+                    <Ionicons name="arrow-redo" size={18} color={colors.primary} />
+                    <ThemedText style={[styles.buttonText, { color: colors.primary }]}>Seçilen kişiye ilet</ThemedText>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.approveButton,
+                      { backgroundColor: colors.primary, paddingVertical: 12 },
+                      (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
+                      sendToUserId === '' ||
+                      sendToUserId == null
+                        ? styles.buttonDisabled
+                        : undefined,
+                    ]}
+                    onPress={() => handleApprove(false)}
+                    disabled={
+                      isSubmitting ||
+                      (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
+                      sendToUserId === '' ||
+                      sendToUserId == null
+                    }
+                  >
+                    <Ionicons name="arrow-redo" size={18} color="#FFFFFF" />
+                    <ThemedText style={styles.buttonText}>Kişiye ilet</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.approveButton,
+                      {
+                        backgroundColor: colors.background,
+                        borderWidth: 2,
+                        borderColor: colors.primary,
+                        paddingVertical: 12,
+                      },
+                      selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)
+                        ? styles.buttonDisabled
+                        : undefined,
+                    ]}
+                    onPress={() => handleApprove(true)}
+                    disabled={
+                      isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
+                    }
+                  >
+                    <Ionicons name="checkmark-done" size={18} color={colors.primary} />
+                    <ThemedText style={[styles.buttonText, { color: colors.primary }]}>Tamamen onayla</ThemedText>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           ) : (
             <TouchableOpacity

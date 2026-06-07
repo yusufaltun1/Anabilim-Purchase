@@ -201,19 +201,9 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 if (!isValidReturnToTarget(request, currentApproval.getStepOrder(), sendToUser.getId())) {
                     throw new ValidationException("Talebi sadece talep sahibine veya onay zincirinde sizden önceki kişilere iletebilirsiniz.");
                 }
-                int nextStepOrder = request.getApprovals().stream().mapToInt(PurchaseRequestApproval::getStepOrder).max().orElse(0) + 1;
-                PurchaseRequestApproval nextApproval = new PurchaseRequestApproval();
-                nextApproval.setPurchaseRequest(request);
-                nextApproval.setApprover(sendToUser);
-                nextApproval.setRoleName("MANAGER");
-                nextApproval.setRequiredRole("MANAGER");
-                nextApproval.setStepOrder(nextStepOrder);
-                nextApproval.setStatus(ApprovalStatus.PENDING);
-                nextApproval.setForwardedFromSenior(true);
-                approvalRepository.save(nextApproval);
-                request.setStatus(RequestStatus.IN_APPROVAL);
-                String message = String.format("'%s' başlıklı talep %s tarafından size iletildi.", request.getTitle(), approver.getFirstName());
-                notificationService.createNotification(sendToUser, message, request);
+                forwardToUser(request, approver, currentApproval, sendToUser);
+            } else if (userHasRole(approver, "SERKAN_BEY")) {
+                forwardToPurchaseDepartment(request, approver, currentApproval);
             } else {
                 request.setStatus(RequestStatus.APPROVED);
                 request.setCompletedAt(LocalDateTime.now());
@@ -284,6 +274,66 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         return request.getApprovals().stream()
                 .filter(a -> a.getStepOrder() < currentStepOrder)
                 .anyMatch(a -> a.getApprover() != null && a.getApprover().getId().equals(returnToUserId));
+    }
+
+    private void forwardToUser(PurchaseRequest request, User approver, PurchaseRequestApproval currentApproval, User sendToUser) {
+        int nextStepOrder = request.getApprovals().stream().mapToInt(PurchaseRequestApproval::getStepOrder).max().orElse(0) + 1;
+        PurchaseRequestApproval nextApproval = new PurchaseRequestApproval();
+        nextApproval.setPurchaseRequest(request);
+        nextApproval.setApprover(sendToUser);
+        nextApproval.setRoleName("MANAGER");
+        nextApproval.setRequiredRole("MANAGER");
+        nextApproval.setStepOrder(nextStepOrder);
+        nextApproval.setStatus(ApprovalStatus.PENDING);
+        nextApproval.setForwardedFromSenior(true);
+        approvalRepository.save(nextApproval);
+        request.setStatus(RequestStatus.IN_APPROVAL);
+        String message = String.format("'%s' başlıklı talep %s tarafından size iletildi.", request.getTitle(), approver.getFirstName());
+        notificationService.createNotification(sendToUser, message, request);
+    }
+
+    private void forwardToPurchaseDepartment(PurchaseRequest request, User approver, PurchaseRequestApproval currentApproval) {
+        User purchaseUser = resolvePurchaseDepartmentAssignee();
+        int nextStepOrder = request.getApprovals().stream().mapToInt(PurchaseRequestApproval::getStepOrder).max().orElse(0) + 1;
+        PurchaseRequestApproval nextApproval = new PurchaseRequestApproval();
+        nextApproval.setPurchaseRequest(request);
+        nextApproval.setApprover(purchaseUser);
+        nextApproval.setRoleName("PURCHASE");
+        nextApproval.setRequiredRole("SATIN_ALMA_DEPARTMANI");
+        nextApproval.setStepOrder(nextStepOrder);
+        nextApproval.setStatus(ApprovalStatus.PENDING);
+        nextApproval.setForwardedFromSenior(true);
+        approvalRepository.save(nextApproval);
+        request.setStatus(RequestStatus.IN_APPROVAL);
+        String purchaseMessage = String.format(
+                "'%s' başlıklı satın alma talebi %s tarafından onaylandı; satın alma sürecine iletildi.",
+                request.getTitle(), approver.getFirstName());
+        notificationService.createNotification(purchaseUser, purchaseMessage, request);
+        String requesterMessage = String.format(
+                "'%s' başlıklı talebiniz %s tarafından onaylandı ve satın alma departmanına iletildi.",
+                request.getTitle(), approver.getFirstName());
+        notificationService.createNotification(request.getRequester(), requesterMessage, request);
+    }
+
+    private User resolvePurchaseDepartmentAssignee() {
+        List<User> purchaseUsers = userRepository.findByRoleName("SATIN_ALMA_DEPARTMANI");
+        if (purchaseUsers.isEmpty()) {
+            purchaseUsers = userRepository.findByRoleName("PURCHASE_MANAGER");
+        }
+        if (purchaseUsers.isEmpty()) {
+            throw new ValidationException("Satın alma departmanında aktif kullanıcı bulunamadı.");
+        }
+        return purchaseUsers.get(0);
+    }
+
+    private boolean userHasRole(User user, String roleName) {
+        if (user.getRoles() == null) {
+            return false;
+        }
+        return user.getRoles().stream()
+                .anyMatch(role -> role != null
+                        && roleName.equals(role.getName())
+                        && Boolean.TRUE.equals(role.getIsActive()));
     }
 
     /** Üst onaycı yokken talebi iletebileceği kişiler: talep sahibi + önceki onaycılar */
