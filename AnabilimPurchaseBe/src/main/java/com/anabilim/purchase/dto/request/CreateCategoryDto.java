@@ -1,6 +1,7 @@
 package com.anabilim.purchase.dto.request;
 
 import com.anabilim.purchase.entity.enums.ProductType;
+import com.anabilim.purchase.entity.enums.UnitOfMeasure;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -32,4 +33,12 @@ public class CreateCategoryDto {
     private Integer minStockNotifyAt;
 
     private Boolean requestable;
+
+    private UnitOfMeasure unitOfMeasure;
+
+    private Integer minQuantity;
+
+    private Integer maxQuantity;
+
+    private String currency;
 } 

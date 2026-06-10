@@ -56,7 +56,7 @@ export interface FilterLookup {
   categories: Category[];
   schools: { id: number; name: string }[];
   suppliers: { id: number; name: string }[];
-  models: { id: number; name: string }[];
+  models: { id: number; name: string; brand?: string }[];
   conditions: { id: number; name: string }[];
   parentLocs: { id: number; name: string }[];
   childLocs: { id: number; name: string }[];
@@ -289,7 +289,8 @@ export function buildProductFilterChips(filters: ProductListFilters, lookup: Fil
   }
   if (filters.deviceModelId) {
     const m = lookup.models.find((x) => x.id === filters.deviceModelId);
-    chips.push({ key: 'deviceModelId', label: `Model: ${m?.name || filters.deviceModelId}` });
+    const modelLabel = m?.brand ? `${m.brand} — ${m.name}` : m?.name;
+    chips.push({ key: 'deviceModelId', label: `Model: ${modelLabel || filters.deviceModelId}` });
   }
   if (filters.assetConditionId) {
     const c = lookup.conditions.find((x) => x.id === filters.assetConditionId);

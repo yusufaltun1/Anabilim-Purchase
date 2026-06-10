@@ -7,6 +7,8 @@ import {
   CATEGORY_PRODUCT_TYPE_OPTIONS,
   CategoryProductType,
 } from '../types/category';
+import { UnitOfMeasureLabels } from '../types/enums';
+import { DEFAULT_CATEGORY_STOCK } from '../utils/categoryStockDefaults';
 
 export const CategoryEdit = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +23,10 @@ export const CategoryEdit = () => {
     minStockNotifyAt: undefined,
     isActive: true,
     requestable: false,
+    unitOfMeasure: DEFAULT_CATEGORY_STOCK.unitOfMeasure,
+    minQuantity: DEFAULT_CATEGORY_STOCK.minQuantity,
+    maxQuantity: DEFAULT_CATEGORY_STOCK.maxQuantity,
+    currency: DEFAULT_CATEGORY_STOCK.currency,
   });
 
   useEffect(() => {
@@ -39,6 +45,10 @@ export const CategoryEdit = () => {
           productType: category.productType || 'CONSUMABLE',
           minStockNotifyAt: category.minStockNotifyAt ?? undefined,
           requestable: category.requestable ?? false,
+          unitOfMeasure: category.unitOfMeasure ?? DEFAULT_CATEGORY_STOCK.unitOfMeasure,
+          minQuantity: category.minQuantity ?? DEFAULT_CATEGORY_STOCK.minQuantity,
+          maxQuantity: category.maxQuantity ?? DEFAULT_CATEGORY_STOCK.maxQuantity,
+          currency: category.currency ?? DEFAULT_CATEGORY_STOCK.currency,
           isActive: category.isActive,
         });
       } else {
@@ -67,6 +77,10 @@ export const CategoryEdit = () => {
             ? Number(formData.minStockNotifyAt)
             : null,
         requestable: formData.requestable ?? false,
+        unitOfMeasure: formData.unitOfMeasure ?? DEFAULT_CATEGORY_STOCK.unitOfMeasure,
+        minQuantity: formData.minQuantity ?? DEFAULT_CATEGORY_STOCK.minQuantity,
+        maxQuantity: formData.maxQuantity ?? DEFAULT_CATEGORY_STOCK.maxQuantity,
+        currency: formData.currency ?? DEFAULT_CATEGORY_STOCK.currency,
       });
       if (response.success) {
         setSuccessMessage('Kategori başarıyla güncellendi');
@@ -90,7 +104,7 @@ export const CategoryEdit = () => {
       [name]:
         type === 'checkbox'
           ? (e.target as HTMLInputElement).checked
-          : name === 'minStockNotifyAt'
+          : name === 'minStockNotifyAt' || name === 'minQuantity' || name === 'maxQuantity'
             ? value === ''
               ? undefined
               : parseInt(value, 10)
@@ -167,6 +181,76 @@ export const CategoryEdit = () => {
                 </select>
               </div>
               <div>
+                <label htmlFor="unitOfMeasure" className="block text-sm font-medium text-gray-700">
+                  Ölçü birimi *
+                </label>
+                <select
+                  name="unitOfMeasure"
+                  id="unitOfMeasure"
+                  required
+                  value={formData.unitOfMeasure ?? DEFAULT_CATEGORY_STOCK.unitOfMeasure}
+                  onChange={handleChange}
+                  disabled={loading}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                >
+                  {Object.entries(UnitOfMeasureLabels).map(([code, label]) => (
+                    <option key={code} value={code}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="minQuantity" className="block text-sm font-medium text-gray-700">
+                  Min. miktar *
+                </label>
+                <input
+                  type="number"
+                  name="minQuantity"
+                  id="minQuantity"
+                  min={0}
+                  required
+                  value={formData.minQuantity ?? ''}
+                  onChange={handleChange}
+                  disabled={loading}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="maxQuantity" className="block text-sm font-medium text-gray-700">
+                  Max. miktar *
+                </label>
+                <input
+                  type="number"
+                  name="maxQuantity"
+                  id="maxQuantity"
+                  min={0}
+                  required
+                  value={formData.maxQuantity ?? ''}
+                  onChange={handleChange}
+                  disabled={loading}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="currency" className="block text-sm font-medium text-gray-700">
+                  Para birimi *
+                </label>
+                <select
+                  name="currency"
+                  id="currency"
+                  required
+                  value={formData.currency ?? DEFAULT_CATEGORY_STOCK.currency}
+                  onChange={handleChange}
+                  disabled={loading}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                >
+                  <option value="TRY">TRY</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </div>
+              <div>
                 <label htmlFor="minStockNotifyAt" className="block text-sm font-medium text-gray-700">
                   Bildirim eşiği (kalan adet)
                 </label>
@@ -189,7 +273,9 @@ export const CategoryEdit = () => {
                   onChange={(e) => setFormData((prev) => ({ ...prev, requestable: e.target.checked }))}
                   className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
                 />
-                <label className="ml-2 text-sm text-gray-900">Talep edilebilir</label>
+                <label className="ml-2 text-sm text-gray-900">
+                  Talep edilebilir (mail: bilgiislem@anabilim.k12.tr)
+                </label>
               </div>
               <div className="flex items-center pt-6">
                 <input

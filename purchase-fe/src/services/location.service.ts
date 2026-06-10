@@ -2,6 +2,20 @@ import { API_CONFIG } from '../config/api.config';
 import { authService } from './auth.service';
 import { Location, CreateLocationRequest, UpdateLocationRequest, LocationResponse } from '../types/location';
 
+function mapLocation(raw: Record<string, unknown>): Location {
+  return {
+    id: raw.id as number,
+    name: raw.name as string,
+    description: (raw.description as string) || '',
+    parentId: (raw.parentId as number | null | undefined) ?? null,
+    parentName: (raw.parentName as string | null | undefined) ?? null,
+    level: (raw.level as number | undefined) ?? undefined,
+    path: (raw.path as string | undefined) ?? undefined,
+    createdAt: raw.createdAt as string | undefined,
+    updatedAt: raw.updatedAt as string | undefined,
+  };
+}
+
 class LocationService {
   private getHeaders(): HeadersInit {
     const token = authService.getToken();
@@ -31,7 +45,7 @@ class LocationService {
       
       return {
         success: true,
-        data,
+        data: Array.isArray(data) ? data.map((item) => mapLocation(item as Record<string, unknown>)) : [],
         message: '',
         timestamp: new Date().toISOString()
       };
@@ -55,7 +69,7 @@ class LocationService {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || 'Konum bulunamadı');
     }
-    return await response.json();
+    return mapLocation((await response.json()) as Record<string, unknown>);
   }
 
   async createLocation(location: CreateLocationRequest): Promise<LocationResponse> {
@@ -74,7 +88,7 @@ class LocationService {
 
       return {
         success: true,
-        data,
+        data: mapLocation(data as Record<string, unknown>),
         message: 'Konum başarıyla oluşturuldu',
         timestamp: new Date().toISOString()
       };
@@ -104,7 +118,7 @@ class LocationService {
 
       return {
         success: true,
-        data,
+        data: mapLocation(data as Record<string, unknown>),
         message: 'Konum başarıyla güncellendi',
         timestamp: new Date().toISOString()
       };

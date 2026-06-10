@@ -7,6 +7,8 @@ import {
   CATEGORY_PRODUCT_TYPE_OPTIONS,
   CategoryProductType,
 } from '../types/category';
+import { UnitOfMeasureLabels } from '../types/enums';
+import { DEFAULT_CATEGORY_STOCK } from '../utils/categoryStockDefaults';
 
 export const CategoryCreate = () => {
   const navigate = useNavigate();
@@ -20,6 +22,10 @@ export const CategoryCreate = () => {
     productType: 'CONSUMABLE',
     minStockNotifyAt: undefined,
     requestable: false,
+    unitOfMeasure: DEFAULT_CATEGORY_STOCK.unitOfMeasure,
+    minQuantity: DEFAULT_CATEGORY_STOCK.minQuantity,
+    maxQuantity: DEFAULT_CATEGORY_STOCK.maxQuantity,
+    currency: DEFAULT_CATEGORY_STOCK.currency,
   });
 
   const generateCode = (name: string) =>
@@ -55,6 +61,10 @@ export const CategoryCreate = () => {
             ? Number(formData.minStockNotifyAt)
             : null,
         requestable: formData.requestable ?? false,
+        unitOfMeasure: formData.unitOfMeasure ?? DEFAULT_CATEGORY_STOCK.unitOfMeasure,
+        minQuantity: formData.minQuantity ?? DEFAULT_CATEGORY_STOCK.minQuantity,
+        maxQuantity: formData.maxQuantity ?? DEFAULT_CATEGORY_STOCK.maxQuantity,
+        currency: formData.currency ?? DEFAULT_CATEGORY_STOCK.currency,
       };
       const response = await categoryService.createCategory(payload);
       if (response.success) {
@@ -77,7 +87,7 @@ export const CategoryCreate = () => {
     setFormData((prev) => ({
       ...prev,
       [name]:
-        name === 'minStockNotifyAt'
+        name === 'minStockNotifyAt' || name === 'minQuantity' || name === 'maxQuantity'
           ? value === ''
             ? undefined
             : parseInt(value, 10)
@@ -164,6 +174,77 @@ export const CategoryCreate = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label htmlFor="unitOfMeasure" className="block text-sm font-medium text-gray-700">
+                  Ölçü birimi *
+                </label>
+                <select
+                  name="unitOfMeasure"
+                  id="unitOfMeasure"
+                  required
+                  value={formData.unitOfMeasure ?? DEFAULT_CATEGORY_STOCK.unitOfMeasure}
+                  onChange={handleChange}
+                  disabled={loading}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                >
+                  {Object.entries(UnitOfMeasureLabels).map(([code, label]) => (
+                    <option key={code} value={code}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="minQuantity" className="block text-sm font-medium text-gray-700">
+                  Min. miktar *
+                </label>
+                <input
+                  type="number"
+                  name="minQuantity"
+                  id="minQuantity"
+                  min={0}
+                  required
+                  value={formData.minQuantity ?? ''}
+                  onChange={handleChange}
+                  disabled={loading}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="maxQuantity" className="block text-sm font-medium text-gray-700">
+                  Max. miktar *
+                </label>
+                <input
+                  type="number"
+                  name="maxQuantity"
+                  id="maxQuantity"
+                  min={0}
+                  required
+                  value={formData.maxQuantity ?? ''}
+                  onChange={handleChange}
+                  disabled={loading}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="currency" className="block text-sm font-medium text-gray-700">
+                  Para birimi *
+                </label>
+                <select
+                  name="currency"
+                  id="currency"
+                  required
+                  value={formData.currency ?? DEFAULT_CATEGORY_STOCK.currency}
+                  onChange={handleChange}
+                  disabled={loading}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                >
+                  <option value="TRY">TRY</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">Bu kategorideki ürünlerde stok alanları bu değerlerden gelir.</p>
               </div>
               <div>
                 <label htmlFor="minStockNotifyAt" className="block text-sm font-medium text-gray-700">

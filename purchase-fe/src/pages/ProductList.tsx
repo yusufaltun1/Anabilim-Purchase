@@ -8,7 +8,8 @@ import { SearchableSupplierSelect } from '../components/common/SearchableSupplie
 import { authService } from '../services/auth.service';
 import { productService } from '../services/product.service';
 import { categoryService } from '../services/category.service';
-import { inventoryService } from '../services/inventory.service';
+import { DeviceModel, inventoryService } from '../services/inventory.service';
+import { formatDeviceModelLabel } from '../utils/deviceModel';
 import { schoolService } from '../services/school.service';
 import { supplierService } from '../services/supplier.service';
 import { Product } from '../types/product';
@@ -39,12 +40,11 @@ export const ProductList = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [deviceModels, setDeviceModels] = useState<{ id: number; name: string }[]>([]);
+  const [deviceModels, setDeviceModels] = useState<DeviceModel[]>([]);
   const [conditions, setConditions] = useState<{ id: number; name: string }[]>([]);
   const [parentLocs, setParentLocs] = useState<{ id: number; name: string }[]>([]);
   const [filterChildLocs, setFilterChildLocs] = useState<{ id: number; name: string }[]>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const [chipSearch, setChipSearch] = useState('');
 
   const [filters, setFilters] = useState<ProductListFilters>(defaultProductListFilters());
 
@@ -129,8 +129,8 @@ export const ProductList = () => {
   );
 
   const filteredAndSortedProducts = useMemo(
-    () => applyProductListFilters(allProducts, filters, chipSearch),
-    [allProducts, filters, chipSearch]
+    () => applyProductListFilters(allProducts, filters, ''),
+    [allProducts, filters]
   );
 
   // Pagination hesaplamaları
@@ -179,7 +179,6 @@ export const ProductList = () => {
   };
 
   const resetFilters = () => {
-    setChipSearch('');
     setFilters(defaultProductListFilters());
     setCurrentPage(1);
   };
@@ -226,6 +225,45 @@ export const ProductList = () => {
             </div>
           </div>
 
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[240px]">
+              <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </span>
+              <input
+                type="search"
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+                placeholder="Hızlı ara: ad, kod, etiket, seri no, sipariş no…"
+                className={`${filterInputClass} pl-10`}
+              />
+            </div>
+            {filters.search.trim() && (
+              <button
+                type="button"
+                onClick={() => handleFilterChange('search', '')}
+                className="px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-md bg-white hover:bg-gray-50"
+              >
+                Aramayı temizle
+              </button>
+            )}
+            {!showFilters && filteredAndSortedProducts.length !== allProducts.length && (
+              <p className="text-sm text-gray-500 w-full sm:w-auto">
+                <span className="font-medium text-gray-700">{filteredAndSortedProducts.length}</span> ürün
+                {allProducts.length > 0 && (
+                  <span className="text-gray-400"> / {allProducts.length}</span>
+                )}
+              </p>
+            )}
+          </div>
+
           {/* Filtre Paneli */}
           {showFilters && (
             <div className="mb-6 bg-white shadow rounded-lg p-6 border border-gray-200">
@@ -255,16 +293,6 @@ export const ProductList = () => {
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Genel</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    <div className="md:col-span-2">
-                      <label className={filterLabelClass}>Arama</label>
-                      <input
-                        type="text"
-                        placeholder="Ad, kod, etiket, seri no, sipariş no, IP…"
-                        value={filters.search}
-                        onChange={(e) => handleFilterChange('search', e.target.value)}
-                        className={filterInputClass}
-                      />
-                    </div>
                     <div className="md:col-span-2">
                       <label className={filterLabelClass}>Kategori</label>
                       <SearchableCategorySelect
@@ -328,7 +356,7 @@ export const ProductList = () => {
                       >
                         <option value="">Tümü</option>
                         {deviceModels.map((m) => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
+                          <option key={m.id} value={m.id}>{formatDeviceModelLabel(m)}</option>
                         ))}
                       </select>
                     </div>
@@ -561,8 +589,6 @@ export const ProductList = () => {
 
           <ActiveFiltersBar
             chips={filterChips}
-            search={chipSearch}
-            onSearchChange={setChipSearch}
             onRemoveChip={removeFilterChip}
             onClearAll={resetFilters}
           />
@@ -672,7 +698,7 @@ export const ProductList = () => {
               products={products}
               showHeader={false}
               emptyMessage={
-                hasActiveProductFilters(filters) || chipSearch
+                hasActiveProductFilters(filters)
                   ? 'Filtre kriterlerinize uygun ürün bulunamadı.'
                   : 'Henüz hiç ürün bulunmuyor.'
               }

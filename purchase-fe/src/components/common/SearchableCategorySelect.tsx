@@ -44,6 +44,7 @@ export const SearchableCategorySelect = ({
 
   return (
     <Combobox
+      immediate
       value={selected}
       onChange={(cat: Category | null) => {
         onChange(cat);

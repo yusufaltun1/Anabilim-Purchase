@@ -10,13 +10,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateLocationDto {
-    @NotBlank(message = "Ürün adı boş olamaz")
-    @Size(min = 2, max = 100, message = "Ürün adı 2-100 karakter arasında olmalıdır")
+    @NotBlank(message = "Konum adı boş olamaz")
+    @Size(min = 2, max = 100, message = "Konum adı 2-100 karakter arasında olmalıdır")
     private String name;
 
     private String description;
 
-    private int id;
-
-
+    /** Boş ise 1. seviye (üst) konum oluşturulur */
+    private Long parentId;
 }

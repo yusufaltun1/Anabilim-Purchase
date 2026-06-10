@@ -5,6 +5,7 @@ import com.anabilim.purchase.dto.request.UpdateCategoryDto;
 import com.anabilim.purchase.dto.response.CategoryDto;
 import com.anabilim.purchase.dto.response.CategoryStockCountsDto;
 import com.anabilim.purchase.entity.Category;
+import com.anabilim.purchase.entity.enums.UnitOfMeasure;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,17 +22,35 @@ public class CategoryMapper {
         category.setProductType(createDto.getProductType());
         category.setMinStockNotifyAt(createDto.getMinStockNotifyAt());
         category.setRequestable(Boolean.TRUE.equals(createDto.getRequestable()));
+        category.setUnitOfMeasure(createDto.getUnitOfMeasure() != null ? createDto.getUnitOfMeasure() : UnitOfMeasure.PIECE);
+        category.setMinQuantity(createDto.getMinQuantity() != null ? createDto.getMinQuantity() : 1);
+        category.setMaxQuantity(createDto.getMaxQuantity() != null ? createDto.getMaxQuantity() : 100);
+        category.setCurrency(createDto.getCurrency() != null && !createDto.getCurrency().isBlank() ? createDto.getCurrency() : "TRY");
         return category;
     }
 
     public void updateEntity(Category category, UpdateCategoryDto updateDto) {
         category.setName(updateDto.getName());
         category.setDescription(updateDto.getDescription());
-        category.setActive(updateDto.isActive());
+        if (updateDto.getActive() != null) {
+            category.setActive(updateDto.getActive());
+        }
         category.setProductType(updateDto.getProductType());
         category.setMinStockNotifyAt(updateDto.getMinStockNotifyAt());
         if (updateDto.getRequestable() != null) {
             category.setRequestable(updateDto.getRequestable());
+        }
+        if (updateDto.getUnitOfMeasure() != null) {
+            category.setUnitOfMeasure(updateDto.getUnitOfMeasure());
+        }
+        if (updateDto.getMinQuantity() != null) {
+            category.setMinQuantity(updateDto.getMinQuantity());
+        }
+        if (updateDto.getMaxQuantity() != null) {
+            category.setMaxQuantity(updateDto.getMaxQuantity());
+        }
+        if (updateDto.getCurrency() != null && !updateDto.getCurrency().isBlank()) {
+            category.setCurrency(updateDto.getCurrency());
         }
     }
 
@@ -51,7 +70,11 @@ public class CategoryMapper {
         dto.setProductType(category.getProductType());
         dto.setMinStockNotifyAt(category.getMinStockNotifyAt());
         dto.setRequestable(category.getRequestable());
-        dto.setActive(category.isActive());
+        dto.setUnitOfMeasure(category.getUnitOfMeasure());
+        dto.setMinQuantity(category.getMinQuantity());
+        dto.setMaxQuantity(category.getMaxQuantity());
+        dto.setCurrency(category.getCurrency());
+        dto.setActive(category.isActive()); // maps to CategoryDto.active (@JsonProperty isActive)
         dto.setCreatedAt(category.getCreatedAt());
         dto.setUpdatedAt(category.getUpdatedAt());
         if (counts != null) {

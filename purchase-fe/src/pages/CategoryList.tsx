@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { authService } from '../services/auth.service';
 import { categoryService } from '../services/category.service';
@@ -10,6 +10,7 @@ const productTypeLabel = (type?: string) =>
 
 export const CategoryList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const canInventoryManage = authService.hasCapability('INVENTORY_MANAGE');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +20,7 @@ export const CategoryList = () => {
 
   useEffect(() => {
     loadCategories();
-  }, [showActiveOnly]);
+  }, [showActiveOnly, location.key]);
 
   const loadCategories = async () => {
     try {
@@ -135,6 +136,7 @@ export const CategoryList = () => {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tip</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talep</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ürün</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Toplam</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Atanan</th>
@@ -161,6 +163,15 @@ export const CategoryList = () => {
                         </span>
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-600">{productTypeLabel(category.productType)}</td>
+                      <td className="px-4 py-4 text-sm">
+                        {category.requestable ? (
+                          <span className="inline-flex px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">
+                            Talep edilebilir
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-4 text-sm text-right font-medium text-gray-900">
                         {category.activeProductCount ?? 0}
                       </td>

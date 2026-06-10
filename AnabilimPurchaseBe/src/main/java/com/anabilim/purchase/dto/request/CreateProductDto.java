@@ -21,8 +21,9 @@ public class CreateProductDto {
     @Size(min = 2, max = 100, message = "Ürün adı 2-100 karakter arasında olmalıdır")
     private String name;
     
-//    @Pattern(regexp = "^[A-Z0-9_]{2,100}$", message = "Ürün kodu sadece büyük harf, rakam ve alt çizgi içerebilir (2-100 karakter)")
-    private String code; // Optional - boşsa otomatik oluşturulacak
+    @NotBlank(message = "Ürün kodu boş olamaz")
+    @Size(min = 2, max = 100, message = "Ürün kodu 2-100 karakter arasında olmalıdır")
+    private String code;
     
     @Size(max = 500, message = "Açıklama en fazla 500 karakter olabilir")
     private String description;

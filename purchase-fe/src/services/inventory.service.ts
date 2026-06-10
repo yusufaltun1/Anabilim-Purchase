@@ -30,19 +30,27 @@ export interface LocationOption {
 }
 
 export const inventoryService = {
+  async getDeviceBrands(): Promise<string[]> {
+    const res = await fetch(`${API_CONFIG.BASE_URL}/api/inventory/device-brands`, { headers: headers() });
+    return res.ok ? res.json() : [];
+  },
+
   async getDeviceModels(): Promise<DeviceModel[]> {
     const res = await fetch(`${API_CONFIG.BASE_URL}/api/inventory/device-models`, { headers: headers() });
     return res.ok ? res.json() : [];
   },
 
-  async createDeviceModel(body: { name: string; brand?: string; enableIp?: boolean; enableMac?: boolean }) {
+  async createDeviceModel(body: { name: string; brand: string; enableIp?: boolean; enableMac?: boolean }) {
     const res = await fetch(`${API_CONFIG.BASE_URL}/api/inventory/device-models`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error('Model oluşturulamadı');
-    return res.json();
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message || 'Model oluşturulamadı');
+    }
+    return res.json() as Promise<DeviceModel>;
   },
 
   async getAssetConditions(): Promise<AssetCondition[]> {

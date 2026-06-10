@@ -54,12 +54,13 @@ public class ProductServiceImpl implements ProductService {
             product.setProductType(category.getProductType());
             product.updateStockTrackingTypeFromProductType();
         }
+        applyCategoryStockSettings(product, category);
 
-        if (createDto.getCode() == null || createDto.getCode().trim().isEmpty()) {
-            product.setCode(generateProductCode(createDto.getName(), category));
-        } else if (productRepository.existsByCode(createDto.getCode())) {
-            throw new ValidationException("Bu kod ile zaten bir ürün mevcut: " + createDto.getCode());
+        String code = createDto.getCode().trim().toUpperCase();
+        if (productRepository.existsByCode(code)) {
+            throw new ValidationException("Bu kod ile zaten bir ürün mevcut: " + code);
         }
+        product.setCode(code);
 
         applyProductRelations(product, createDto.getDeviceModelId(), createDto.getPurchaseRequestId());
         applySuppliers(product, createDto.getSupplierIds());
@@ -90,6 +91,7 @@ public class ProductServiceImpl implements ProductService {
             product.setProductType(category.getProductType());
             product.updateStockTrackingTypeFromProductType();
         }
+        applyCategoryStockSettings(product, category);
 
         applyProductRelations(product, updateDto.getDeviceModelId(), updateDto.getPurchaseRequestId());
         applySuppliers(product, updateDto.getSupplierIds());
@@ -207,7 +209,7 @@ public class ProductServiceImpl implements ProductService {
         StockItem item = new StockItem();
         item.setProduct(product);
         item.setSerialNumber(dto.getSerialNumber() != null ? dto.getSerialNumber() : product.getSerialNumber());
-        item.setAssetLabel(dto.getAssetLabel());
+        item.setAssetLabel(product.getCode());
         item.setDomainName(dto.getDomainName());
         item.setIpAddress(dto.getIpAddress());
         item.setMacAddress(dto.getMacAddress());
@@ -226,7 +228,9 @@ public class ProductServiceImpl implements ProductService {
         if (dto.getSerialnumber() != null) {
             item.setSerialNumber(dto.getSerialnumber());
         }
-        item.setAssetLabel(dto.getAssetLabel());
+        if (item.getProduct() != null && item.getProduct().getCode() != null) {
+            item.setAssetLabel(item.getProduct().getCode());
+        }
         item.setDomainName(dto.getDomainName());
         item.setIpAddress(dto.getIpAddress());
         item.setMacAddress(dto.getMacAddress());
@@ -326,25 +330,19 @@ public class ProductServiceImpl implements ProductService {
                 || StockTrackingType.QUANTITY_REUSABLE.equals(tracking);
     }
 
-    private String generateProductCode(String productName, Category category) {
-        String categoryCode = category.getCode() != null ? category.getCode().toUpperCase() : "PRD";
-        String namePrefix = "PRD";
-        if (productName != null && !productName.trim().isEmpty()) {
-            String cleanedName = productName.trim().toUpperCase().replaceAll("[^A-Z0-9]", "");
-            if (!cleanedName.isEmpty()) {
-                namePrefix = cleanedName.substring(0, Math.min(5, cleanedName.length()));
-            }
+    private void applyCategoryStockSettings(Product product, Category category) {
+        if (category.getUnitOfMeasure() != null) {
+            product.setUnitOfMeasure(category.getUnitOfMeasure());
         }
-        String baseCode = categoryCode + "-" + namePrefix;
-        String finalCode = baseCode;
-        int counter = 1;
-        while (productRepository.existsByCode(finalCode)) {
-            finalCode = baseCode + "-" + counter++;
-            if (counter > 9999) {
-                finalCode = baseCode + "-" + System.currentTimeMillis();
-                break;
-            }
+        if (category.getMinQuantity() != null) {
+            product.setMinQuantity(category.getMinQuantity());
         }
-        return finalCode;
+        if (category.getMaxQuantity() != null) {
+            product.setMaxQuantity(category.getMaxQuantity());
+        }
+        if (category.getCurrency() != null && !category.getCurrency().isBlank()) {
+            product.setCurrency(category.getCurrency());
+        }
     }
+
 }

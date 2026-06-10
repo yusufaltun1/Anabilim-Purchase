@@ -46,6 +46,10 @@ export interface Category {
   productType?: CategoryProductType;
   minStockNotifyAt?: number | null;
   requestable?: boolean;
+  unitOfMeasure?: string;
+  minQuantity?: number;
+  maxQuantity?: number;
+  currency?: string;
   totalQuantity?: number;
   assignedQuantity?: number;
   availableQuantity?: number;
@@ -64,6 +68,10 @@ export interface CreateCategoryRequest {
   productType: CategoryProductType;
   minStockNotifyAt?: number | null;
   requestable?: boolean;
+  unitOfMeasure?: string;
+  minQuantity?: number;
+  maxQuantity?: number;
+  currency?: string;
 }
 
 export interface UpdateCategoryRequest {
@@ -72,6 +80,10 @@ export interface UpdateCategoryRequest {
   productType: CategoryProductType;
   minStockNotifyAt?: number | null;
   requestable?: boolean;
+  unitOfMeasure?: string;
+  minQuantity?: number;
+  maxQuantity?: number;
+  currency?: string;
   isActive: boolean;
 }
 

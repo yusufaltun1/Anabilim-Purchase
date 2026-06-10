@@ -3,7 +3,8 @@ import { ActiveFiltersBar } from '../ActiveFiltersBar';
 import { SearchableSupplierSelect } from '../common/SearchableSupplierSelect';
 import { ProductListPanel } from './ProductListPanel';
 import { ProductListPagination } from './ProductListPagination';
-import { inventoryService } from '../../services/inventory.service';
+import { DeviceModel, inventoryService } from '../../services/inventory.service';
+import { formatDeviceModelLabel } from '../../utils/deviceModel';
 import { schoolService } from '../../services/school.service';
 import { supplierService } from '../../services/supplier.service';
 import { Product } from '../../types/product';
@@ -47,7 +48,7 @@ export const CategoryProductListSection = ({
 
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [deviceModels, setDeviceModels] = useState<{ id: number; name: string }[]>([]);
+  const [deviceModels, setDeviceModels] = useState<DeviceModel[]>([]);
   const [conditions, setConditions] = useState<{ id: number; name: string }[]>([]);
   const [parentLocs, setParentLocs] = useState<{ id: number; name: string }[]>([]);
   const [filterChildLocs, setFilterChildLocs] = useState<{ id: number; name: string }[]>([]);
@@ -284,7 +285,7 @@ export const CategoryProductListSection = ({
                       <option value="">Tümü</option>
                       {deviceModels.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.name}
+                          {formatDeviceModelLabel(m)}
                         </option>
                       ))}
                     </select>

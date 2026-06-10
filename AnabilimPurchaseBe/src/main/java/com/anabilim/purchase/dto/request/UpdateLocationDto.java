@@ -15,4 +15,7 @@ public class UpdateLocationDto {
     private String name;
 
     private String description;
+
+    /** Boş ise kök konum; dolu ise seçilen üst konumun altına taşınır */
+    private Long parentId;
 }

@@ -12,7 +12,15 @@ import {
 import { SearchableCategorySelect } from '../common/SearchableCategorySelect';
 import { SearchableSupplierSelect } from '../common/SearchableSupplierSelect';
 import { categoryService } from '../../services/category.service';
-import { AssetCondition, inventoryService } from '../../services/inventory.service';
+import { AssetCondition, DeviceModel, inventoryService } from '../../services/inventory.service';
+import { CreateDeviceModelModal } from './CreateDeviceModelModal';
+import { LocationHierarchyPickers } from '../common/LocationHierarchyPickers';
+import { formatDeviceModelLabel } from '../../utils/deviceModel';
+import { locationService } from '../../services/location.service';
+import {
+  resolveProductLocationLevels,
+  resolveProductLocationPayload,
+} from '../../utils/locationHierarchy';
 import { productService } from '../../services/product.service';
 import { schoolService } from '../../services/school.service';
 import { supplierService } from '../../services/supplier.service';
@@ -20,7 +28,8 @@ import { Category, CATEGORY_PRODUCT_TYPE_OPTIONS } from '../../types/category';
 import { CreateProductRequest, Product, ProductType, UpdateProductRequest } from '../../types/product';
 import { School } from '../../types/school';
 import { Supplier } from '../../types/supplier';
-import { UnitOfMeasureLabels, getLabelToUnit } from '../../types/enums';
+import { getUnitToLabel } from '../../types/enums';
+import { resolveCategoryStockSettings } from '../../utils/categoryStockDefaults';
 import { PRODUCT_FIELD_LABELS } from '../../utils/apiErrors';
 import { resolveProductType } from '../../utils/productType';
 
@@ -73,10 +82,13 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
   const [form, setForm] = useState<CreateProductRequest>(emptyForm());
   const [active, setActive] = useState(true);
   const [supplierId, setSupplierId] = useState<number | null>(null);
-  const [deviceModels, setDeviceModels] = useState<{ id: number; name: string; enableIp?: boolean; enableMac?: boolean }[]>([]);
+  const [deviceModels, setDeviceModels] = useState<DeviceModel[]>([]);
+  const [showDeviceModelModal, setShowDeviceModelModal] = useState(false);
   const [conditions, setConditions] = useState<AssetCondition[]>([]);
-  const [parentLocs, setParentLocs] = useState<{ id: number; name: string }[]>([]);
-  const [childLocs, setChildLocs] = useState<{ id: number; name: string }[]>([]);
+  const [locationRootId, setLocationRootId] = useState<number | null>(null);
+  const [locationMiddleId, setLocationMiddleId] = useState<number | null>(null);
+  const [locationLeafId, setLocationLeafId] = useState<number | null>(null);
+  const [locationReloadToken, setLocationReloadToken] = useState(0);
   const [selectedModel, setSelectedModel] = useState<{ enableIp?: boolean; enableMac?: boolean } | null>(null);
 
   const selectedCategory = useMemo(
@@ -103,11 +115,10 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
 
   const loadMasters = async (): Promise<Category[]> => {
     try {
-      const [catsRes, models, conds, parents, schoolList] = await Promise.all([
+      const [catsRes, models, conds, schoolList] = await Promise.all([
         categoryService.getActiveCategories(),
         inventoryService.getDeviceModels().catch(() => []),
         inventoryService.getAssetConditions().catch(() => []),
-        inventoryService.getParentLocations().catch(() => []),
         schoolService.getActiveSchools().catch(() => []),
       ]);
       let loadedCategories: Category[] = [];
@@ -124,7 +135,6 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
       }
       setDeviceModels(models);
       setConditions(conds);
-      setParentLocs(parents);
       setSchools(schoolList);
       return loadedCategories;
     } catch {
@@ -140,6 +150,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
       const categoryId = p.category?.id ?? null;
       const matchedCategory = categoriesList.find((c) => c.id === categoryId);
       const resolvedType = resolveProductType(matchedCategory?.productType ?? p.productType);
+      const stock = resolveCategoryStockSettings(matchedCategory);
       setForm({
         name: p.name,
         code: p.code,
@@ -147,13 +158,13 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
         serialNumber: p.serialNumber || '',
         categoryId,
         productType: (resolvedType || ProductType.CONSUMABLE) as ProductType,
-        unitOfMeasure: getLabelToUnit(p.unitOfMeasure || (p as Product & { unit?: string }).unit || 'PIECE'),
-        minQuantity: p.minQuantity ?? 1,
-        maxQuantity: p.maxQuantity ?? 100,
+        unitOfMeasure: stock.unitOfMeasure,
+        minQuantity: stock.minQuantity,
+        maxQuantity: stock.maxQuantity,
         estimatedUnitPrice: p.estimatedUnitPrice ?? 0,
-        currency: 'TRY',
+        currency: stock.currency,
         imageUrls: p.imageUrls ?? (p.imageUrl ? [p.imageUrl] : []),
-        assetLabel: p.assetLabel,
+        assetLabel: p.code || p.assetLabel || '',
         domainName: p.domainName,
         deviceModelId: p.deviceModelId,
         assetConditionId: p.assetConditionId,
@@ -178,8 +189,16 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
         const models = await inventoryService.getDeviceModels();
         setSelectedModel(models.find((x) => x.id === p.deviceModelId) || null);
       }
-      if (p.defaultParentLocationId) {
-        setChildLocs(await inventoryService.getChildLocations(p.defaultParentLocationId));
+      const locRes = await locationService.getAllLocations();
+      if (locRes.success && Array.isArray(locRes.data)) {
+        const levels = resolveProductLocationLevels(
+          locRes.data,
+          p.defaultParentLocationId ?? null,
+          p.defaultChildLocationId ?? null
+        );
+        setLocationRootId(levels.rootId);
+        setLocationMiddleId(levels.middleId);
+        setLocationLeafId(levels.leafId);
       }
     } catch {
       setError('Ürün yüklenemedi');
@@ -188,12 +207,22 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     }
   };
 
+  const categoryStock = useMemo(
+    () => resolveCategoryStockSettings(selectedCategory),
+    [selectedCategory]
+  );
+
   const onCategoryChange = (cat: Category | null) => {
     const resolved = resolveProductType(cat?.productType);
+    const stock = resolveCategoryStockSettings(cat);
     setForm((prev) => ({
       ...prev,
       categoryId: cat?.id ?? null,
       productType: (resolved || ProductType.CONSUMABLE) as ProductType,
+      unitOfMeasure: stock.unitOfMeasure,
+      minQuantity: stock.minQuantity,
+      maxQuantity: stock.maxQuantity,
+      currency: stock.currency,
     }));
     setSupplierId(null);
   };
@@ -222,21 +251,32 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     }));
   };
 
-  const buildPayload = () => ({
-    ...form,
-    productType: (resolveProductType(selectedCategory?.productType ?? form.productType) ||
-      form.productType) as ProductType,
-    imageUrl: form.imageUrls?.[0],
-    supplierIds: supplierId ? [supplierId] : [],
-    purchaseDate: toDateTimePayload(form.purchaseDate),
-    lifespanEndDate: toDateTimePayload(form.lifespanEndDate),
-    warrantyExpiryDate: toDateTimePayload(form.warrantyExpiryDate),
-  });
+  const buildPayload = () => {
+    const code = form.code.trim().toUpperCase();
+    const locationFields = resolveProductLocationPayload(locationRootId, locationMiddleId, locationLeafId);
+    return {
+      ...form,
+      ...locationFields,
+      code,
+      assetLabel: code,
+      productType: (resolveProductType(selectedCategory?.productType ?? form.productType) ||
+        form.productType) as ProductType,
+      imageUrl: form.imageUrls?.[0],
+      supplierIds: supplierId ? [supplierId] : [],
+      purchaseDate: toDateTimePayload(form.purchaseDate),
+      lifespanEndDate: toDateTimePayload(form.lifespanEndDate),
+      warrantyExpiryDate: toDateTimePayload(form.warrantyExpiryDate),
+    };
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.categoryId) {
       setError('Ad ve kategori zorunludur');
+      return;
+    }
+    if (!form.code.trim()) {
+      setError('Ürün kodu (iç SKU) zorunludur');
       return;
     }
     try {
@@ -276,17 +316,17 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     }
   };
 
-  const generateAssetLabel = () => {
-    setForm((prev) => ({ ...prev, assetLabel: `AST-${Date.now().toString(36).toUpperCase()}` }));
+  const handleCodeChange = (raw: string) => {
+    const code = raw.toUpperCase();
+    setForm((prev) => ({ ...prev, code, assetLabel: code }));
   };
 
-  const createModel = async () => {
-    const name = window.prompt('Model adı');
-    if (!name) return;
-    const created = await inventoryService.createDeviceModel({ name, enableIp: true, enableMac: true });
-    setDeviceModels(await inventoryService.getDeviceModels());
-    setForm({ ...form, deviceModelId: created.id });
-    setSelectedModel(created);
+  const handleDeviceModelCreated = async (created: DeviceModel) => {
+    const models = await inventoryService.getDeviceModels();
+    const model = models.find((x) => x.id === created.id) ?? created;
+    setDeviceModels(models);
+    setSelectedModel(model);
+    setForm((prev) => ({ ...prev, deviceModelId: model.id }));
   };
 
   const createCondition = async () => {
@@ -300,16 +340,28 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
 
   const createLocation = async () => {
     const name = window.prompt('Konum adı');
-    if (!name) return;
-    await inventoryService.createLocation({ name, parentId: form.defaultParentLocationId ?? undefined });
-    if (form.defaultParentLocationId) {
-      setChildLocs(await inventoryService.getChildLocations(form.defaultParentLocationId));
-    } else {
-      setParentLocs(await inventoryService.getParentLocations());
+    if (!name?.trim()) return;
+    const parentId = locationMiddleId ?? locationRootId ?? undefined;
+    try {
+      const created = await inventoryService.createLocation({ name: name.trim(), parentId });
+      setLocationReloadToken((t) => t + 1);
+      if (!parentId) {
+        setLocationRootId(created.id);
+        setLocationMiddleId(null);
+        setLocationLeafId(null);
+      } else if (locationMiddleId) {
+        setLocationLeafId(created.id);
+      } else {
+        setLocationMiddleId(created.id);
+        setLocationLeafId(null);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Konum oluşturulamadı');
     }
   };
 
   return (
+    <>
     <form onSubmit={submit} className="space-y-6">
       {(error || Object.keys(fieldErrors).length > 0) && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -336,12 +388,19 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
               required
             />
           </FormField>
-          <FormField label="Ürün kodu (iç SKU)" hint="Boş bırakılırsa otomatik oluşturulur" error={fieldError(fieldErrors, 'code')}>
+          <FormField
+            label="Ürün kodu (iç SKU)"
+            required
+            hint={mode === 'edit' ? 'Kod oluşturulduktan sonra değiştirilmez' : 'Demirbaş etiketi bu kod ile aynıdır'}
+            error={fieldError(fieldErrors, 'code')}
+          >
             <input
-              className={`${formInput} uppercase`}
+              className={`${formInput} uppercase${mode === 'edit' ? ' bg-gray-50 text-gray-600' : ''}`}
               value={form.code}
-              onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-              placeholder="Otomatik"
+              onChange={(e) => handleCodeChange(e.target.value)}
+              readOnly={mode === 'edit'}
+              required
+              placeholder="Örn. LAPTOP-001"
             />
           </FormField>
           <FormField label="Kategori" required className="sm:col-span-2" error={fieldError(fieldErrors, 'categoryId')}>
@@ -376,7 +435,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
         )}
       </FormSection>
 
-      <FormSection title="Stok ve fiyat" description="Miktar limitleri ve tahmini birim fiyat">
+      <FormSection title="Stok ve fiyat" description="Ürün açıklaması ve tahmini birim fiyat">
         <div className={formGrid}>
           <FormField label="Açıklama" className="sm:col-span-2" error={fieldError(fieldErrors, 'description')}>
             <textarea
@@ -385,37 +444,6 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
               value={form.description || ''}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder="Ürün açıklaması"
-            />
-          </FormField>
-          <FormField label="Ölçü birimi" error={fieldError(fieldErrors, 'unitOfMeasure')}>
-            <select
-              className={formSelect}
-              value={form.unitOfMeasure}
-              onChange={(e) => setForm({ ...form, unitOfMeasure: e.target.value })}
-            >
-              {Object.entries(UnitOfMeasureLabels).map(([code, label]) => (
-                <option key={code} value={code}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Min. miktar" error={fieldError(fieldErrors, 'minQuantity')}>
-            <input
-              type="number"
-              min={0}
-              className={formInput}
-              value={form.minQuantity}
-              onChange={(e) => setForm({ ...form, minQuantity: Number(e.target.value) })}
-            />
-          </FormField>
-          <FormField label="Max. miktar" error={fieldError(fieldErrors, 'maxQuantity')}>
-            <input
-              type="number"
-              min={0}
-              className={formInput}
-              value={form.maxQuantity}
-              onChange={(e) => setForm({ ...form, maxQuantity: Number(e.target.value) })}
             />
           </FormField>
           <FormField label="Tahmini birim fiyat" error={fieldError(fieldErrors, 'estimatedUnitPrice')}>
@@ -429,20 +457,9 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                 onChange={(e) => setForm({ ...form, estimatedUnitPrice: Number(e.target.value) })}
               />
               <span className="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-600">
-                {form.currency || 'TRY'}
+                {categoryStock.currency}
               </span>
             </div>
-          </FormField>
-          <FormField label="Para birimi" error={fieldError(fieldErrors, 'currency')}>
-            <select
-              className={formSelect}
-              value={form.currency}
-              onChange={(e) => setForm({ ...form, currency: e.target.value })}
-            >
-              <option value="TRY">TRY</option>
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-            </select>
           </FormField>
         </div>
       </FormSection>
@@ -462,20 +479,13 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                 </select>
               </FormField>
 
-              <FormField label="Demirbaş etiketi">
-                <InputWithButton
-                  button={
-                    <button type="button" className={btnInline} onClick={generateAssetLabel} title="Etiket üret">
-                      +
-                    </button>
-                  }
-                >
-                  <input
-                    className={formInput}
-                    value={form.assetLabel || ''}
-                    onChange={(e) => setForm({ ...form, assetLabel: e.target.value })}
-                  />
-                </InputWithButton>
+              <FormField label="Demirbaş etiketi" hint="Ürün kodu ile aynıdır">
+                <input
+                  readOnly
+                  className={`${formInput} bg-gray-50 text-gray-600`}
+                  value={form.code}
+                  placeholder="Önce ürün kodunu girin"
+                />
               </FormField>
 
               <FormField
@@ -489,10 +499,10 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                 />
               </FormField>
 
-              <FormField label="Model">
+              <FormField label="Marka / model">
                 <InputWithButton
                   button={
-                    <button type="button" className={btnInlinePrimary} onClick={createModel}>
+                    <button type="button" className={btnInlinePrimary} onClick={() => setShowDeviceModelModal(true)}>
                       Yeni
                     </button>
                   }
@@ -502,13 +512,16 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                     value={form.deviceModelId ?? ''}
                     onChange={(e) => {
                       const id = e.target.value ? Number(e.target.value) : null;
-                      setSelectedModel(deviceModels.find((x) => x.id === id) || null);
+                      const model = deviceModels.find((x) => x.id === id) || null;
+                      setSelectedModel(model);
                       setForm({ ...form, deviceModelId: id });
                     }}
                   >
-                    <option value="">Model seç</option>
+                    <option value="">Marka ve model seçin</option>
                     {deviceModels.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
+                      <option key={m.id} value={m.id}>
+                        {formatDeviceModelLabel(m)}
+                      </option>
                     ))}
                   </select>
                 </InputWithButton>
@@ -570,24 +583,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                 />
               </FormField>
 
-              <FormField label="Varsayılan konum (üst)">
-                <select
-                  className={formSelect}
-                  value={form.defaultParentLocationId ?? ''}
-                  onChange={async (e) => {
-                    const pid = e.target.value ? Number(e.target.value) : null;
-                    setForm({ ...form, defaultParentLocationId: pid, defaultChildLocationId: null });
-                    setChildLocs(pid ? await inventoryService.getChildLocations(pid) : []);
-                  }}
-                >
-                  <option value="">Konum seç</option>
-                  {parentLocs.map((l) => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
-                  ))}
-                </select>
-              </FormField>
-
-              <FormField label="Alt konum">
+              <FormField label="Konum" className="sm:col-span-2">
                 <InputWithButton
                   button={
                     <button type="button" className={btnInlinePrimary} onClick={createLocation}>
@@ -595,37 +591,20 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                     </button>
                   }
                 >
-                  <select
-                    className={formSelect}
-                    value={form.defaultChildLocationId ?? ''}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        defaultChildLocationId: e.target.value ? Number(e.target.value) : null,
-                      })
-                    }
-                    disabled={!form.defaultParentLocationId}
-                  >
-                    <option value="">Seçin</option>
-                    {childLocs.map((l) => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
-                    ))}
-                  </select>
+                  <div className="w-full">
+                    <LocationHierarchyPickers
+                      rootId={locationRootId}
+                      middleId={locationMiddleId}
+                      leafId={locationLeafId}
+                      onRootChange={setLocationRootId}
+                      onMiddleChange={setLocationMiddleId}
+                      onLeafChange={setLocationLeafId}
+                      showLeaf
+                      reloadToken={locationReloadToken}
+                    />
+                  </div>
                 </InputWithButton>
               </FormField>
-
-              <div className="sm:col-span-2 flex items-center rounded-md border border-gray-200 bg-white px-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={selectedCategory?.requestable ?? false}
-                  disabled
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600"
-                />
-                <span className="ml-3 text-sm text-gray-700">
-                  Talep edilebilir
-                  <span className="text-gray-500"> — kategori ayarından gelir</span>
-                </span>
-              </div>
             </div>
           </FormSection>
 
@@ -759,6 +738,16 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
         )}
       </FormSection>
 
+      {selectedCategory && (
+        <p className="text-sm text-gray-500 border border-gray-200 rounded-md bg-gray-50 px-4 py-3">
+          <span className="font-medium text-gray-700">Kategori stok ayarları</span>
+          {' — '}
+          {getUnitToLabel(categoryStock.unitOfMeasure)}, min {categoryStock.minQuantity}, max{' '}
+          {categoryStock.maxQuantity}, {categoryStock.currency}
+          <span className="text-gray-400"> (kayıtta otomatik uygulanır)</span>
+        </p>
+      )}
+
       <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:justify-end">
         <button
           type="button"
@@ -776,5 +765,12 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
         </button>
       </div>
     </form>
+
+    <CreateDeviceModelModal
+      isOpen={showDeviceModelModal}
+      onClose={() => setShowDeviceModelModal(false)}
+      onCreated={handleDeviceModelCreated}
+    />
+    </>
   );
 };

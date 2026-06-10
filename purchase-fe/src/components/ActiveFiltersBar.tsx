@@ -5,24 +5,26 @@ export interface FilterChip {
 
 interface ActiveFiltersBarProps {
   chips: FilterChip[];
-  search: string;
-  onSearchChange: (value: string) => void;
+  search?: string;
+  onSearchChange?: (value: string) => void;
   onRemoveChip: (key: string) => void;
   onClearAll: () => void;
 }
 
 export const ActiveFiltersBar = ({
   chips,
-  search,
+  search = '',
   onSearchChange,
   onRemoveChip,
   onClearAll,
 }: ActiveFiltersBarProps) => {
+  const hasInlineSearch = Boolean(onSearchChange);
+  if (chips.length === 0 && !search && !hasInlineSearch) return null;
   if (chips.length === 0 && !search) return null;
 
   return (
     <div className="mb-4 bg-white border border-gray-200 rounded-lg p-3">
-      <div className="flex flex-wrap items-center gap-2 mb-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-gray-500 uppercase">Aktif filtreler</span>
         {chips.map((chip) => (
           <button
@@ -35,19 +37,21 @@ export const ActiveFiltersBar = ({
             <span aria-hidden>×</span>
           </button>
         ))}
-        {(chips.length > 0 || search) && (
+        {chips.length > 0 && (
           <button type="button" onClick={onClearAll} className="text-xs text-red-600 hover:underline">
             Tümünü temizle
           </button>
         )}
       </div>
-      <input
-        type="text"
-        placeholder="Filtrelenmiş sonuçlarda ara..."
-        value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-      />
+      {hasInlineSearch && (
+        <input
+          type="text"
+          placeholder="Filtrelenmiş sonuçlarda ara..."
+          value={search}
+          onChange={(e) => onSearchChange!(e.target.value)}
+          className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+        />
+      )}
     </div>
   );
 };

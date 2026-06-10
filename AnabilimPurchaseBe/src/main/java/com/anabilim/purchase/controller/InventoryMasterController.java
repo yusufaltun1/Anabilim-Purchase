@@ -9,6 +9,8 @@ import com.anabilim.purchase.dto.response.LocationDto;
 import com.anabilim.purchase.entity.AssetCondition;
 import com.anabilim.purchase.entity.DeviceModel;
 import com.anabilim.purchase.entity.Location;
+import com.anabilim.purchase.exception.ResourceNotFoundException;
+import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.repository.AssetConditionRepository;
 import com.anabilim.purchase.repository.CategoryRepository;
 import com.anabilim.purchase.repository.DeviceModelRepository;
@@ -18,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.anabilim.purchase.util.LocationSupport;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,6 +33,16 @@ public class InventoryMasterController {
     private final AssetConditionRepository assetConditionRepository;
     private final LocationRepository locationRepository;
     private final CategoryRepository categoryRepository;
+    @GetMapping("/device-brands")
+    public List<String> listDeviceBrands() {
+        return deviceModelRepository.findDistinctActiveBrands().stream()
+                .map(String::trim)
+                .filter(b -> !b.isEmpty())
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .collect(Collectors.toList());
+    }
+
     @GetMapping("/device-models")
     public List<DeviceModelDto> listDeviceModels() {
         return deviceModelRepository.findByIsActiveTrueOrderByNameAsc().stream()
@@ -39,9 +52,15 @@ public class InventoryMasterController {
 
     @PostMapping("/device-models")
     public ResponseEntity<DeviceModelDto> createDeviceModel(@RequestBody CreateDeviceModelDto dto) {
+        if (dto.getName() == null || dto.getName().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (dto.getBrand() == null || dto.getBrand().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
         DeviceModel model = new DeviceModel();
-        model.setName(dto.getName());
-        model.setBrand(dto.getBrand());
+        model.setName(dto.getName().trim());
+        model.setBrand(dto.getBrand().trim());
         model.setEnableIp(Boolean.TRUE.equals(dto.getEnableIp()));
         model.setEnableMac(Boolean.TRUE.equals(dto.getEnableMac()));
         if (dto.getCategoryId() != null) {
@@ -87,7 +106,12 @@ public class InventoryMasterController {
         location.setName(dto.getName());
         location.setDescription(dto.getDescription() != null ? dto.getDescription() : dto.getName());
         if (dto.getParentId() != null) {
-            locationRepository.findById(dto.getParentId()).ifPresent(location::setParent);
+            Location parent = locationRepository.findById(dto.getParentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Üst konum bulunamadı: " + dto.getParentId()));
+            if (LocationSupport.depth(parent) >= LocationSupport.MAX_DEPTH) {
+                throw new ValidationException("En fazla 3 seviye konum tanımlanabilir.");
+            }
+            location.setParent(parent);
         }
         location = locationRepository.save(location);
         return ResponseEntity.status(HttpStatus.CREATED).body(toLocationDto(location));
@@ -128,7 +152,10 @@ public class InventoryMasterController {
         dto.setDescription(l.getDescription());
         if (l.getParent() != null) {
             dto.setParentId(l.getParent().getId());
+            dto.setParentName(l.getParent().getName());
         }
+        dto.setLevel(LocationSupport.depth(l));
+        dto.setPath(LocationSupport.path(l));
         return dto;
     }
 }

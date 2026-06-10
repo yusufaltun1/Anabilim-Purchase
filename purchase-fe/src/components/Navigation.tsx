@@ -84,7 +84,7 @@ export const Navigation = () => {
                       {canInventoryManage && (
                         <button onClick={() => { navigate('/categories/create'); setIsInventoryMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname === '/categories/create' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Yeni kategori</button>
                       )}
-                      <button onClick={() => { navigate('/locations'); setIsInventoryMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/locations') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Lokasyonlar</button>
+                      <button onClick={() => { navigate('/locations'); setIsInventoryMenuOpen(false); }} className={`block px-4 py-2 text-sm w-full text-left ${location.pathname.startsWith('/locations') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}>Konumlar</button>
                     </div>
                   </div>
                 )}

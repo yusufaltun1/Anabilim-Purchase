@@ -1,6 +1,7 @@
 package com.anabilim.purchase.service;
 
 import com.anabilim.purchase.dto.response.ProductDto;
+import com.anabilim.purchase.entity.DeviceModel;
 import com.anabilim.purchase.entity.Product;
 import com.anabilim.purchase.entity.ProductImage;
 import com.anabilim.purchase.entity.StockItem;
@@ -34,7 +35,7 @@ public class ProductInventoryService {
 
         if (product.getDeviceModel() != null) {
             dto.setDeviceModelId(product.getDeviceModel().getId());
-            dto.setDeviceModelName(product.getDeviceModel().getName());
+            dto.setDeviceModelName(formatDeviceModelName(product.getDeviceModel()));
         }
         if (product.getPurchaseRequest() != null) {
             dto.setPurchaseRequestId(product.getPurchaseRequest().getId());
@@ -103,7 +104,7 @@ public class ProductInventoryService {
         }
         if (item.getDeviceModel() != null) {
             dto.setDeviceModelId(item.getDeviceModel().getId());
-            dto.setDeviceModelName(item.getDeviceModel().getName());
+            dto.setDeviceModelName(formatDeviceModelName(item.getDeviceModel()));
         }
         if (item.getAssetCondition() != null) {
             dto.setAssetConditionId(item.getAssetCondition().getId());
@@ -116,5 +117,16 @@ public class ProductInventoryService {
         boolean inUse = item.isAssigned();
         dto.setMustReturnFirst(inUse && !inStock);
         dto.setCanAssign(assetConditionSupport.isAssignable(item) && item.getCurrentWarehouse() != null);
+    }
+
+    private static String formatDeviceModelName(DeviceModel model) {
+        if (model == null) {
+            return null;
+        }
+        String brand = model.getBrand();
+        if (brand != null && !brand.isBlank()) {
+            return brand.trim() + " — " + model.getName();
+        }
+        return model.getName();
     }
 }

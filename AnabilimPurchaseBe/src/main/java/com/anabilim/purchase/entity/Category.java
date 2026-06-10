@@ -1,6 +1,7 @@
 package com.anabilim.purchase.entity;
 
 import com.anabilim.purchase.entity.enums.ProductType;
+import com.anabilim.purchase.entity.enums.UnitOfMeasure;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -45,6 +46,19 @@ public class Category {
 
     @Column(name = "requestable")
     private Boolean requestable = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "unit_of_measure")
+    private UnitOfMeasure unitOfMeasure = UnitOfMeasure.PIECE;
+
+    @Column(name = "min_quantity")
+    private Integer minQuantity = 1;
+
+    @Column(name = "max_quantity")
+    private Integer maxQuantity = 100;
+
+    @Column(name = "currency")
+    private String currency = "TRY";
     
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
     private Set<Product> products = new HashSet<>();

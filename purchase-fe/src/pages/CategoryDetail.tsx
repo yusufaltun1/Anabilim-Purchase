@@ -7,6 +7,7 @@ import { productService } from '../services/product.service';
 import { authService } from '../services/auth.service';
 import type { CategoryDetail as CategoryDetailData } from '../types/category';
 import { CATEGORY_PRODUCT_TYPE_OPTIONS } from '../types/category';
+import { getUnitToLabel } from '../types/enums';
 import { Product } from '../types/product';
 
 const isFixedAssetType = (type?: string) =>
@@ -101,6 +102,14 @@ export const CategoryDetail = () => {
               <p className="mt-1 text-sm text-gray-500">
                 {detail.code} · {productTypeLabel(detail.productType)}
               </p>
+              {detail.requestable && (
+                <p className="mt-2">
+                  <span className="inline-flex px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">
+                    Talep edilebilir
+                  </span>
+                  <span className="ml-2 text-xs text-gray-500">bilgiislem@anabilim.k12.tr</span>
+                </p>
+              )}
               {lowStock && (
                 <p className="mt-2 text-sm text-red-600 font-medium">
                   Düşük stok: kalan {detail.availableQuantity}, bildirim eşiği {detail.minStockNotifyAt}
@@ -140,6 +149,28 @@ export const CategoryDetail = () => {
                 {detail.availableQuantity ?? 0}
               </p>
             </div>
+          </div>
+
+          <div className="mb-6 bg-white shadow rounded-lg p-4">
+            <p className="text-sm font-medium text-gray-900 mb-3">Stok varsayılanları</p>
+            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div>
+                <dt className="text-gray-500">Ölçü birimi</dt>
+                <dd className="font-medium text-gray-900">{getUnitToLabel(detail.unitOfMeasure || 'PIECE')}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Min. miktar</dt>
+                <dd className="font-medium text-gray-900">{detail.minQuantity ?? 1}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Max. miktar</dt>
+                <dd className="font-medium text-gray-900">{detail.maxQuantity ?? 100}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Para birimi</dt>
+                <dd className="font-medium text-gray-900">{detail.currency ?? 'TRY'}</dd>
+              </div>
+            </dl>
           </div>
 
           {detail.description && (

@@ -14,6 +14,9 @@ public class LocationDto {
     private String name;
     private String description;
     private Long parentId;
+    private String parentName;
+    private Integer level;
+    private String path;
 
     public LocationDto(Location location) {
         this.id = location.getId();
@@ -21,6 +24,7 @@ public class LocationDto {
         this.description = location.getDescription();
         if (location.getParent() != null) {
             this.parentId = location.getParent().getId();
+            this.parentName = location.getParent().getName();
         }
     }
 }

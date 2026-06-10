@@ -126,6 +126,11 @@ public class CategoryStockService {
         dto.setDescription(category.getDescription());
         dto.setProductType(category.getProductType());
         dto.setMinStockNotifyAt(category.getMinStockNotifyAt());
+        dto.setRequestable(category.getRequestable());
+        dto.setUnitOfMeasure(category.getUnitOfMeasure());
+        dto.setMinQuantity(category.getMinQuantity());
+        dto.setMaxQuantity(category.getMaxQuantity());
+        dto.setCurrency(category.getCurrency());
         dto.setActive(category.isActive());
         dto.setCreatedAt(category.getCreatedAt());
         dto.setUpdatedAt(category.getUpdatedAt());

@@ -36,6 +36,7 @@ public class CategoryServiceImpl implements CategoryService {
         if (categoryRepository.existsByCode(createDto.getCode())) {
             throw new ValidationException("Bu kod ile zaten bir kategori mevcut: " + createDto.getCode());
         }
+        validateStockSettings(createDto.getMinQuantity(), createDto.getMaxQuantity());
         Category category = categoryMapper.toEntity(createDto);
         category = categoryRepository.save(category);
         return enrich(categoryMapper.toDto(category));
@@ -45,9 +46,18 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryDto updateCategory(Long id, UpdateCategoryDto updateDto) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı: " + id));
+        validateStockSettings(
+                updateDto.getMinQuantity() != null ? updateDto.getMinQuantity() : category.getMinQuantity(),
+                updateDto.getMaxQuantity() != null ? updateDto.getMaxQuantity() : category.getMaxQuantity());
         categoryMapper.updateEntity(category, updateDto);
         category = categoryRepository.save(category);
         return enrich(categoryMapper.toDto(category));
+    }
+
+    private void validateStockSettings(Integer minQuantity, Integer maxQuantity) {
+        if (minQuantity != null && maxQuantity != null && minQuantity > maxQuantity) {
+            throw new ValidationException("Minimum miktar, maksimum miktardan büyük olamaz.");
+        }
     }
 
     @Override

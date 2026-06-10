@@ -1,6 +1,8 @@
 package com.anabilim.purchase.dto.response;
 
 import com.anabilim.purchase.entity.enums.ProductType;
+import com.anabilim.purchase.entity.enums.UnitOfMeasure;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,7 +21,13 @@ public class CategoryDetailDto {
     private String description;
     private ProductType productType;
     private Integer minStockNotifyAt;
-    private boolean isActive;
+    private Boolean requestable;
+    private UnitOfMeasure unitOfMeasure;
+    private Integer minQuantity;
+    private Integer maxQuantity;
+    private String currency;
+    @JsonProperty("isActive")
+    private boolean active;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

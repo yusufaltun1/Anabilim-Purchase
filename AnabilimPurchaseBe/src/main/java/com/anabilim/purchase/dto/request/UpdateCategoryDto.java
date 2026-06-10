@@ -1,6 +1,8 @@
 package com.anabilim.purchase.dto.request;
 
 import com.anabilim.purchase.entity.enums.ProductType;
+import com.anabilim.purchase.entity.enums.UnitOfMeasure;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -26,6 +28,15 @@ public class UpdateCategoryDto {
     private Integer minStockNotifyAt;
 
     private Boolean requestable;
-    
-    private boolean isActive;
+
+    private UnitOfMeasure unitOfMeasure;
+
+    private Integer minQuantity;
+
+    private Integer maxQuantity;
+
+    private String currency;
+
+    @JsonProperty("isActive")
+    private Boolean active = true;
 } 
