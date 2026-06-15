@@ -1,11 +1,16 @@
 package com.anabilim.purchase.service.impl;
 
 import com.anabilim.purchase.dto.UserDto;
+import com.anabilim.purchase.entity.Location;
 import com.anabilim.purchase.entity.Role;
+import com.anabilim.purchase.entity.School;
 import com.anabilim.purchase.entity.User;
+import com.anabilim.purchase.util.LocationSupport;
 
 import com.anabilim.purchase.exception.ResourceNotFoundException;
+import com.anabilim.purchase.repository.LocationRepository;
 import com.anabilim.purchase.repository.RoleRepository;
+import com.anabilim.purchase.repository.SchoolRepository;
 import com.anabilim.purchase.repository.UserRepository;
 import com.anabilim.purchase.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +31,8 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final SchoolRepository schoolRepository;
+    private final LocationRepository locationRepository;
 
     @Override
     public List<UserDto> getAllUsers() {
@@ -123,6 +130,32 @@ public class UserServiceImpl implements UserService {
         existingUser.setPhone(userDto.getPhone());
         existingUser.setIsActive(userDto.getIsActive());
 
+        if (userDto.getSchoolId() != null) {
+            School school = schoolRepository.findById(userDto.getSchoolId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Okul bulunamadı: " + userDto.getSchoolId()));
+            existingUser.setSchool(school);
+        } else {
+            existingUser.setSchool(null);
+        }
+
+        if (userDto.getWorkLocationParentId() != null) {
+            Location parent = locationRepository.findById(userDto.getWorkLocationParentId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Üst konum bulunamadı: " + userDto.getWorkLocationParentId()));
+            existingUser.setWorkLocationParent(parent);
+        } else {
+            existingUser.setWorkLocationParent(null);
+        }
+
+        if (userDto.getWorkLocationChildId() != null) {
+            Location child = locationRepository.findById(userDto.getWorkLocationChildId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Alt konum bulunamadı: " + userDto.getWorkLocationChildId()));
+            existingUser.setWorkLocationChild(child);
+        } else {
+            existingUser.setWorkLocationChild(null);
+        }
+
         // Manager'ı güncelle
         if (userDto.getManager() != null && userDto.getManager().getId() != null) {
             User manager = userRepository.findById(userDto.getManager().getId())
@@ -199,7 +232,19 @@ public class UserServiceImpl implements UserService {
         dto.setDisplayName(user.getDisplayName());
         dto.setDepartment(user.getDepartment());
         dto.setPosition(user.getPosition());
+        dto.setWorkLocation(user.getWorkLocation());
+        if (user.getWorkLocationParent() != null) {
+            dto.setWorkLocationParentId(user.getWorkLocationParent().getId());
+        }
+        if (user.getWorkLocationChild() != null) {
+            dto.setWorkLocationChildId(user.getWorkLocationChild().getId());
+        }
+        dto.setWorkLocationName(resolveWorkLocationName(user));
         dto.setPhone(user.getPhone());
+        if (user.getSchool() != null) {
+            dto.setSchoolId(user.getSchool().getId());
+            dto.setSchoolName(user.getSchool().getName());
+        }
         dto.setIsActive(user.getIsActive());
         dto.setMicrosoft365Id(user.getMicrosoft365Id());
         dto.setCreatedAt(user.getCreatedAt());
@@ -270,5 +315,15 @@ public class UserServiceImpl implements UserService {
 
     private String generateDisplayName(String firstName, String lastName) {
         return firstName + " " + lastName;
+    }
+
+    private String resolveWorkLocationName(User user) {
+        if (user.getWorkLocationChild() != null) {
+            return LocationSupport.path(user.getWorkLocationChild());
+        }
+        if (user.getWorkLocationParent() != null) {
+            return LocationSupport.path(user.getWorkLocationParent());
+        }
+        return user.getWorkLocation();
     }
 } 

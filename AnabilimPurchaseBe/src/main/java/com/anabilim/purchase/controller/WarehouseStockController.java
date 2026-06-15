@@ -14,7 +14,7 @@ import com.anabilim.purchase.entity.Warehouse;
 import com.anabilim.purchase.entity.WarehouseStock;
 import com.anabilim.purchase.entity.enums.MovementType;
 import com.anabilim.purchase.entity.enums.ProductType;
-import com.anabilim.purchase.service.InventoryStockReceiptService;
+import com.anabilim.purchase.service.ManualStockMovementService;
 import com.anabilim.purchase.repository.ProductRepository;
 import com.anabilim.purchase.repository.StockMovementRepository;
 import com.anabilim.purchase.repository.WarehouseRepository;
@@ -42,7 +42,7 @@ public class WarehouseStockController {
     private final WarehouseRepository warehouseRepository;
     private final ProductRepository productRepository;
     private final StockMovementRepository stockMovementRepository;
-    private final InventoryStockReceiptService inventoryStockReceiptService;
+    private final ManualStockMovementService manualStockMovementService;
 
     @GetMapping("/products")
     public ResponseEntity<Page<ProductStockSummaryDto>> getProductsWithStockSummary(
@@ -185,10 +185,6 @@ public class WarehouseStockController {
 
         stock.addMovement(movement);
         stock = warehouseStockRepository.save(stock);
-        if (MovementType.IN.equals(request.getMovementType())) {
-            inventoryStockReceiptService.afterWarehouseStockMovement(
-                    stock.getProduct(), stock.getWarehouse(), request.getMovementType());
-        }
 
         return ResponseEntity.ok(convertToMovementDto(movement));
     }
@@ -196,37 +192,7 @@ public class WarehouseStockController {
     @PostMapping("/movements")
     public ResponseEntity<StockMovementDto> createMovementByWarehouse(
             @Valid @RequestBody CreateStockMovementByWarehouseDto request) {
-        
-        Warehouse warehouse = warehouseRepository.findById(request.getWarehouseId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Depo bulunamadı"));
-        
-        Product product = productRepository.findById(request.getProductId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ürün bulunamadı"));
-
-        // Stok kaydını bul veya oluştur
-        WarehouseStock stock = warehouseStockRepository.findByWarehouseAndProduct(warehouse, product)
-                .orElseGet(() -> {
-                    WarehouseStock newStock = new WarehouseStock();
-                    newStock.setWarehouse(warehouse);
-                    newStock.setProduct(product);
-                    newStock.setCurrentStock(0);
-                    return warehouseStockRepository.save(newStock);
-                });
-
-        StockMovement movement = new StockMovement();
-        movement.setQuantity(request.getQuantity());
-        movement.setMovementType(request.getMovementType());
-        movement.setReferenceType(request.getReferenceType());
-        movement.setReferenceId(request.getReferenceId());
-        movement.setNotes(request.getNotes());
-
-        stock.addMovement(movement);
-        stock = warehouseStockRepository.save(stock);
-        if (MovementType.IN.equals(request.getMovementType())) {
-            inventoryStockReceiptService.afterWarehouseStockMovement(product, warehouse, request.getMovementType());
-        }
-
-        return ResponseEntity.ok(convertToMovementDto(movement));
+        return ResponseEntity.ok(manualStockMovementService.createManualMovement(request));
     }
 
     @GetMapping("/{stockId}/movements")

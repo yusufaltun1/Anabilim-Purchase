@@ -69,6 +69,7 @@ public class ProductServiceImpl implements ProductService {
         saveProductImages(product, createDto.getImageUrls(), createDto.getImageUrl());
 
         if (isSerialTracked(product)) {
+            validateAssetCreationFields(createDto);
             createStockItemFromDto(product, createDto);
         }
 
@@ -203,6 +204,18 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Tedarikçi bulunamadı: " + supplierId));
         product.removeSupplier(supplier);
         productRepository.save(product);
+    }
+
+    private void validateAssetCreationFields(CreateProductDto dto) {
+        if (dto.getSerialNumber() == null || dto.getSerialNumber().isBlank()) {
+            throw new ValidationException("Seri numarası zorunludur");
+        }
+        if (dto.getDeviceModelId() == null) {
+            throw new ValidationException("Model seçimi zorunludur");
+        }
+        if (dto.getDefaultParentLocationId() == null) {
+            throw new ValidationException("Konum seçimi zorunludur");
+        }
     }
 
     private void createStockItemFromDto(Product product, CreateProductDto dto) {

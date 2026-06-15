@@ -5,6 +5,7 @@ import com.anabilim.purchase.entity.DeviceModel;
 import com.anabilim.purchase.entity.Product;
 import com.anabilim.purchase.entity.ProductImage;
 import com.anabilim.purchase.entity.StockItem;
+import com.anabilim.purchase.entity.enums.StockItemStatus;
 import com.anabilim.purchase.entity.enums.StockTrackingType;
 import com.anabilim.purchase.repository.ProductImageRepository;
 import com.anabilim.purchase.repository.StockItemRepository;
@@ -12,7 +13,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,16 +56,85 @@ public class ProductInventoryService {
             boolean assetLike = StockTrackingType.SERIAL_NUMBER.equals(tracking)
                     || StockTrackingType.QUANTITY_REUSABLE.equals(tracking);
             if (assetLike) {
-                stockItemRepository.findFirstByProductIdAndIsActiveTrueOrderByIdAsc(product.getId())
-                        .ifPresent(item -> applyStockItem(dto, item));
+                applyAssetAssignability(dto, product);
             } else {
-                dto.setCanAssign(product.getCurrentStock() != null && product.getCurrentStock() > 0);
-                dto.setMustReturnFirst(false);
+                applyConsumableAssignability(dto, product);
             }
         } else {
-            dto.setCanAssign(product.getCurrentStock() != null && product.getCurrentStock() > 0);
-            dto.setMustReturnFirst(false);
+            applyConsumableAssignability(dto, product);
         }
+    }
+
+    private void applyConsumableAssignability(ProductDto dto, Product product) {
+        boolean hasStock = product.getCurrentStock() != null && product.getCurrentStock() > 0;
+        dto.setCanAssign(hasStock);
+        dto.setMustReturnFirst(false);
+        if (!hasStock) {
+            dto.setAssignBlockers(List.of("Depoda stok bulunmuyor"));
+        } else {
+            dto.setAssignBlockers(List.of());
+        }
+    }
+
+    private void applyAssetAssignability(ProductDto dto, Product product) {
+        List<StockItem> activeItems = stockItemRepository.findByProductIdOrderByIdAsc(product.getId()).stream()
+                .filter(StockItem::isActive)
+                .toList();
+
+        if (activeItems.isEmpty()) {
+            dto.setCanAssign(false);
+            dto.setMustReturnFirst(false);
+            dto.setAssignBlockers(List.of("Bu ürün için kayıtlı cihaz bulunamadı"));
+            return;
+        }
+
+        activeItems.stream().findFirst().ifPresent(item -> applyStockItem(dto, item));
+
+        boolean anyAssignable = activeItems.stream()
+                .anyMatch(item -> assetConditionSupport.isAssignable(item) && item.getCurrentWarehouse() != null);
+
+        if (anyAssignable) {
+            dto.setCanAssign(true);
+            dto.setMustReturnFirst(false);
+            dto.setAssignBlockers(List.of());
+            return;
+        }
+
+        Set<String> blockers = new LinkedHashSet<>();
+        boolean anyAssigned = activeItems.stream().anyMatch(StockItem::isAssigned);
+        for (StockItem item : activeItems) {
+            blockers.addAll(collectStockItemAssignBlockers(item));
+        }
+        dto.setCanAssign(false);
+        dto.setMustReturnFirst(anyAssigned);
+        dto.setAssignBlockers(new ArrayList<>(blockers));
+    }
+
+    private List<String> collectStockItemAssignBlockers(StockItem item) {
+        List<String> blockers = new ArrayList<>();
+        if (item == null) {
+            return blockers;
+        }
+
+        StockItemStatus status = item.getStatus();
+        if (StockItemStatus.ASSIGNED.equals(status) || StockItemStatus.IN_USE.equals(status)) {
+            blockers.add("Cihaz atanmış veya kullanımda; önce depoya iade edilmeli");
+        } else if (!StockItemStatus.IN_STOCK.equals(status)) {
+            String statusLabel = status != null ? status.getDisplayName() : "bilinmiyor";
+            blockers.add("Cihaz depoda değil (durum: " + statusLabel + ")");
+        }
+
+        if (item.getAssetCondition() == null) {
+            blockers.add("Cihaz durumu tanımlı değil (ör. Hazır)");
+        } else if (!Boolean.TRUE.equals(item.getAssetCondition().getAllowsAssignment())) {
+            blockers.add("Cihaz durumu zimmete uygun değil: " + item.getAssetCondition().getName());
+        }
+
+        if (item.getCurrentWarehouse() == null) {
+            blockers.add("Cihaz bir depoya bağlı değil");
+        }
+
+        return blockers;
     }
 
     public void enrichProductDtoList(List<ProductDto> dtos, List<Product> products) {

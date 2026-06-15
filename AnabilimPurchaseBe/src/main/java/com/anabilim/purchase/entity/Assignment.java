@@ -80,6 +80,18 @@ public class Assignment {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "signed_form_file_name")
+    private String signedFormFileName;
+
+    @Column(name = "signed_form_content_type")
+    private String signedFormContentType;
+
+    @Column(name = "signed_form_stored_path")
+    private String signedFormStoredPath;
+
+    @Column(name = "signed_form_uploaded_at")
+    private LocalDateTime signedFormUploadedAt;
     
     // Yardımcı metodlar
     public boolean isActive() {

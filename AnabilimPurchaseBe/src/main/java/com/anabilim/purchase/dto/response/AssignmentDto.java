@@ -67,4 +67,10 @@ public class AssignmentDto {
     private boolean isLocationAssignment;
     
     private boolean canBeReturned;
+
+    private boolean hasSignedForm;
+
+    private String signedFormFileName;
+
+    private LocalDateTime signedFormUploadedAt;
 }

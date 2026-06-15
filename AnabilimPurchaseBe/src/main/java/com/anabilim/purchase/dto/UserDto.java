@@ -36,6 +36,18 @@ public class UserDto {
     @NotBlank(message = "Pozisyon boş olamaz")
     private String position;
 
+    private String workLocation;
+
+    private Long workLocationParentId;
+
+    private Long workLocationChildId;
+
+    private String workLocationName;
+
+    private Long schoolId;
+
+    private String schoolName;
+
     private String phone;
 
     private UserManagerDto manager;

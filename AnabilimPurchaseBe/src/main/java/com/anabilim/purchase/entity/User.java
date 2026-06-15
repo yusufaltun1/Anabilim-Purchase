@@ -19,7 +19,7 @@ import java.util.Set;
 @Table(name = "users")
 @Getter
 @Setter
-@ToString(exclude = {"manager", "subordinates", "roles", "school"})
+@ToString(exclude = {"manager", "subordinates", "roles", "school", "workLocationParent", "workLocationChild"})
 public class User {
     
     @Id
@@ -52,6 +52,17 @@ public class User {
     
     @Column(name = "position")
     private String position;
+
+    @Column(name = "work_location")
+    private String workLocation;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "work_location_parent_id")
+    private Location workLocationParent;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "work_location_child_id")
+    private Location workLocationChild;
     
     @Column(name = "phone")
     private String phone;

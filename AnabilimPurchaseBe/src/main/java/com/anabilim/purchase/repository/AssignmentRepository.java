@@ -91,4 +91,22 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
 
     @Query("SELECT a.product.category.id, COUNT(a) FROM Assignment a WHERE a.status = 'ACTIVE' AND a.isActive = true AND a.product.category.id IS NOT NULL GROUP BY a.product.category.id")
     List<Object[]> countActiveAssignmentsGroupByCategoryId();
+
+    @Query("SELECT a FROM Assignment a " +
+            "LEFT JOIN FETCH a.product p " +
+            "LEFT JOIN FETCH p.deviceModel " +
+            "LEFT JOIN FETCH a.stockItem si " +
+            "LEFT JOIN FETCH si.deviceModel " +
+            "LEFT JOIN FETCH si.school " +
+            "LEFT JOIN FETCH si.defaultParentLocation " +
+            "LEFT JOIN FETCH si.defaultChildLocation " +
+            "LEFT JOIN FETCH a.assignedUser u " +
+            "LEFT JOIN FETCH u.school " +
+            "LEFT JOIN FETCH u.workLocationParent " +
+            "LEFT JOIN FETCH u.workLocationChild wlc " +
+            "LEFT JOIN FETCH wlc.parent wlcm " +
+            "LEFT JOIN FETCH wlcm.parent " +
+            "LEFT JOIN FETCH a.assignedLocation " +
+            "WHERE a.id = :id")
+    Optional<Assignment> findByIdWithDetails(@Param("id") Long id);
 }

@@ -172,11 +172,20 @@ public class MicrosoftGraphUserListService {
         }
         localUser.setPhone(phone);
 
-        if (localUser.getDepartment() == null || localUser.getDepartment().isBlank()) {
-            localUser.setDepartment(graphUser.getOfficeLocation() != null ? graphUser.getOfficeLocation() : "Unknown");
+        if (graphUser.getDepartment() != null && !graphUser.getDepartment().isBlank()) {
+            localUser.setDepartment(graphUser.getDepartment());
+        } else if (localUser.getDepartment() == null || localUser.getDepartment().isBlank()
+                || "unknown".equalsIgnoreCase(localUser.getDepartment().trim())) {
+            localUser.setDepartment(null);
         }
-        if (localUser.getPosition() == null || localUser.getPosition().isBlank()) {
-            localUser.setPosition("Unknown");
+        if (graphUser.getOfficeLocation() != null && !graphUser.getOfficeLocation().isBlank()) {
+            localUser.setWorkLocation(graphUser.getOfficeLocation());
+        }
+        if (localUser.getPosition() == null || localUser.getPosition().isBlank()
+                || "unknown".equalsIgnoreCase(localUser.getPosition().trim())) {
+            localUser.setPosition(
+                    graphUser.getJobTitle() != null && !graphUser.getJobTitle().isBlank()
+                            ? graphUser.getJobTitle() : null);
         }
 
         localUser.setIsActive(graphUser.getAccountEnabled() == null || graphUser.getAccountEnabled());

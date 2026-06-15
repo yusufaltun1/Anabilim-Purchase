@@ -3,12 +3,18 @@ package com.anabilim.purchase.controller;
 import com.anabilim.purchase.dto.ApiResponse;
 import com.anabilim.purchase.dto.request.CreateAssignmentDto;
 import com.anabilim.purchase.dto.response.AssignmentDto;
+import com.anabilim.purchase.dto.response.AssignmentSignedFormDto;
+import com.anabilim.purchase.dto.response.AttachmentDownloadResult;
 import com.anabilim.purchase.entity.enums.AssignmentStatus;
+import com.anabilim.purchase.service.AssignmentFormService;
 import com.anabilim.purchase.service.AssignmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -18,6 +24,7 @@ import java.util.List;
 public class AssignmentController {
     
     private final AssignmentService assignmentService;
+    private final AssignmentFormService assignmentFormService;
     
     // ========== CRUD İşlemleri ==========
     
@@ -137,6 +144,39 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.success("Süresi dolmuş zimmetler listelendi", assignments));
     }
     
+    // ========== Zimmet Formu ==========
+
+    @GetMapping("/{id}/form/download")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadAssignmentForm(@PathVariable Long id) {
+        AttachmentDownloadResult result = assignmentFormService.downloadFilledForm(id);
+        MediaType mediaType = MediaType.parseMediaType(
+                result.getContentType() != null ? result.getContentType()
+                        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.getFileName() + "\"")
+                .body(result.getResource());
+    }
+
+    @PostMapping(value = "/{id}/form/signed", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<AssignmentSignedFormDto>> uploadSignedAssignmentForm(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        AssignmentSignedFormDto dto = assignmentFormService.uploadSignedForm(id, file);
+        return ResponseEntity.ok(ApiResponse.success("İmzalı zimmet formu yüklendi", dto));
+    }
+
+    @GetMapping("/{id}/form/signed")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadSignedAssignmentForm(@PathVariable Long id) {
+        AttachmentDownloadResult result = assignmentFormService.downloadSignedForm(id);
+        MediaType mediaType = MediaType.parseMediaType(
+                result.getContentType() != null ? result.getContentType() : "application/octet-stream");
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.getFileName() + "\"")
+                .body(result.getResource());
+    }
+
     // ========== Zimmet İşlemleri ==========
     
     @PostMapping("/{id}/return")

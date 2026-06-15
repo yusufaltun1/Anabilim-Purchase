@@ -8,6 +8,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -32,4 +34,13 @@ public class CreateStockMovementByWarehouseDto {
     
     @Size(max = 500, message = "Notlar en fazla 500 karakter olabilir")
     private String notes;
+
+    /** Demirbaş çıkışında seçilen cihaz */
+    private Long stockItemId;
+
+    /** Tek seri numarası (geriye dönük uyumluluk) */
+    private String serialNumber;
+
+    /** Demirbaş / yarı demirbaş giriş seri numaraları */
+    private List<String> serialNumbers;
 } 

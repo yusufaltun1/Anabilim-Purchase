@@ -66,6 +66,7 @@ export interface Product {
   currentStock?: number;
   canAssign?: boolean;
   mustReturnFirst?: boolean;
+  assignBlockers?: string[];
   ipAddress?: string;
   macAddress?: string;
   warrantyExpiryDate?: string;

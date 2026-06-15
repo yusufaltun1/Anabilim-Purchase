@@ -80,6 +80,10 @@ public class AssignmentMapper {
         dto.setUserAssignment(entity.isUserAssignment());
         dto.setLocationAssignment(entity.isLocationAssignment());
         dto.setCanBeReturned(entity.canBeReturned());
+
+        dto.setHasSignedForm(entity.getSignedFormStoredPath() != null && !entity.getSignedFormStoredPath().isBlank());
+        dto.setSignedFormFileName(entity.getSignedFormFileName());
+        dto.setSignedFormUploadedAt(entity.getSignedFormUploadedAt());
         
         return dto;
     }

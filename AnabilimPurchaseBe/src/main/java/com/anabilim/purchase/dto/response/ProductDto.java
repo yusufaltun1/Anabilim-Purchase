@@ -63,6 +63,8 @@ public class ProductDto {
     private Integer currentStock;
     private boolean canAssign;
     private boolean mustReturnFirst;
+    /** Zimmet edilememe nedenleri (canAssign false iken dolu) */
+    private List<String> assignBlockers;
     
     @Data
     @NoArgsConstructor

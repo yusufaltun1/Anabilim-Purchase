@@ -31,7 +31,7 @@ import { Supplier } from '../../types/supplier';
 import { getUnitToLabel } from '../../types/enums';
 import { resolveCategoryStockSettings } from '../../utils/categoryStockDefaults';
 import { PRODUCT_FIELD_LABELS } from '../../utils/apiErrors';
-import { resolveProductType } from '../../utils/productType';
+import { isAssetProductType, resolveProductType } from '../../utils/productType';
 
 type Mode = 'create' | 'edit';
 
@@ -97,6 +97,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
   );
 
   const effectiveProductType = resolveProductType(selectedCategory?.productType ?? form.productType);
+  const assetFieldsRequired = mode === 'create' && isAssetProductType(effectiveProductType);
 
   useEffect(() => {
     (async () => {
@@ -269,6 +270,23 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     };
   };
 
+  const validateAssetFields = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    if (!form.code.trim()) {
+      errors.code = 'Demirbaş etiketi için ürün kodu zorunludur';
+    }
+    if (!form.serialNumber?.trim()) {
+      errors.serialNumber = 'Seri no zorunludur';
+    }
+    if (!form.deviceModelId) {
+      errors.deviceModelId = 'Model seçimi zorunludur';
+    }
+    if (!locationRootId) {
+      errors.defaultParentLocationId = 'Konum seçimi zorunludur';
+    }
+    return errors;
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.categoryId) {
@@ -278,6 +296,14 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     if (!form.code.trim()) {
       setError('Ürün kodu (iç SKU) zorunludur');
       return;
+    }
+    if (assetFieldsRequired) {
+      const assetErrors = validateAssetFields();
+      if (Object.keys(assetErrors).length > 0) {
+        setFieldErrors(assetErrors);
+        setError('Lütfen zorunlu demirbaş alanlarını doldurun');
+        return;
+      }
     }
     try {
       setLoading(true);
@@ -479,7 +505,12 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                 </select>
               </FormField>
 
-              <FormField label="Demirbaş etiketi" hint="Ürün kodu ile aynıdır">
+              <FormField
+                label="Demirbaş etiketi"
+                required={assetFieldsRequired}
+                hint="Ürün kodu ile aynıdır"
+                error={fieldError(fieldErrors, 'code', 'assetLabel')}
+              >
                 <input
                   readOnly
                   className={`${formInput} bg-gray-50 text-gray-600`}
@@ -490,6 +521,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
 
               <FormField
                 label="Seri no"
+                required={assetFieldsRequired}
                 error={fieldError(fieldErrors, 'serialNumber', 'serialnumber')}
               >
                 <input
@@ -499,7 +531,11 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                 />
               </FormField>
 
-              <FormField label="Marka / model">
+              <FormField
+                label="Marka / model"
+                required={assetFieldsRequired}
+                error={fieldError(fieldErrors, 'deviceModelId')}
+              >
                 <InputWithButton
                   button={
                     <button type="button" className={btnInlinePrimary} onClick={() => setShowDeviceModelModal(true)}>
@@ -508,7 +544,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                   }
                 >
                   <select
-                    className={formSelect}
+                    className={`${formSelect}${fieldError(fieldErrors, 'deviceModelId') ? ' border-red-500' : ''}`}
                     value={form.deviceModelId ?? ''}
                     onChange={(e) => {
                       const id = e.target.value ? Number(e.target.value) : null;
@@ -583,7 +619,12 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                 />
               </FormField>
 
-              <FormField label="Konum" className="sm:col-span-2">
+              <FormField
+                label="Konum"
+                required={assetFieldsRequired}
+                className="sm:col-span-2"
+                error={fieldError(fieldErrors, 'defaultParentLocationId', 'defaultChildLocationId')}
+              >
                 <InputWithButton
                   button={
                     <button type="button" className={btnInlinePrimary} onClick={createLocation}>
