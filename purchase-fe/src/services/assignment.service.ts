@@ -1,4 +1,6 @@
+import { API_CONFIG } from '../config/api.config';
 import { axiosInstance } from './axios-instance';
+import { authService } from './auth.service';
 import { 
   Assignment, 
   AssignmentResponse, 
@@ -26,12 +28,13 @@ class AssignmentService {
     });
     
     try {
-      const response = await axiosInstance.post<Assignment>(this.baseUrl, request);
+      const response = await axiosInstance.post<{ data?: Assignment } & Assignment>(this.baseUrl, request);
       console.log('AssignmentService - createAssignment success response:', response.data);
+      const created = (response.data as { data?: Assignment }).data ?? (response.data as Assignment);
       return {
         success: true,
         message: 'Zimmet başarıyla oluşturuldu',
-        data: response.data,
+        data: created,
         timestamp: new Date().toISOString()
       };
     } catch (error: any) {
@@ -328,6 +331,72 @@ class AssignmentService {
       data: response.data,
       timestamp: new Date().toISOString()
     };
+  }
+
+  private getAuthHeaders(): HeadersInit {
+    const token = authService.getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  private triggerBlobDownload(blob: Blob, fileName: string) {
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  }
+
+  async downloadAssignmentForm(assignmentId: number): Promise<void> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/${assignmentId}/form/download`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message || 'Zimmet formu indirilemedi');
+    }
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let fileName = `Zimmet_Formu_${assignmentId}.xlsx`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) fileName = match[1].trim();
+    }
+    this.triggerBlobDownload(blob, fileName);
+  }
+
+  async uploadSignedAssignmentForm(assignmentId: number, file: File): Promise<void> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/${assignmentId}/form/signed`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: formData,
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message || 'İmzalı form yüklenemedi');
+    }
+  }
+
+  async downloadSignedAssignmentForm(assignmentId: number): Promise<void> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/${assignmentId}/form/signed`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message || 'İmzalı form indirilemedi');
+    }
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let fileName = `imzali-zimmet-${assignmentId}`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) fileName = match[1].trim();
+    }
+    this.triggerBlobDownload(blob, fileName);
   }
 }
 

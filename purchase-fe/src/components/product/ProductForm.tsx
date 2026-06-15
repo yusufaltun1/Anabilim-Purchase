@@ -24,10 +24,12 @@ import {
 import { productService } from '../../services/product.service';
 import { schoolService } from '../../services/school.service';
 import { supplierService } from '../../services/supplier.service';
+import { warehouseService } from '../../services/warehouse.service';
 import { Category, CATEGORY_PRODUCT_TYPE_OPTIONS } from '../../types/category';
 import { CreateProductRequest, Product, ProductType, UpdateProductRequest } from '../../types/product';
 import { School } from '../../types/school';
 import { Supplier } from '../../types/supplier';
+import { Warehouse } from '../../types/warehouse';
 import { getUnitToLabel } from '../../types/enums';
 import { resolveCategoryStockSettings } from '../../utils/categoryStockDefaults';
 import { PRODUCT_FIELD_LABELS } from '../../utils/apiErrors';
@@ -78,6 +80,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Category[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [form, setForm] = useState<CreateProductRequest>(emptyForm());
   const [active, setActive] = useState(true);
@@ -116,11 +119,12 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
 
   const loadMasters = async (): Promise<Category[]> => {
     try {
-      const [catsRes, models, conds, schoolList] = await Promise.all([
+      const [catsRes, models, conds, schoolList, warehouseList] = await Promise.all([
         categoryService.getActiveCategories(),
         inventoryService.getDeviceModels().catch(() => []),
         inventoryService.getAssetConditions().catch(() => []),
         schoolService.getActiveSchools().catch(() => []),
+        warehouseService.getActiveWarehouses().catch(() => []),
       ]);
       let loadedCategories: Category[] = [];
       if (catsRes.success && catsRes.data) {
@@ -137,6 +141,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
       setDeviceModels(models);
       setConditions(conds);
       setSchools(schoolList);
+      setWarehouses(warehouseList);
       return loadedCategories;
     } catch {
       setError('Form verileri yüklenirken hata oluştu');
@@ -255,9 +260,12 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
   const buildPayload = () => {
     const code = form.code.trim().toUpperCase();
     const locationFields = resolveProductLocationPayload(locationRootId, locationMiddleId, locationLeafId);
+    const warehouseId =
+      form.warehouseId ?? (warehouses.length === 1 ? warehouses[0].id : null);
     return {
       ...form,
       ...locationFields,
+      warehouseId,
       code,
       assetLabel: code,
       productType: (resolveProductType(selectedCategory?.productType ?? form.productType) ||
@@ -283,6 +291,9 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     }
     if (!locationRootId) {
       errors.defaultParentLocationId = 'Konum seçimi zorunludur';
+    }
+    if (warehouses.length > 1 && !form.warehouseId) {
+      errors.warehouseId = 'Depo seçimi zorunludur';
     }
     return errors;
   };
@@ -504,6 +515,28 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                   ))}
                 </select>
               </FormField>
+
+              {warehouses.length > 0 && (
+                <FormField
+                  label="Depo"
+                  required={assetFieldsRequired && warehouses.length > 1}
+                  hint={warehouses.length === 1 ? 'Tek depo olduğu için otomatik seçilir' : undefined}
+                  error={fieldError(fieldErrors, 'warehouseId')}
+                >
+                  <select
+                    className={`${formSelect}${fieldError(fieldErrors, 'warehouseId') ? ' border-red-500' : ''}`}
+                    value={form.warehouseId ?? (warehouses.length === 1 ? warehouses[0].id : '')}
+                    onChange={(e) =>
+                      setForm({ ...form, warehouseId: e.target.value ? Number(e.target.value) : null })
+                    }
+                  >
+                    <option value="">Depo seç</option>
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
+                </FormField>
+              )}
 
               <FormField
                 label="Demirbaş etiketi"

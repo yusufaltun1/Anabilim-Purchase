@@ -34,6 +34,9 @@ export interface Assignment {
   userAssignment: boolean;
   locationAssignment: boolean;
   canBeReturned: boolean;
+  hasSignedForm?: boolean;
+  signedFormFileName?: string;
+  signedFormUploadedAt?: string;
 }
 
 export interface CreateAssignmentRequest {

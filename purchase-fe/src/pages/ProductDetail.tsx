@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { productService } from '../services/product.service';
@@ -58,6 +58,10 @@ export const ProductDetail = () => {
     quantity: 1
   });
   const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [signedFormUploadingId, setSignedFormUploadingId] = useState<number | null>(null);
+  const [formDownloadingId, setFormDownloadingId] = useState<number | null>(null);
+  const signedFormInputRef = useRef<HTMLInputElement>(null);
+  const [pendingSignedUploadAssignmentId, setPendingSignedUploadAssignmentId] = useState<number | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -257,6 +261,52 @@ export const ProductDetail = () => {
     }
   };
 
+  const handleDownloadAssignmentForm = async (assignmentId: number) => {
+    try {
+      setFormDownloadingId(assignmentId);
+      await assignmentService.downloadAssignmentForm(assignmentId);
+    } catch (err: unknown) {
+      showNotification(err instanceof Error ? err.message : 'Zimmet formu indirilemedi', 'error');
+    } finally {
+      setFormDownloadingId(null);
+    }
+  };
+
+  const handleUploadSignedFormClick = (assignmentId: number) => {
+    setPendingSignedUploadAssignmentId(assignmentId);
+    signedFormInputRef.current?.click();
+  };
+
+  const handleSignedFormSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const assignmentId = pendingSignedUploadAssignmentId;
+    e.target.value = '';
+    setPendingSignedUploadAssignmentId(null);
+    if (!file || !assignmentId) return;
+
+    try {
+      setSignedFormUploadingId(assignmentId);
+      await assignmentService.uploadSignedAssignmentForm(assignmentId, file);
+      await loadAssignments();
+      showNotification('İmzalı zimmet formu yüklendi', 'success');
+    } catch (err: unknown) {
+      showNotification(err instanceof Error ? err.message : 'İmzalı form yüklenemedi', 'error');
+    } finally {
+      setSignedFormUploadingId(null);
+    }
+  };
+
+  const handleDownloadSignedForm = async (assignmentId: number) => {
+    try {
+      setFormDownloadingId(assignmentId);
+      await assignmentService.downloadSignedAssignmentForm(assignmentId);
+    } catch (err: unknown) {
+      showNotification(err instanceof Error ? err.message : 'İmzalı form indirilemedi', 'error');
+    } finally {
+      setFormDownloadingId(null);
+    }
+  };
+
   const handleCreateAssignment = async () => {
     try {
       setAssignmentLoading(true);
@@ -318,10 +368,22 @@ export const ProductDetail = () => {
         })
       };
 
-      await assignmentService.createAssignment(request);
+      const createResult = await assignmentService.createAssignment(request);
+      const createdAssignment = createResult.data && !Array.isArray(createResult.data)
+        ? createResult.data
+        : null;
       
       // Zimmet listesini ve stok itemlarını yenile
       await Promise.all([loadAssignments(), loadStockItems()]);
+
+      if (createdAssignment?.id) {
+        try {
+          await assignmentService.downloadAssignmentForm(createdAssignment.id);
+          showNotification('Zimmet oluşturuldu. Form indirildi; imzalı halini yükleyebilirsiniz.', 'success');
+        } catch {
+          showNotification('Zimmet oluşturuldu ancak form indirilemedi. Listeden tekrar indirebilirsiniz.', 'error');
+        }
+      }
       
       // Modal'ı kapat ve formu sıfırla
       setShowAssignmentModal(false);
@@ -341,7 +403,9 @@ export const ProductDetail = () => {
       setUserSearchTerm('');
       setFilteredUsers(users);
       
-      showNotification(`Zimmet başarıyla oluşturuldu! ${assignmentForm.quantity || 1} adet depodan çıkış yapıldı.`, 'success');
+      if (!createdAssignment?.id) {
+        showNotification(`Zimmet başarıyla oluşturuldu! ${assignmentForm.quantity || 1} adet depodan çıkış yapıldı.`, 'success');
+      }
     } catch (err: any) {
       console.error('Error creating assignment:', err);
       showNotification('Zimmet oluşturulurken hata oluştu', 'error');
@@ -783,6 +847,7 @@ export const ProductDetail = () => {
           {product && (
             <ProductStockMovementSection
               productId={product.id}
+              productType={product.productType}
               onStockChanged={() => {
                 loadStockItems();
                 loadProductData();
@@ -801,13 +866,7 @@ export const ProductDetail = () => {
           </div>
           <button
             onClick={() => {
-              if (!product?.canAssign) {
-                showNotification(
-                  'Zimmet için cihaz depoda ve durumu zimmete uygun (Hazır) olmalıdır.',
-                  'error'
-                );
-                return;
-              }
+              if (!product?.canAssign) return;
               setShowAssignmentModal(true);
               loadStockItems();
               loadUsers();
@@ -817,16 +876,23 @@ export const ProductDetail = () => {
               setFilteredUsers([]);
             }}
             disabled={!product?.canAssign}
-            title={
-              product?.canAssign
-                ? undefined
-                : 'Durum Hazır değil, cihaz depoda değil veya stok yok'
-            }
             className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Zimmet Et
           </button>
         </div>
+        {!product?.canAssign && (
+          <div className="mx-4 mb-4 sm:mx-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm font-medium text-amber-900">Zimmet şu an yapılamıyor</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-800">
+              {(product.assignBlockers?.length ? product.assignBlockers : ['Zimmet koşulları sağlanmıyor']).map(
+                (reason) => (
+                  <li key={reason}>{reason}</li>
+                )
+              )}
+            </ul>
+          </div>
+        )}
         <div className="border-t border-gray-200">
           {assignmentsLoading ? (
             <div className="px-4 py-8 sm:px-6">
@@ -856,6 +922,9 @@ export const ProductDetail = () => {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Notlar
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Zimmet Formu
                     </th>
                   </tr>
                 </thead>
@@ -910,10 +979,47 @@ export const ProductDetail = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {assignment.notes || '-'}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadAssignmentForm(assignment.id)}
+                            disabled={formDownloadingId === assignment.id}
+                            className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 text-left"
+                          >
+                            {formDownloadingId === assignment.id ? 'İndiriliyor…' : 'Formu indir'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUploadSignedFormClick(assignment.id)}
+                            disabled={signedFormUploadingId === assignment.id}
+                            className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 text-left"
+                          >
+                            {signedFormUploadingId === assignment.id ? 'Yükleniyor…' : 'İmzalı yükle'}
+                          </button>
+                          {assignment.hasSignedForm && (
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadSignedForm(assignment.id)}
+                              disabled={formDownloadingId === assignment.id}
+                              className="text-green-700 hover:text-green-900 disabled:opacity-50 text-left"
+                            >
+                              İmzalı indir
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              <input
+                ref={signedFormInputRef}
+                type="file"
+                accept=".xlsx,.pdf,image/*"
+                className="hidden"
+                onChange={handleSignedFormSelected}
+              />
             </div>
           ) : (
             <div className="px-4 py-8 sm:px-6">

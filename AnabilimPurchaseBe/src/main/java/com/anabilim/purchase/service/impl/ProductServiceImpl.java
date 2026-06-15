@@ -4,12 +4,12 @@ import com.anabilim.purchase.dto.request.CreateProductDto;
 import com.anabilim.purchase.dto.request.UpdateProductDto;
 import com.anabilim.purchase.dto.response.ProductDto;
 import com.anabilim.purchase.entity.*;
+import com.anabilim.purchase.entity.enums.MovementType;
 import com.anabilim.purchase.entity.enums.StockTrackingType;
 import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.mapper.ProductMapper;
 import com.anabilim.purchase.repository.*;
-import com.anabilim.purchase.service.AssetConditionSupport;
 import com.anabilim.purchase.service.AssetConditionSupport;
 import com.anabilim.purchase.service.ProductInventoryService;
 import com.anabilim.purchase.service.ProductService;
@@ -40,6 +40,8 @@ public class ProductServiceImpl implements ProductService {
     private final LocationRepository locationRepository;
     private final PurchaseRequestRepository purchaseRequestRepository;
     private final SchoolRepository schoolRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final WarehouseStockRepository warehouseStockRepository;
     private final ProductInventoryService productInventoryService;
     private final AssetConditionSupport assetConditionSupport;
 
@@ -111,7 +113,10 @@ public class ProductServiceImpl implements ProductService {
                         return si;
                     });
             updateStockItemFromUpdateDto(item, updateDto);
-            stockItemRepository.save(item);
+            if (updateDto.getAssetConditionId() == null && item.getAssetCondition() == null) {
+                assetConditionSupport.applyReadyState(item);
+            }
+            receiveStockItemIfNeeded(savedProduct, item, updateDto.getWarehouseId());
         }
 
         ProductDto dto = productMapper.toDto(savedProduct); 
@@ -219,6 +224,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private void createStockItemFromDto(Product product, CreateProductDto dto) {
+        Warehouse warehouse = resolveWarehouseForIntake(dto.getWarehouseId());
         StockItem item = new StockItem();
         item.setProduct(product);
         item.setSerialNumber(dto.getSerialNumber() != null ? dto.getSerialNumber() : product.getSerialNumber());
@@ -226,6 +232,7 @@ public class ProductServiceImpl implements ProductService {
         item.setDomainName(dto.getDomainName());
         item.setIpAddress(dto.getIpAddress());
         item.setMacAddress(dto.getMacAddress());
+        item.setCurrentWarehouse(warehouse);
         applyStockItemProcurement(item, dto.getNotes(), dto.getPurchaseDate(), dto.getPurchasePrice(),
                 dto.getOrderNumber(), dto.getByod(), dto.getWarrantyMonths(), dto.getLifespanEndDate(),
                 dto.getWarrantyExpiryDate(), dto.getSchoolId());
@@ -235,6 +242,7 @@ public class ProductServiceImpl implements ProductService {
             assetConditionSupport.applyReadyState(item);
         }
         stockItemRepository.save(item);
+        recordStockInMovement(product, warehouse, item);
     }
 
     private void updateStockItemFromUpdateDto(StockItem item, UpdateProductDto dto) {
@@ -356,6 +364,63 @@ public class ProductServiceImpl implements ProductService {
         if (category.getCurrency() != null && !category.getCurrency().isBlank()) {
             product.setCurrency(category.getCurrency());
         }
+    }
+
+    private void receiveStockItemIfNeeded(Product product, StockItem item, Long warehouseId) {
+        if (item.getCurrentWarehouse() != null) {
+            stockItemRepository.save(item);
+            return;
+        }
+        if (!isAssetIntakeComplete(item)) {
+            stockItemRepository.save(item);
+            return;
+        }
+        Warehouse warehouse = resolveWarehouseForIntake(warehouseId);
+        item.setCurrentWarehouse(warehouse);
+        stockItemRepository.save(item);
+        recordStockInMovement(product, warehouse, item);
+    }
+
+    private boolean isAssetIntakeComplete(StockItem item) {
+        return item.getSerialNumber() != null && !item.getSerialNumber().isBlank()
+                && item.getDeviceModel() != null
+                && item.getDefaultParentLocation() != null;
+    }
+
+    private Warehouse resolveWarehouseForIntake(Long warehouseId) {
+        if (warehouseId != null) {
+            Warehouse warehouse = warehouseRepository.findById(warehouseId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Depo bulunamadı: " + warehouseId));
+            if (!warehouse.isActive()) {
+                throw new ValidationException("Seçilen depo aktif değil");
+            }
+            return warehouse;
+        }
+        List<Warehouse> activeWarehouses = warehouseRepository.findAllByIsActiveTrue();
+        if (activeWarehouses.isEmpty()) {
+            throw new ValidationException("Demirbaş depo girişi için en az bir aktif depo tanımlanmalıdır");
+        }
+        return activeWarehouses.get(0);
+    }
+
+    private void recordStockInMovement(Product product, Warehouse warehouse, StockItem item) {
+        WarehouseStock warehouseStock = warehouseStockRepository.findByWarehouseAndProduct(warehouse, product)
+                .orElseGet(() -> {
+                    WarehouseStock created = new WarehouseStock();
+                    created.setWarehouse(warehouse);
+                    created.setProduct(product);
+                    return warehouseStockRepository.save(created);
+                });
+
+        String serial = item.getSerialNumber() != null ? item.getSerialNumber() : ("#" + item.getId());
+        StockMovement movement = new StockMovement();
+        movement.setQuantity(1);
+        movement.setMovementType(MovementType.IN);
+        movement.setReferenceType("PRODUCT");
+        movement.setReferenceId(product.getId());
+        movement.setNotes("Ürün oluşturma — SN: " + serial);
+        warehouseStock.addMovement(movement);
+        warehouseStockRepository.save(warehouseStock);
     }
 
 }

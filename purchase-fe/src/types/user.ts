@@ -5,6 +5,12 @@ export interface User {
   lastName: string;
   department: string;
   position: string;
+  workLocation?: string;
+  workLocationParentId?: number | null;
+  workLocationChildId?: number | null;
+  workLocationName?: string;
+  schoolId?: number | null;
+  schoolName?: string;
   phone: string;
   roles: string[];
   isActive?: boolean;
@@ -36,6 +42,9 @@ export interface UpdateUserRequest {
   lastName: string;
   department: string;
   position: string;
+  workLocation?: string;
+  workLocationParentId?: number | null;
+  workLocationChildId?: number | null;
   phone: string;
   roles: string[];
   manager?: {

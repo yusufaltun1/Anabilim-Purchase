@@ -100,6 +100,7 @@ export interface CreateProductRequest {
   orderNumber?: string;
   byod?: boolean;
   schoolId?: number | null;
+  warehouseId?: number | null;
   notes?: string;
   supplierIds?: number[];
   ipAddress?: string;
@@ -135,6 +136,7 @@ export interface UpdateProductRequest {
   orderNumber?: string;
   byod?: boolean;
   schoolId?: number | null;
+  warehouseId?: number | null;
   notes?: string;
   supplierIds?: number[];
   ipAddress?: string;

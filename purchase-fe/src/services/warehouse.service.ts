@@ -153,7 +153,10 @@ class WarehouseService {
         warehouseId,
         productId,
         currentStock: currentStock,
-        ...request
+        ...request,
+        serialNumbers: request.serialNumbers,
+        stockItemId: request.stockItemId,
+        serialNumber: request.serialNumber,
       };
       
       console.log('Otomatik stok hesaplamalı hareket request:', movementRequest);

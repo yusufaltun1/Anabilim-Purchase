@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { warehouseService } from '../../services/warehouse.service';
 import { authService } from '../../services/auth.service';
 import {
   CreateStockMovementRequest,
+  StockItem,
   StockMovementDetail,
   Warehouse,
   WarehouseStock,
 } from '../../types/warehouse';
 import { useNotification } from '../../contexts/NotificationContext';
 import { formatDate } from '../../utils/date';
+import { getManualStockMovementConfig } from '../../utils/manualStockMovement';
 
 const movementTypeLabel: Record<string, string> = {
   IN: 'Giriş',
@@ -29,36 +31,48 @@ const referenceTypeLabel: Record<string, string> = {
 
 interface ProductStockMovementSectionProps {
   productId: number;
+  productType?: string | null;
   onStockChanged?: () => void;
 }
 
-export const ProductStockMovementSection = ({ productId, onStockChanged }: ProductStockMovementSectionProps) => {
+export const ProductStockMovementSection = ({
+  productId,
+  productType,
+  onStockChanged,
+}: ProductStockMovementSectionProps) => {
   const { showNotification } = useNotification();
   const canManage = authService.hasCapability('INVENTORY_MANAGE');
+  const movementConfig = useMemo(() => getManualStockMovementConfig(productType), [productType]);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [warehouseStocks, setWarehouseStocks] = useState<WarehouseStock[]>([]);
+  const [productStockItems, setProductStockItems] = useState<StockItem[]>([]);
   const [recentMovements, setRecentMovements] = useState<StockMovementDetail[]>([]);
   const [showForm, setShowForm] = useState(false);
 
   const [warehouseId, setWarehouseId] = useState<number | ''>('');
   const [movementType, setMovementType] = useState<'IN' | 'OUT' | 'ADJUSTMENT'>('IN');
   const [quantity, setQuantity] = useState(1);
+  const [inboundUnitCount, setInboundUnitCount] = useState(1);
+  const [serialNumbers, setSerialNumbers] = useState<string[]>(['']);
+  const [selectedStockItemId, setSelectedStockItemId] = useState<number | ''>('');
   const [referenceType, setReferenceType] = useState<CreateStockMovementRequest['referenceType']>('MANUAL');
   const [notes, setNotes] = useState('');
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [whList, stocks, detail] = await Promise.all([
+      const [whList, stocks, detail, stockItems] = await Promise.all([
         warehouseService.getActiveWarehouses().catch(() => []),
         warehouseService.getProductStocks(productId).catch(() => []),
         warehouseService.getProductStockDetail(productId).catch(() => null),
+        warehouseService.getProductStockItemsList(productId).catch(() => []),
       ]);
       setWarehouses(whList);
       setWarehouseStocks(stocks);
+      setProductStockItems(stockItems);
       setRecentMovements(detail?.recentMovements ?? []);
       if (!warehouseId && stocks.length > 0) {
         setWarehouseId(stocks[0].warehouse?.id ?? stocks[0].warehouseId);
@@ -70,14 +84,48 @@ export const ProductStockMovementSection = ({ productId, onStockChanged }: Produ
     } finally {
       setLoading(false);
     }
-  }, [productId, showNotification]);
+  }, [productId, showNotification, warehouseId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (movementConfig.showInboundUnitCount) {
+      setSerialNumbers((prev) =>
+        Array.from({ length: Math.max(1, inboundUnitCount) }, (_, i) => prev[i] ?? '')
+      );
+    }
+  }, [inboundUnitCount, movementConfig.showInboundUnitCount]);
+
+  useEffect(() => {
+    if (movementConfig.mode === 'semi' && movementType === 'IN' && quantity > 0) {
+      setSerialNumbers((prev) => Array.from({ length: quantity }, (_, i) => prev[i] ?? ''));
+    }
+  }, [quantity, movementType, movementConfig.mode]);
+
   const stockInWarehouse = (whId: number) =>
     warehouseStocks.find((s) => (s.warehouse?.id ?? s.warehouseId) === whId)?.currentStock ?? 0;
+
+  const warehouseStockItems = useMemo(() => {
+    if (!warehouseId) return [];
+    return productStockItems.filter(
+      (item) =>
+        item.isStockItemRecord !== false &&
+        item.status === 'IN_STOCK' &&
+        item.warehouseId === Number(warehouseId) &&
+        item.allowsAssignment !== false
+    );
+  }, [productStockItems, warehouseId]);
+
+  const resetForm = () => {
+    setNotes('');
+    setQuantity(1);
+    setInboundUnitCount(1);
+    setSerialNumbers(['']);
+    setSelectedStockItemId('');
+    setMovementType('IN');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,28 +133,71 @@ export const ProductStockMovementSection = ({ productId, onStockChanged }: Produ
       showNotification('Depo seçin', 'error');
       return;
     }
-    if (quantity < 1) {
-      showNotification('Miktar en az 1 olmalı', 'error');
-      return;
-    }
-    const available = stockInWarehouse(Number(warehouseId));
-    if (movementType === 'OUT' && quantity > available) {
-      showNotification(`Bu depoda yalnızca ${available} adet var`, 'error');
-      return;
+
+    const payload: CreateStockMovementRequest = {
+      movementType,
+      referenceType,
+      referenceId: 0,
+      notes: notes.trim() || 'Manuel stok hareketi',
+      quantity: 1,
+    };
+
+    if (movementConfig.mode === 'serial') {
+      if (movementType === 'IN') {
+        const serials = serialNumbers.map((s) => s.trim()).filter(Boolean);
+        if (movementConfig.serialRequired && serials.length !== inboundUnitCount) {
+          showNotification('Tüm seri numaralarını girin', 'error');
+          return;
+        }
+        if (serials.length === 0) {
+          showNotification('En az bir seri numarası girin', 'error');
+          return;
+        }
+        payload.serialNumbers = serials;
+        payload.quantity = serials.length;
+      } else if (movementType === 'OUT') {
+        if (!selectedStockItemId) {
+          showNotification('Çıkış için depodaki cihazı seçin', 'error');
+          return;
+        }
+        payload.stockItemId = Number(selectedStockItemId);
+        payload.quantity = 1;
+      }
+    } else if (movementConfig.mode === 'semi') {
+      if (quantity < 1) {
+        showNotification('Miktar en az 1 olmalı', 'error');
+        return;
+      }
+      payload.quantity = quantity;
+      if (movementType === 'IN') {
+        const optionalSerials = serialNumbers.map((s) => s.trim()).filter(Boolean);
+        if (optionalSerials.length > 0) {
+          payload.serialNumbers = optionalSerials;
+        }
+      }
+      const available = stockInWarehouse(Number(warehouseId));
+      if (movementType === 'OUT' && quantity > available) {
+        showNotification(`Bu depoda yalnızca ${available} adet var`, 'error');
+        return;
+      }
+    } else {
+      if (quantity < 1) {
+        showNotification('Miktar en az 1 olmalı', 'error');
+        return;
+      }
+      payload.quantity = quantity;
+      const available = stockInWarehouse(Number(warehouseId));
+      if (movementType === 'OUT' && quantity > available) {
+        showNotification(`Bu depoda yalnızca ${available} adet var`, 'error');
+        return;
+      }
     }
 
     try {
       setSubmitting(true);
-      await warehouseService.createStockMovementWithAutoStock(Number(warehouseId), productId, {
-        movementType,
-        quantity,
-        referenceType,
-        referenceId: 0,
-        notes: notes.trim() || 'Manuel stok hareketi',
-      });
+      await warehouseService.createStockMovementWithAutoStock(Number(warehouseId), productId, payload);
       showNotification('Stok hareketi kaydedildi', 'success');
-      setNotes('');
-      setQuantity(1);
+      resetForm();
       setShowForm(false);
       await loadData();
       onStockChanged?.();
@@ -118,12 +209,18 @@ export const ProductStockMovementSection = ({ productId, onStockChanged }: Produ
     }
   };
 
+  const movementTypeOptions: Array<'IN' | 'OUT' | 'ADJUSTMENT'> = movementConfig.allowAdjustment
+    ? ['IN', 'OUT', 'ADJUSTMENT']
+    : ['IN', 'OUT'];
+
   return (
     <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
       <div className="px-4 py-5 sm:px-6 flex flex-wrap justify-between items-center gap-3 border-b border-gray-200">
         <div>
           <h3 className="text-lg font-medium text-gray-900">Stok hareketleri</h3>
-          <p className="mt-1 text-sm text-gray-500">Manuel giriş/çıkış ve hareket geçmişi</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {movementConfig.label} — manuel giriş/çıkış ve hareket geçmişi
+          </p>
         </div>
         {canManage && (
           <button
@@ -137,14 +234,21 @@ export const ProductStockMovementSection = ({ productId, onStockChanged }: Produ
       </div>
 
       {showForm && canManage && (
-        <form onSubmit={handleSubmit} className="px-4 py-5 bg-gray-50 border-b border-gray-200">
+        <form onSubmit={handleSubmit} className="px-4 py-5 bg-gray-50 border-b border-gray-200 space-y-4">
+          <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            {movementConfig.description}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Depo *</label>
               <select
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 value={warehouseId}
-                onChange={(e) => setWarehouseId(e.target.value ? Number(e.target.value) : '')}
+                onChange={(e) => {
+                  setWarehouseId(e.target.value ? Number(e.target.value) : '');
+                  setSelectedStockItemId('');
+                }}
                 required
               >
                 <option value="">Seçin</option>
@@ -155,29 +259,79 @@ export const ProductStockMovementSection = ({ productId, onStockChanged }: Produ
                 ))}
               </select>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Hareket tipi *</label>
               <select
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 value={movementType}
-                onChange={(e) => setMovementType(e.target.value as 'IN' | 'OUT' | 'ADJUSTMENT')}
+                onChange={(e) => {
+                  setMovementType(e.target.value as 'IN' | 'OUT' | 'ADJUSTMENT');
+                  setSelectedStockItemId('');
+                }}
               >
-                <option value="IN">Giriş</option>
-                <option value="OUT">Çıkış</option>
-                <option value="ADJUSTMENT">Düzeltme</option>
+                {movementTypeOptions.map((type) => (
+                  <option key={type} value={type}>
+                    {movementTypeLabel[type]}
+                  </option>
+                ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Miktar *</label>
-              <input
-                type="number"
-                min={1}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-                required
-              />
-            </div>
+
+            {movementConfig.showQuantity && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Miktar *</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
+                  required
+                />
+              </div>
+            )}
+
+            {movementConfig.showInboundUnitCount && movementType === 'IN' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Adet *</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  value={inboundUnitCount}
+                  onChange={(e) => setInboundUnitCount(Math.max(1, Number(e.target.value) || 1))}
+                  required
+                />
+              </div>
+            )}
+
+            {movementConfig.showStockItemPickerOnOut && movementType === 'OUT' && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Depodaki cihaz *</label>
+                <select
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  value={selectedStockItemId}
+                  onChange={(e) =>
+                    setSelectedStockItemId(e.target.value ? Number(e.target.value) : '')
+                  }
+                  required
+                >
+                  <option value="">Cihaz seçin</option>
+                  {warehouseStockItems.map((item) => (
+                    <option key={item.id} value={String(item.id)}>
+                      {[item.serialNumber, item.assetLabel, item.assetConditionName]
+                        .filter(Boolean)
+                        .join(' · ') || `Cihaz #${item.id}`}
+                    </option>
+                  ))}
+                </select>
+                {warehouseId && warehouseStockItems.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-700">Bu depoda zimmete hazır cihaz yok.</p>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Referans</label>
               <select
@@ -193,6 +347,7 @@ export const ProductStockMovementSection = ({ productId, onStockChanged }: Produ
                 <option value="PURCHASE_ORDER">Satın alma</option>
               </select>
             </div>
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
               <input
@@ -204,7 +359,35 @@ export const ProductStockMovementSection = ({ productId, onStockChanged }: Produ
               />
             </div>
           </div>
-          <div className="mt-4 flex justify-end gap-2">
+
+          {movementConfig.showSerialListOnIn && movementType === 'IN' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Seri numaraları{movementConfig.serialRequired ? ' *' : ' (opsiyonel)'}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {serialNumbers.map((serial, index) => (
+                  <div key={index}>
+                    <span className="text-xs text-gray-500 mb-1 block">Adet {index + 1}</span>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      value={serial}
+                      onChange={(e) => {
+                        const next = [...serialNumbers];
+                        next[index] = e.target.value;
+                        setSerialNumbers(next);
+                      }}
+                      placeholder={movementConfig.serialRequired ? 'Seri no zorunlu' : 'Parti / seri no'}
+                      required={movementConfig.serialRequired}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setShowForm(false)}

@@ -73,6 +73,7 @@ public class CreateProductDto {
     private String orderNumber;
     private Boolean byod;
     private Long schoolId;
+    private Long warehouseId;
     private String notes;
     private String ipAddress;
     private String macAddress;

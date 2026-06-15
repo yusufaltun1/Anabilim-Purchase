@@ -166,9 +166,11 @@ export interface CreateStockMovementRequest {
   referenceType: 'PURCHASE_ORDER' | 'SALES_ORDER' | 'TRANSFER' | 'ADJUSTMENT' | 'MANUAL' | 'ASSIGNMENT';
   referenceId?: number;
   notes?: string;
-  serialNumber?: string; // Seri numarası (FIXED_ASSET ve SEMI_FIXED_ASSET için)
-  imageUrl?: string; // Resim URL'i (FIXED_ASSET ve SEMI_FIXED_ASSET için)
-  currentStock?: number; // Mevcut stok miktarı
+  serialNumber?: string;
+  serialNumbers?: string[];
+  stockItemId?: number;
+  imageUrl?: string;
+  currentStock?: number;
 }
 
 export interface UpdateStockRequest {

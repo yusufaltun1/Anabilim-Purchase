@@ -4,7 +4,20 @@ import { Combobox, Transition } from '@headlessui/react';
 import { Navigation } from '../components/Navigation';
 import { userService } from '../services/user.service';
 import { roleService } from '../services/role.service';
+import { schoolService } from '../services/school.service';
+import { locationService } from '../services/location.service';
+import { LocationHierarchyPickers } from '../components/common/LocationHierarchyPickers';
 import { User, UpdateUserRequest, UserResponse } from '../types/user';
+import { School } from '../types/school';
+import {
+  resolveProductLocationLevels,
+  resolveUserWorkLocationPayload,
+} from '../utils/locationHierarchy';
+
+const normalizePlaceholder = (value?: string | null) => {
+  if (!value) return '';
+  return value.trim().toLowerCase() === 'unknown' ? '' : value;
+};
 
 export const UserEdit = () => {
   const { id } = useParams<{ id: string }>();
@@ -13,7 +26,11 @@ export const UserEdit = () => {
   const [error, setError] = useState<string | null>(null);
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [managers, setManagers] = useState<User[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [managerQuery, setManagerQuery] = useState('');
+  const [locationRootId, setLocationRootId] = useState<number | null>(null);
+  const [locationMiddleId, setLocationMiddleId] = useState<number | null>(null);
+  const [locationLeafId, setLocationLeafId] = useState<number | null>(null);
   const [formData, setFormData] = useState<UpdateUserRequest>({
     id: parseInt(id!),
     email: '',
@@ -21,6 +38,7 @@ export const UserEdit = () => {
     lastName: '',
     department: '',
     position: '',
+    schoolId: null,
     phone: '',
     roles: [],
     manager: null,
@@ -39,6 +57,13 @@ export const UserEdit = () => {
         const userResponse = await userService.getUserById(parseInt(id!));
         const roles = await roleService.getActiveRoles();
         const usersResponse = await userService.getActiveUsers();
+        const schoolList = await schoolService.getActiveSchools().catch(() => []);
+        const locationsRes = await locationService.getAllLocations().catch(() => ({
+          success: false,
+          data: [] as const,
+        }));
+        const locations =
+          locationsRes.success && Array.isArray(locationsRes.data) ? locationsRes.data : [];
 
         if (!userResponse.success || !usersResponse.success) {
           throw new Error('API yanıtı başarısız');
@@ -51,19 +76,29 @@ export const UserEdit = () => {
         // Debug için API yanıtını kontrol et
         console.log('API User Response:', user);
 
-        // API'den gelen user verisini formData'ya doğru şekilde aktar
+        const locationLevels = resolveProductLocationLevels(
+          locations,
+          user.workLocationParentId ?? null,
+          user.workLocationChildId ?? null
+        );
+        setLocationRootId(locationLevels.rootId);
+        setLocationMiddleId(locationLevels.middleId);
+        setLocationLeafId(locationLevels.leafId);
+
         setFormData({
           id: parseInt(id!),
           email: user.email || '',
           firstName: user.firstName || '',
           lastName: user.lastName || '',
-          department: user.department || '',
-          position: user.position || '',
+          department: normalizePlaceholder(user.department),
+          position: normalizePlaceholder(user.position),
+          schoolId: user.schoolId ?? null,
           phone: user.phone || '',
           roles: user.roles || [],
           manager: user.manager || null
         });
 
+        setSchools(schoolList);
         setAvailableRoles(roles.map(role => role.name));
         // Mevcut kullanıcıyı yönetici listesinden çıkar
         setManagers(users.filter(u => u.id !== parseInt(id!)));
@@ -118,7 +153,12 @@ export const UserEdit = () => {
     setError(null);
 
     try {
-      await userService.updateUser(formData.id, formData);
+      const locationPayload = resolveUserWorkLocationPayload(
+        locationRootId,
+        locationMiddleId,
+        locationLeafId
+      );
+      await userService.updateUser(formData.id, { ...formData, ...locationPayload });
       navigate('/users', { 
         state: { message: 'Kullanıcı başarıyla güncellendi!' }
       });
@@ -242,38 +282,6 @@ export const UserEdit = () => {
               </div>
 
               <div>
-                <label htmlFor="department" className="block text-sm font-medium text-gray-700">
-                  Departman
-                </label>
-                <input
-                  type="text"
-                  id="department"
-                  name="department"
-                  required
-                  value={formData.department}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="IT, Finans, İK vb."
-                />
-              </div>
-
-              <div>
-                <label htmlFor="position" className="block text-sm font-medium text-gray-700">
-                  Pozisyon
-                </label>
-                <input
-                  type="text"
-                  id="position"
-                  name="position"
-                  required
-                  value={formData.position}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Yazılım Geliştirici, Muhasebe Uzmanı vb."
-                />
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium text-gray-700">
                   Yönetici
                 </label>
@@ -342,6 +350,96 @@ export const UserEdit = () => {
                 </Combobox>
               </div>
 
+            </div>
+
+            <div className="border-t border-gray-200 pt-6">
+              <h2 className="text-base font-semibold text-gray-900">Zimmet formu bilgileri</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Excel zimmet formunda kullanılır. Microsoft 365 senkronundan gelmeyen alanları buradan doldurun.
+              </p>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="schoolId" className="block text-sm font-medium text-gray-700">
+                    Şirket / Okul
+                  </label>
+                  <select
+                    id="schoolId"
+                    name="schoolId"
+                    value={formData.schoolId ?? ''}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        schoolId: e.target.value ? Number(e.target.value) : null,
+                      }))
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">Seçin</option>
+                    {schools.map((school) => (
+                      <option key={school.id} value={school.id}>
+                        {school.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <p className="block text-sm font-medium text-gray-700 mb-2">
+                    Çalışma lokasyonu
+                  </p>
+                  <LocationHierarchyPickers
+                    rootId={locationRootId}
+                    middleId={locationMiddleId}
+                    leafId={locationLeafId}
+                    showLeaf
+                    onRootChange={(id) => {
+                      setLocationRootId(id);
+                      setLocationMiddleId(null);
+                      setLocationLeafId(null);
+                    }}
+                    onMiddleChange={(id) => {
+                      setLocationMiddleId(id);
+                      setLocationLeafId(null);
+                    }}
+                    onLeafChange={setLocationLeafId}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+                    Departman
+                  </label>
+                  <input
+                    type="text"
+                    id="department"
+                    name="department"
+                    required
+                    value={formData.department}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="IT, Finans, İK vb."
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="position" className="block text-sm font-medium text-gray-700">
+                    Görevi / Unvanı
+                  </label>
+                  <input
+                    type="text"
+                    id="position"
+                    name="position"
+                    required
+                    value={formData.position}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Yazılım Geliştirici, Muhasebe Uzmanı vb."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="roles" className="block text-sm font-medium text-gray-700">
                   Roller
