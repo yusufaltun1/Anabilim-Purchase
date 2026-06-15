@@ -45,6 +45,7 @@ export interface UpdateUserRequest {
   workLocation?: string;
   workLocationParentId?: number | null;
   workLocationChildId?: number | null;
+  schoolId?: number | null;
   phone: string;
   roles: string[];
   manager?: {
