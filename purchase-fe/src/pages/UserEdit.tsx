@@ -158,7 +158,12 @@ export const UserEdit = () => {
         locationMiddleId,
         locationLeafId
       );
-      await userService.updateUser(formData.id, { ...formData, ...locationPayload });
+      await userService.updateUser(formData.id, {
+        ...formData,
+        ...locationPayload,
+        schoolTouched: true,
+        workLocationHierarchyTouched: true,
+      });
       navigate('/users', { 
         state: { message: 'Kullanıcı başarıyla güncellendi!' }
       });

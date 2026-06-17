@@ -1,6 +1,7 @@
 package com.anabilim.purchase.entity;
 
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,6 +27,20 @@ public class Location {
     @JoinColumn(name = "parent_id")
     private Location parent;
 
-    @Column(name = "is_default", nullable = false)
-    private boolean defaultLocation = false;
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    @Column(name = "is_default")
+    private Boolean defaultLocation;
+
+    public boolean isDefaultLocation() {
+        return Boolean.TRUE.equals(defaultLocation);
+    }
+
+    public Boolean getDefaultLocation() {
+        return defaultLocation;
+    }
+
+    public void setDefaultLocation(Boolean defaultLocation) {
+        this.defaultLocation = defaultLocation;
+    }
 }

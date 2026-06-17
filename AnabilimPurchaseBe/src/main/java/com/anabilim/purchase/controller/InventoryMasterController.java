@@ -90,14 +90,14 @@ public class InventoryMasterController {
 
     @GetMapping("/locations/parents")
     public List<LocationDto> listParentLocations() {
-        return locationRepository.findByParentIsNullOrderByIsDefaultDescNameAsc().stream()
+        return locationRepository.findByParentIsNullOrderByDefaultLocationDescNameAsc().stream()
                 .map(this::toLocationDto)
                 .collect(Collectors.toList());
     }
 
     @GetMapping("/locations/children")
     public List<LocationDto> listChildLocations(@RequestParam Long parentId) {
-        return locationRepository.findByParentIdOrderByIsDefaultDescNameAsc(parentId).stream()
+        return locationRepository.findByParentIdOrderByDefaultLocationDescNameAsc(parentId).stream()
                 .map(this::toLocationDto)
                 .collect(Collectors.toList());
     }
@@ -160,7 +160,7 @@ public class InventoryMasterController {
         }
         dto.setLevel(LocationSupport.depth(l));
         dto.setPath(LocationSupport.path(l));
-        dto.setIsDefault(l.isDefaultLocation());
+        dto.setDefaultLocation(l.isDefaultLocation() ? Boolean.TRUE : null);
         return dto;
     }
 }

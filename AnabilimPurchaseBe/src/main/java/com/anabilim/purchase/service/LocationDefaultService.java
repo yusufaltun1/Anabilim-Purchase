@@ -13,11 +13,14 @@ public class LocationDefaultService {
 
     private final LocationRepository locationRepository;
 
+    /**
+     * isDefault null ise mevcut değere dokunulmaz (geriye dönük uyumluluk).
+     */
     public void applyDefaultFlag(Location location, Boolean isDefault) {
-        if (location == null) {
+        if (location == null || isDefault == null) {
             return;
         }
-        if (!Boolean.TRUE.equals(isDefault)) {
+        if (!isDefault) {
             location.setDefaultLocation(false);
             return;
         }
@@ -29,8 +32,8 @@ public class LocationDefaultService {
 
     private void clearDefaultsAmongSiblings(Long parentId, Long excludeId) {
         List<Location> siblings = parentId == null
-                ? locationRepository.findByParentIsNullOrderByIsDefaultDescNameAsc()
-                : locationRepository.findByParentIdOrderByIsDefaultDescNameAsc(parentId);
+                ? locationRepository.findByParentIsNullOrderByDefaultLocationDescNameAsc()
+                : locationRepository.findByParentIdOrderByDefaultLocationDescNameAsc(parentId);
 
         for (Location sibling : siblings) {
             if (excludeId != null && excludeId.equals(sibling.getId())) {

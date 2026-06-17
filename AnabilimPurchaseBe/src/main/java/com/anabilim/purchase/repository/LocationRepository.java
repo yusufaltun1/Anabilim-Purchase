@@ -13,11 +13,11 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
 
     List<Location> findByParentIsNullOrderByNameAsc();
 
-    List<Location> findByParentIsNullOrderByIsDefaultDescNameAsc();
+    List<Location> findByParentIsNullOrderByDefaultLocationDescNameAsc();
 
     List<Location> findByParentIdOrderByNameAsc(Long parentId);
 
-    List<Location> findByParentIdOrderByIsDefaultDescNameAsc(Long parentId);
+    List<Location> findByParentIdOrderByDefaultLocationDescNameAsc(Long parentId);
 
     boolean existsByParentId(Long parentId);
 

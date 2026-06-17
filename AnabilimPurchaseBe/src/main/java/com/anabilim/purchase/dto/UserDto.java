@@ -42,9 +42,15 @@ public class UserDto {
 
     private Long workLocationChildId;
 
+    /** true ise konum hiyerarşisi bilinçli güncellenir (null değerler de dahil) */
+    private Boolean workLocationHierarchyTouched;
+
     private String workLocationName;
 
     private Long schoolId;
+
+    /** true ise okul alanı bilinçli güncellenir (null da dahil) */
+    private Boolean schoolTouched;
 
     private String schoolName;
 

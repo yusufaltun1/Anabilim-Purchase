@@ -134,7 +134,7 @@ public class UserServiceImpl implements UserService {
             School school = schoolRepository.findById(userDto.getSchoolId())
                     .orElseThrow(() -> new ResourceNotFoundException("Okul bulunamadı: " + userDto.getSchoolId()));
             existingUser.setSchool(school);
-        } else {
+        } else if (Boolean.TRUE.equals(userDto.getSchoolTouched())) {
             existingUser.setSchool(null);
         }
 
@@ -143,7 +143,7 @@ public class UserServiceImpl implements UserService {
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Üst konum bulunamadı: " + userDto.getWorkLocationParentId()));
             existingUser.setWorkLocationParent(parent);
-        } else {
+        } else if (Boolean.TRUE.equals(userDto.getWorkLocationHierarchyTouched())) {
             existingUser.setWorkLocationParent(null);
         }
 
@@ -152,7 +152,7 @@ public class UserServiceImpl implements UserService {
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Alt konum bulunamadı: " + userDto.getWorkLocationChildId()));
             existingUser.setWorkLocationChild(child);
-        } else {
+        } else if (Boolean.TRUE.equals(userDto.getWorkLocationHierarchyTouched())) {
             existingUser.setWorkLocationChild(null);
         }
 
@@ -324,6 +324,6 @@ public class UserServiceImpl implements UserService {
         if (user.getWorkLocationParent() != null) {
             return LocationSupport.path(user.getWorkLocationParent());
         }
-        return user.getWorkLocation();
+        return user.getWorkLocation() != null ? user.getWorkLocation() : "";
     }
 } 

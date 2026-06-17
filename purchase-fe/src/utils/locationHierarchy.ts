@@ -153,9 +153,9 @@ export function newLocationLevel(parentId: number | null, locations: Location[])
 }
 
 export function findDefaultLocationId(
-  items: Array<{ id: number; isDefault?: boolean }>
+  items: Array<{ id: number; isDefault?: boolean | null }>
 ): number | null {
-  return items.find((item) => item.isDefault)?.id ?? null;
+  return items.find((item) => item.isDefault === true)?.id ?? null;
 }
 
 export function formatLocationOptionLabel(name: string, isDefault?: boolean) {
