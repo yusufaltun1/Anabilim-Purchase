@@ -25,4 +25,7 @@ public class Location {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Location parent;
+
+    @Column(name = "is_default", nullable = false)
+    private boolean defaultLocation = false;
 }

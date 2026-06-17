@@ -11,6 +11,7 @@ function mapLocation(raw: Record<string, unknown>): Location {
     parentName: (raw.parentName as string | null | undefined) ?? null,
     level: (raw.level as number | undefined) ?? undefined,
     path: (raw.path as string | undefined) ?? undefined,
+    isDefault: Boolean(raw.isDefault),
     createdAt: raw.createdAt as string | undefined,
     updatedAt: raw.updatedAt as string | undefined,
   };

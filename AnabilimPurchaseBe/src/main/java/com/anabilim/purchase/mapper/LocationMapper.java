@@ -33,6 +33,7 @@ public class LocationMapper {
         }
         locationDto.setLevel(LocationSupport.depth(location));
         locationDto.setPath(LocationSupport.path(location));
+        locationDto.setIsDefault(location.isDefaultLocation());
         return locationDto;
     }
 

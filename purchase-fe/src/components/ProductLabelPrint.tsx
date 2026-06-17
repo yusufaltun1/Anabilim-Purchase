@@ -2,20 +2,20 @@ import React, { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 
 interface ProductLabelPrintProps {
-  productId: number;
+  productCode: string;
   productName: string;
   onClose: () => void;
 }
 
-export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productId, productName, onClose }) => {
+export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCode, productName, onClose }) => {
   const barcodeRef = useRef<SVGSVGElement>(null);
   const [barcodeReady, setBarcodeReady] = React.useState(false);
+  const barcodeValue = productCode.trim().toUpperCase();
 
   useEffect(() => {
-    if (barcodeRef.current) {
+    if (barcodeRef.current && barcodeValue) {
       try {
-        // Code 39 formatında barcode oluştur
-        JsBarcode(barcodeRef.current, productId.toString(), {
+        JsBarcode(barcodeRef.current, barcodeValue, {
           format: 'CODE39',
           width: 1,
           height: 30,
@@ -28,7 +28,7 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productId,
         console.error('Barcode oluşturma hatası:', error);
       }
     }
-  }, [productId]);
+  }, [barcodeValue]);
 
   useEffect(() => {
     // Barcode oluşturulduktan sonra yazdır
@@ -216,7 +216,7 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productId,
                   <div class="barcode-container">
                     ${barcodeSvg}
                   </div>
-                  <div class="barcode-number">${productId.toString().padStart(6, '0')}</div>
+                  <div class="barcode-number">${barcodeValue}</div>
                 </div>
               </div>
               <script>
@@ -244,7 +244,7 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productId,
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [onClose, productId, barcodeReady]);
+  }, [onClose, barcodeValue, barcodeReady]);
 
   return (
     <>
@@ -275,7 +275,7 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productId,
             <div className="barcode-container">
               <svg ref={barcodeRef} className="barcode-svg"></svg>
             </div>
-            <div className="barcode-number">{productId.toString().padStart(6, '0')}</div>
+            <div className="barcode-number">{barcodeValue}</div>
           </div>
         </div>
       </div>

@@ -15,6 +15,7 @@ import com.anabilim.purchase.repository.AssetConditionRepository;
 import com.anabilim.purchase.repository.CategoryRepository;
 import com.anabilim.purchase.repository.DeviceModelRepository;
 import com.anabilim.purchase.repository.LocationRepository;
+import com.anabilim.purchase.service.LocationDefaultService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +34,7 @@ public class InventoryMasterController {
     private final AssetConditionRepository assetConditionRepository;
     private final LocationRepository locationRepository;
     private final CategoryRepository categoryRepository;
+    private final LocationDefaultService locationDefaultService;
     @GetMapping("/device-brands")
     public List<String> listDeviceBrands() {
         return deviceModelRepository.findDistinctActiveBrands().stream()
@@ -88,14 +90,14 @@ public class InventoryMasterController {
 
     @GetMapping("/locations/parents")
     public List<LocationDto> listParentLocations() {
-        return locationRepository.findByParentIsNullOrderByNameAsc().stream()
+        return locationRepository.findByParentIsNullOrderByIsDefaultDescNameAsc().stream()
                 .map(this::toLocationDto)
                 .collect(Collectors.toList());
     }
 
     @GetMapping("/locations/children")
     public List<LocationDto> listChildLocations(@RequestParam Long parentId) {
-        return locationRepository.findByParentIdOrderByNameAsc(parentId).stream()
+        return locationRepository.findByParentIdOrderByIsDefaultDescNameAsc(parentId).stream()
                 .map(this::toLocationDto)
                 .collect(Collectors.toList());
     }
@@ -113,6 +115,7 @@ public class InventoryMasterController {
             }
             location.setParent(parent);
         }
+        locationDefaultService.applyDefaultFlag(location, dto.getIsDefault());
         location = locationRepository.save(location);
         return ResponseEntity.status(HttpStatus.CREATED).body(toLocationDto(location));
     }
@@ -122,6 +125,7 @@ public class InventoryMasterController {
         private String name;
         private String description;
         private Long parentId;
+        private Boolean isDefault;
     }
 
     private DeviceModelDto toDeviceModelDto(DeviceModel m) {
@@ -156,6 +160,7 @@ public class InventoryMasterController {
         }
         dto.setLevel(LocationSupport.depth(l));
         dto.setPath(LocationSupport.path(l));
+        dto.setIsDefault(l.isDefaultLocation());
         return dto;
     }
 }

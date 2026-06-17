@@ -18,4 +18,7 @@ public class CreateLocationDto {
 
     /** Boş ise 1. seviye (üst) konum oluşturulur */
     private Long parentId;
+
+    /** Aynı üst konum altındaki varsayılan seçim */
+    private Boolean isDefault;
 }

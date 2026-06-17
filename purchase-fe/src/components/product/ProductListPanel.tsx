@@ -208,7 +208,7 @@ export const ProductListPanel = ({
 
       {printingProduct && (
         <ProductLabelPrint
-          productId={printingProduct.id}
+          productCode={printingProduct.code || printingProduct.assetLabel || ''}
           productName={printingProduct.name}
           onClose={() => setPrintingProduct(null)}
         />

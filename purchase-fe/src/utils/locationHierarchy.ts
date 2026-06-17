@@ -151,3 +151,13 @@ export function newLocationLevel(parentId: number | null, locations: Location[])
   const parent = locations.find((l) => l.id === parentId);
   return (parent?.level ?? 1) + 1;
 }
+
+export function findDefaultLocationId(
+  items: Array<{ id: number; isDefault?: boolean }>
+): number | null {
+  return items.find((item) => item.isDefault)?.id ?? null;
+}
+
+export function formatLocationOptionLabel(name: string, isDefault?: boolean) {
+  return isDefault ? `${name} (Varsayılan)` : name;
+}

@@ -112,6 +112,11 @@ export const LocationList = () => {
                         <div className="flex items-center" style={{ paddingLeft: `${depth * 1.25}rem` }}>
                           {depth > 0 && <span className="mr-2 text-gray-300">└</span>}
                           <span className="font-medium text-gray-900">{node.name}</span>
+                          {node.isDefault && (
+                            <span className="ml-2 inline-flex px-2 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-800">
+                              Varsayılan
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{node.path || node.name}</td>

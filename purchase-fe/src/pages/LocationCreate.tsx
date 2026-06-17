@@ -21,6 +21,7 @@ export const LocationCreate = () => {
   const [formData, setFormData] = useState<CreateLocationRequest>({
     name: '',
     description: '',
+    isDefault: false,
   });
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export const LocationCreate = () => {
         name: formData.name.trim(),
         description: formData.description.trim() || formData.name.trim(),
         parentId,
+        isDefault: formData.isDefault,
       };
       const response = await locationService.createLocation(payload);
       if (response.success) {
@@ -114,6 +116,7 @@ export const LocationCreate = () => {
                   onRootChange={setParentRootId}
                   onMiddleChange={setParentMiddleId}
                   disabled={loading}
+                  autoSelectDefaults={false}
                 />
               </div>
               <p className="mt-3 text-sm text-gray-600 rounded-md bg-gray-50 border border-gray-200 px-3 py-2">
@@ -153,6 +156,26 @@ export const LocationCreate = () => {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
                 placeholder="İsteğe bağlı açıklama"
               />
+            </div>
+
+            <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-gray-50 px-4 py-3">
+              <input
+                id="isDefault"
+                type="checkbox"
+                checked={Boolean(formData.isDefault)}
+                onChange={(e) => setFormData((prev) => ({ ...prev, isDefault: e.target.checked }))}
+                disabled={loading}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <div>
+                <label htmlFor="isDefault" className="text-sm font-medium text-gray-900">
+                  Bu seviyede varsayılan konum
+                </label>
+                <p className="mt-1 text-sm text-gray-500">
+                  İşaretlenirse aynı üst konum altındaki diğer varsayılanlar kaldırılır. Ürün ve kullanıcı formlarında
+                  bu konum otomatik seçilir.
+                </p>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3">

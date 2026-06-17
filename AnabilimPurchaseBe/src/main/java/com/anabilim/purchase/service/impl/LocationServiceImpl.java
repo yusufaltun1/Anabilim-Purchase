@@ -8,6 +8,7 @@ import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.mapper.LocationMapper;
 import com.anabilim.purchase.repository.LocationRepository;
+import com.anabilim.purchase.service.LocationDefaultService;
 import com.anabilim.purchase.service.LocationService;
 import com.anabilim.purchase.util.LocationSupport;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +26,13 @@ public class LocationServiceImpl implements LocationService {
 
     private final LocationRepository locationRepository;
     private final LocationMapper locationMapper;
+    private final LocationDefaultService locationDefaultService;
 
     @Override
     public LocationDto createLocation(CreateLocationDto createDto) {
         Location location = locationMapper.toEntity(createDto);
         applyParent(location, createDto.getParentId(), null);
+        locationDefaultService.applyDefaultFlag(location, createDto.getIsDefault());
         location = locationRepository.save(location);
         return locationMapper.toDto(location);
     }
@@ -76,6 +79,7 @@ public class LocationServiceImpl implements LocationService {
         location.setName(updateDto.getName());
         location.setDescription(updateDto.getDescription());
         applyParent(location, updateDto.getParentId(), id);
+        locationDefaultService.applyDefaultFlag(location, updateDto.getIsDefault());
 
         Location updatedLocation = locationRepository.save(location);
         return locationMapper.toDto(updatedLocation);

@@ -27,6 +27,7 @@ export interface LocationOption {
   name: string;
   description?: string;
   parentId?: number;
+  isDefault?: boolean;
 }
 
 export const inventoryService = {
@@ -80,7 +81,7 @@ export const inventoryService = {
     return res.ok ? res.json() : [];
   },
 
-  async createLocation(body: { name: string; description?: string; parentId?: number }) {
+  async createLocation(body: { name: string; description?: string; parentId?: number; isDefault?: boolean }) {
     const res = await fetch(`${API_CONFIG.BASE_URL}/api/inventory/locations`, {
       method: 'POST',
       headers: headers(),

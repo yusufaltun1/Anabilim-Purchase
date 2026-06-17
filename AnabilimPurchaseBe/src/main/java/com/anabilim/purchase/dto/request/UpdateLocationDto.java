@@ -18,4 +18,6 @@ public class UpdateLocationDto {
 
     /** Boş ise kök konum; dolu ise seçilen üst konumun altına taşınır */
     private Long parentId;
+
+    private Boolean isDefault;
 }

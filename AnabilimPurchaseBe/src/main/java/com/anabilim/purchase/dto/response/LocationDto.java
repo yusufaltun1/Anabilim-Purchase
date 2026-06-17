@@ -17,11 +17,13 @@ public class LocationDto {
     private String parentName;
     private Integer level;
     private String path;
+    private boolean isDefault;
 
     public LocationDto(Location location) {
         this.id = location.getId();
         this.name = location.getName();
         this.description = location.getDescription();
+        this.isDefault = location.isDefaultLocation();
         if (location.getParent() != null) {
             this.parentId = location.getParent().getId();
             this.parentName = location.getParent().getName();
