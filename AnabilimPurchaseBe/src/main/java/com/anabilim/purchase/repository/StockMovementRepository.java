@@ -34,4 +34,14 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
     
     @Query("SELECT MAX(sm.createdAt) FROM StockMovement sm JOIN sm.warehouseStock ws WHERE ws.product = :product")
     Optional<LocalDateTime> findLastMovementDateByProduct(@Param("product") Product product);
+
+    List<StockMovement> findByReferenceTypeAndReferenceIdOrderByCreatedAtDesc(
+            String referenceType, Long referenceId);
+
+    @EntityGraph(attributePaths = {"warehouseStock", "warehouseStock.warehouse", "warehouseStock.product", "stockItem"})
+    List<StockMovement> findByStockItemIdOrderByCreatedAtDesc(Long stockItemId);
+
+    @EntityGraph(attributePaths = {"warehouseStock", "warehouseStock.warehouse", "warehouseStock.product", "stockItem"})
+    List<StockMovement> findByReferenceTypeAndReferenceIdInOrderByCreatedAtDesc(
+            String referenceType, List<Long> referenceIds);
 } 

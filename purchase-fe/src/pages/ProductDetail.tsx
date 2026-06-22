@@ -18,6 +18,8 @@ import { useNotification } from '../contexts/NotificationContext';
 import { authService } from '../services/auth.service';
 import { ProductProcurementSummary } from '../types/product';
 import { ProductStockMovementSection } from '../components/product/ProductStockMovementSection';
+import { SerialStockItemSection } from '../components/product/SerialStockItemSection';
+import { AssignmentFormPhotoThumb } from '../components/product/AssignmentFormPhotoThumb';
 import {
   isConsumableProductType,
   shouldSendStockItemIdForAssignment,
@@ -59,9 +61,13 @@ export const ProductDetail = () => {
   });
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [signedFormUploadingId, setSignedFormUploadingId] = useState<number | null>(null);
+  const [assignmentCancellingId, setAssignmentCancellingId] = useState<number | null>(null);
   const [formDownloadingId, setFormDownloadingId] = useState<number | null>(null);
   const signedFormInputRef = useRef<HTMLInputElement>(null);
+  const formPhotoInputRef = useRef<HTMLInputElement>(null);
   const [pendingSignedUploadAssignmentId, setPendingSignedUploadAssignmentId] = useState<number | null>(null);
+  const [pendingFormPhotoUploadAssignmentId, setPendingFormPhotoUploadAssignmentId] = useState<number | null>(null);
+  const [formPhotoUploadingId, setFormPhotoUploadingId] = useState<number | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -70,6 +76,8 @@ export const ProductDetail = () => {
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [assignmentFormPhotoFile, setAssignmentFormPhotoFile] = useState<File | null>(null);
+  const [assignmentFormPhotoPreview, setAssignmentFormPhotoPreview] = useState<string | null>(null);
   const [procurement, setProcurement] = useState<ProductProcurementSummary | null>(null);
   const [procurementLoading, setProcurementLoading] = useState(false);
 
@@ -187,6 +195,8 @@ export const ProductDetail = () => {
 
   const isConsumable = isConsumableProductType(product?.productType);
   const usesQuantityForZimmet = usesQuantityBasedAssignment(product?.productType);
+  const usesSerialItems = usesSerialStockItems(product?.productType);
+
   const assignableForZimmet = stockItems.filter((item) => isAssignableStockRow(item));
 
   const loadAssignments = async () => {
@@ -307,6 +317,58 @@ export const ProductDetail = () => {
     }
   };
 
+  const handleUploadFormPhotoClick = (assignmentId: number) => {
+    setPendingFormPhotoUploadAssignmentId(assignmentId);
+    formPhotoInputRef.current?.click();
+  };
+
+  const handleFormPhotoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const assignmentId = pendingFormPhotoUploadAssignmentId;
+    e.target.value = '';
+    setPendingFormPhotoUploadAssignmentId(null);
+    if (!file || !assignmentId) return;
+
+    try {
+      setFormPhotoUploadingId(assignmentId);
+      await assignmentService.uploadFormPhoto(assignmentId, file);
+      await loadAssignments();
+      showNotification('Ürün fotoğrafı yüklendi. Formu yeniden indirerek F8 hücresini kontrol edebilirsiniz.', 'success');
+    } catch (err: unknown) {
+      showNotification(err instanceof Error ? err.message : 'Fotoğraf yüklenemedi', 'error');
+    } finally {
+      setFormPhotoUploadingId(null);
+    }
+  };
+
+  const canCancelAssignment = (assignment: Assignment) =>
+    assignment.canBeCancelled ??
+    (assignment.status === AssignmentStatus.ACTIVE && !assignment.hasSignedForm);
+
+  const handleCancelAssignment = async (assignmentId: number) => {
+    if (
+      !window.confirm(
+        'Bu zimmet kaydını iptal etmek istiyor musunuz? Bağlı stok hareketi silinecek ve kayıt kaldırılacak.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setAssignmentCancellingId(assignmentId);
+      await assignmentService.cancelAssignment(assignmentId);
+      showNotification('Zimmet iptal edildi, stok hareketi silindi', 'success');
+      await Promise.all([loadAssignments(), loadStockItems(), loadProductData()]);
+    } catch (err: unknown) {
+      showNotification(
+        err instanceof Error ? err.message : 'Zimmet iptal edilirken bir hata oluştu',
+        'error'
+      );
+    } finally {
+      setAssignmentCancellingId(null);
+    }
+  };
+
   const handleCreateAssignment = async () => {
     try {
       setAssignmentLoading(true);
@@ -372,21 +434,38 @@ export const ProductDetail = () => {
       const createdAssignment = createResult.data && !Array.isArray(createResult.data)
         ? createResult.data
         : null;
-      
-      // Zimmet listesini ve stok itemlarını yenile
-      await Promise.all([loadAssignments(), loadStockItems()]);
 
       if (createdAssignment?.id) {
         try {
+          if (assignmentFormPhotoFile) {
+            await assignmentService.uploadFormPhoto(createdAssignment.id, assignmentFormPhotoFile);
+          }
           await assignmentService.downloadAssignmentForm(createdAssignment.id);
-          showNotification('Zimmet oluşturuldu. Form indirildi; imzalı halini yükleyebilirsiniz.', 'success');
-        } catch {
-          showNotification('Zimmet oluşturuldu ancak form indirilemedi. Listeden tekrar indirebilirsiniz.', 'error');
+          await Promise.all([loadAssignments(), loadStockItems()]);
+          showNotification(
+            assignmentFormPhotoFile
+              ? 'Zimmet oluşturuldu. Fotoğraf forma eklendi; imzalı halini yükleyebilirsiniz.'
+              : 'Zimmet oluşturuldu. Form indirildi; imzalı halini yükleyebilirsiniz.',
+            'success'
+          );
+        } catch (err: unknown) {
+          await Promise.all([loadAssignments(), loadStockItems()]);
+          showNotification(
+            err instanceof Error ? err.message : 'Zimmet oluşturuldu ancak fotoğraf/form işlemi tamamlanamadı.',
+            'error'
+          );
         }
+      } else {
+        await Promise.all([loadAssignments(), loadStockItems()]);
       }
       
       // Modal'ı kapat ve formu sıfırla
       setShowAssignmentModal(false);
+      if (assignmentFormPhotoPreview) {
+        URL.revokeObjectURL(assignmentFormPhotoPreview);
+      }
+      setAssignmentFormPhotoFile(null);
+      setAssignmentFormPhotoPreview(null);
       setAssignmentForm({
         assignmentType: 'user',
         selectedStockItemId: '',
@@ -572,6 +651,117 @@ export const ProductDetail = () => {
             </div>
           </div>
 
+          {/* Depo Stokları — ürün detayının hemen altında */}
+          {usesSerialItems ? (
+            product && (
+              <SerialStockItemSection
+                productId={product.id}
+                stockItems={stockItems}
+                loading={stockItemsLoading}
+                canManage={canInventoryManage}
+                onRefresh={() => {
+                  loadStockItems();
+                  loadAssignments();
+                  loadProductData();
+                }}
+                onImageClick={(url) => setSelectedImage(url)}
+              />
+            )
+          ) : (
+            <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="px-4 py-5 sm:px-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Depo Stokları</h3>
+                <p className="mt-1 text-sm text-gray-500">Bu ürüne ait depo stok bilgileri</p>
+              </div>
+              <div className="border-t border-gray-200">
+                {stockItemsLoading ? (
+                  <div className="px-4 py-8 sm:px-6">
+                    <div className="flex justify-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
+                    </div>
+                  </div>
+                ) : stockItems.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Miktar
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Durum
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Depo
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Atanan Kişi
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Resim
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {stockItems.map((item) => (
+                          <tr key={item.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {item.notes || `${item.currentStock ?? 0} adet`}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                {item.assetConditionName || item.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {item.warehouseName || 'Atanmamış'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {item.assignedUserName || '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {item.imageUrl ? (
+                                <button onClick={() => setSelectedImage(item.imageUrl!)} className="block">
+                                  <img
+                                    src={item.imageUrl}
+                                    alt="Ürün resmi"
+                                    className="w-12 h-12 object-cover rounded border cursor-pointer hover:opacity-75 transition-opacity"
+                                  />
+                                </button>
+                              ) : (
+                                <span className="text-sm text-gray-500">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="px-4 py-8 sm:px-6">
+                    <p className="text-sm text-gray-500 text-center">
+                      {isConsumable
+                        ? 'Bu ürüne ait depo stok bilgisi bulunamadı. Aşağıdan manuel stok girişi yapabilirsiniz.'
+                        : 'Bu ürüne ait stok kalemi bulunamadı.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {product && (
+            <ProductStockMovementSection
+              productId={product.id}
+              productType={product.productType}
+              onStockChanged={() => {
+                loadStockItems();
+                loadAssignments();
+                loadProductData();
+              }}
+            />
+          )}
+
           <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
             <div className="px-4 py-5 sm:px-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900">Satın alma talepleri</h3>
@@ -724,138 +914,6 @@ export const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Stock Items Bölümü */}
-          <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
-                        <div className="px-4 py-5 sm:px-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Depo Stokları
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Bu ürüne ait depo stok bilgileri
-              </p>
-            </div>
-            <div className="border-t border-gray-200">
-              {stockItemsLoading ? (
-                <div className="px-4 py-8 sm:px-6">
-                  <div className="flex justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                  </div>
-                </div>
-              ) : stockItems.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {usesSerialStockItems(product?.productType) ? 'Seri / etiket' : 'Miktar'}
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Durum
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Depo
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Atanan Kişi
-                        </th>
-                        {usesSerialStockItems(product?.productType) && (
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Garanti
-                          </th>
-                        )}
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Resim
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {stockItems.map((item) => (
-                        <tr key={item.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {usesSerialStockItems(product?.productType)
-                              ? [item.serialNumber, item.assetLabel].filter(Boolean).join(' · ') || '—'
-                              : item.notes || `${item.currentStock ?? 0} adet`}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              item.allowsAssignment === true && item.status === 'IN_STOCK'
-                                ? 'bg-green-100 text-green-800'
-                                : item.status === 'ASSIGNED'
-                                ? 'bg-blue-100 text-blue-800'
-                                : item.status === 'MAINTENANCE'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {item.assetConditionName ||
-                                (item.status === 'IN_STOCK' && 'Stokta') ||
-                                (item.status === 'ASSIGNED' && 'Atanmış') ||
-                                (item.status === 'MAINTENANCE' && 'Bakımda') ||
-                                (item.status === 'RETIRED' && 'Emekli') ||
-                                item.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {item.warehouseName || 'Atanmamış'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {item.assignedUserName || '-'}
-                          </td>
-                          {usesSerialStockItems(product?.productType) && (
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {item.isUnderWarranty ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  Garantili
-                                </span>
-                              ) : (
-                                <span className="text-sm text-gray-500">-</span>
-                              )}
-                            </td>
-                          )}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {item.imageUrl ? (
-                              <button
-                                onClick={() => setSelectedImage(item.imageUrl)}
-                                className="block"
-                              >
-                                <img 
-                                  src={item.imageUrl} 
-                                  alt="Ürün resmi"
-                                  className="w-12 h-12 object-cover rounded border cursor-pointer hover:opacity-75 transition-opacity"
-                                />
-                              </button>
-                            ) : (
-                              <span className="text-sm text-gray-500">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="px-4 py-8 sm:px-6">
-                  <p className="text-sm text-gray-500 text-center">
-                    {isConsumable
-                      ? 'Bu ürüne ait depo stok bilgisi bulunamadı. Manuel stok girişi ile ekleyebilirsiniz.'
-                      : 'Bu ürüne ait stok kalemi bulunamadı.'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {product && (
-            <ProductStockMovementSection
-              productId={product.id}
-              productType={product.productType}
-              onStockChanged={() => {
-                loadStockItems();
-                loadProductData();
-              }}
-            />
-          )}
-        </div>
-
         <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
           <div>
@@ -908,6 +966,11 @@ export const ProductDetail = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Zimmet Tarihi
                     </th>
+                    {usesSerialItems && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Seri / cihaz
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Durum
                     </th>
@@ -924,6 +987,9 @@ export const ProductDetail = () => {
                       Notlar
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fotoğraf
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Zimmet Formu
                     </th>
                   </tr>
@@ -934,6 +1000,11 @@ export const ProductDetail = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(assignment.assignmentDate)}
                       </td>
+                      {usesSerialItems && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {assignment.serialNumber || (assignment.stockItemId ? `#${assignment.stockItemId}` : '—')}
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           assignment.status === AssignmentStatus.ACTIVE 
@@ -979,6 +1050,14 @@ export const ProductDetail = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {assignment.notes || '-'}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <AssignmentFormPhotoThumb
+                          assignmentId={assignment.id}
+                          hasFormPhoto={assignment.hasFormPhoto}
+                          formPhotoUrl={assignment.formPhotoUrl}
+                          onImageClick={(url) => setSelectedImage(url)}
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex flex-col gap-1">
                           <button
@@ -988,6 +1067,18 @@ export const ProductDetail = () => {
                             className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 text-left"
                           >
                             {formDownloadingId === assignment.id ? 'İndiriliyor…' : 'Formu indir'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUploadFormPhotoClick(assignment.id)}
+                            disabled={formPhotoUploadingId === assignment.id}
+                            className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 text-left"
+                          >
+                            {formPhotoUploadingId === assignment.id
+                              ? 'Fotoğraf yükleniyor…'
+                              : assignment.hasFormPhoto
+                                ? 'Fotoğrafı değiştir'
+                                : 'Fotoğraf yükle'}
                           </button>
                           <button
                             type="button"
@@ -1007,6 +1098,16 @@ export const ProductDetail = () => {
                               İmzalı indir
                             </button>
                           )}
+                          {canCancelAssignment(assignment) && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelAssignment(assignment.id)}
+                              disabled={assignmentCancellingId === assignment.id}
+                              className="text-red-600 hover:text-red-800 disabled:opacity-50 text-left"
+                            >
+                              {assignmentCancellingId === assignment.id ? 'İptal ediliyor…' : 'Zimmeti iptal et'}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1020,6 +1121,13 @@ export const ProductDetail = () => {
                 className="hidden"
                 onChange={handleSignedFormSelected}
               />
+              <input
+                ref={formPhotoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif"
+                className="hidden"
+                onChange={handleFormPhotoSelected}
+              />
             </div>
           ) : (
             <div className="px-4 py-8 sm:px-6">
@@ -1031,9 +1139,7 @@ export const ProductDetail = () => {
         </div>
       </div>
       </div>
-
-      {/* Zimmet Bölümü */}
-      
+      </div>
 
       {/* Zimmet Modal */}
       {showAssignmentModal && (
@@ -1305,6 +1411,32 @@ export const ProductDetail = () => {
                           placeholder="Zimmet hakkında notlar..."
                           className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Ürün fotoğrafı (form F8 hücresi)
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png"
+                          className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] ?? null;
+                            setAssignmentFormPhotoFile(file);
+                            if (assignmentFormPhotoPreview) {
+                              URL.revokeObjectURL(assignmentFormPhotoPreview);
+                            }
+                            setAssignmentFormPhotoPreview(file ? URL.createObjectURL(file) : null);
+                          }}
+                        />
+                        {assignmentFormPhotoPreview && (
+                          <img
+                            src={assignmentFormPhotoPreview}
+                            alt="Seçilen ürün fotoğrafı"
+                            className="mt-2 h-20 w-20 rounded object-cover border border-gray-200"
+                          />
+                        )}
                       </div>
 
                       {/* Bilgilendirici Kutu */}

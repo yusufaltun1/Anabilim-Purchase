@@ -92,6 +92,15 @@ public class Assignment {
 
     @Column(name = "signed_form_uploaded_at")
     private LocalDateTime signedFormUploadedAt;
+
+    @Column(name = "form_photo_file_name")
+    private String formPhotoFileName;
+
+    @Column(name = "form_photo_content_type")
+    private String formPhotoContentType;
+
+    @Column(name = "form_photo_stored_path")
+    private String formPhotoStoredPath;
     
     // Yardımcı metodlar
     public boolean isActive() {
@@ -132,6 +141,12 @@ public class Assignment {
             return false;
         }
         return AssignmentStatus.ACTIVE.equals(this.status);
+    }
+
+    public boolean canBeCancelled() {
+        return AssignmentStatus.ACTIVE.equals(this.status)
+                && isActive
+                && (signedFormStoredPath == null || signedFormStoredPath.isBlank());
     }
     
     public void markAsReturned() {

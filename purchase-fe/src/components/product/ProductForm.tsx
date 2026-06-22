@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { PencilIcon } from '@heroicons/react/24/outline';
 import { FormField, FormSection, InputWithButton } from '../common/FormField';
 import {
   btnInline,
@@ -10,12 +10,14 @@ import {
   formTextarea,
 } from '../common/formStyles';
 import { SearchableCategorySelect } from '../common/SearchableCategorySelect';
+import { SearchableDeviceModelSelect } from '../common/SearchableDeviceModelSelect';
 import { SearchableSupplierSelect } from '../common/SearchableSupplierSelect';
 import { categoryService } from '../../services/category.service';
 import { AssetCondition, DeviceModel, inventoryService } from '../../services/inventory.service';
 import { CreateDeviceModelModal } from './CreateDeviceModelModal';
+import { CreateSupplierModal } from './CreateSupplierModal';
+import { EditDeviceModelModal } from './EditDeviceModelModal';
 import { LocationHierarchyPickers } from '../common/LocationHierarchyPickers';
-import { formatDeviceModelLabel } from '../../utils/deviceModel';
 import { locationService } from '../../services/location.service';
 import {
   resolveProductLocationLevels,
@@ -40,6 +42,7 @@ type Mode = 'create' | 'edit';
 interface ProductFormProps {
   mode: Mode;
   productId?: number;
+  cloneFromId?: number;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -73,9 +76,9 @@ const fieldError = (fieldErrors: Record<string, string>, ...keys: string[]) => {
   return undefined;
 };
 
-export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFormProps) => {
-  const navigate = useNavigate();
+export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel }: ProductFormProps) => {
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(Boolean(productId || cloneFromId));
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Category[]>([]);
@@ -87,12 +90,19 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
   const [supplierId, setSupplierId] = useState<number | null>(null);
   const [deviceModels, setDeviceModels] = useState<DeviceModel[]>([]);
   const [showDeviceModelModal, setShowDeviceModelModal] = useState(false);
+  const [showEditDeviceModelModal, setShowEditDeviceModelModal] = useState(false);
+  const [showCreateSupplierModal, setShowCreateSupplierModal] = useState(false);
   const [conditions, setConditions] = useState<AssetCondition[]>([]);
   const [locationRootId, setLocationRootId] = useState<number | null>(null);
   const [locationMiddleId, setLocationMiddleId] = useState<number | null>(null);
   const [locationLeafId, setLocationLeafId] = useState<number | null>(null);
   const [locationReloadToken, setLocationReloadToken] = useState(0);
-  const [selectedModel, setSelectedModel] = useState<{ enableIp?: boolean; enableMac?: boolean } | null>(null);
+  const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null);
+
+  const applyDeviceModelSelection = (model: DeviceModel | null) => {
+    setSelectedModel(model);
+    setForm((prev) => ({ ...prev, deviceModelId: model?.id ?? null }));
+  };
 
   const selectedCategory = useMemo(
     () => categories.find((c) => c.id === form.categoryId),
@@ -105,9 +115,13 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
   useEffect(() => {
     (async () => {
       const cats = await loadMasters();
-      if (mode === 'edit' && productId) await loadProduct(productId, cats);
+      if (mode === 'edit' && productId) {
+        await applyProductToForm(productId, cats);
+      } else if (mode === 'create' && cloneFromId) {
+        await applyProductToForm(cloneFromId, cats, { clone: true });
+      }
     })();
-  }, [mode, productId]);
+  }, [mode, productId, cloneFromId]);
 
   useEffect(() => {
     if (form.categoryId) {
@@ -149,7 +163,11 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     }
   };
 
-  const loadProduct = async (id: number, categoriesList: Category[]) => {
+  const applyProductToForm = async (
+    id: number,
+    categoriesList: Category[],
+    options?: { clone?: boolean }
+  ) => {
     try {
       setLoading(true);
       const p: Product = await productService.getProductById(id);
@@ -157,11 +175,17 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
       const matchedCategory = categoriesList.find((c) => c.id === categoryId);
       const resolvedType = resolveProductType(matchedCategory?.productType ?? p.productType);
       const stock = resolveCategoryStockSettings(matchedCategory);
+      const cloneSuffix = ' (Kopya)';
+
       setForm({
-        name: p.name,
-        code: p.code,
+        name: options?.clone
+          ? p.name.endsWith(cloneSuffix)
+            ? p.name
+            : `${p.name}${cloneSuffix}`
+          : p.name,
+        code: options?.clone ? '' : p.code,
         description: p.description || '',
-        serialNumber: p.serialNumber || '',
+        serialNumber: options?.clone ? '' : p.serialNumber || '',
         categoryId,
         productType: (resolvedType || ProductType.CONSUMABLE) as ProductType,
         unitOfMeasure: stock.unitOfMeasure,
@@ -170,7 +194,7 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
         estimatedUnitPrice: p.estimatedUnitPrice ?? 0,
         currency: stock.currency,
         imageUrls: p.imageUrls ?? (p.imageUrl ? [p.imageUrl] : []),
-        assetLabel: p.code || p.assetLabel || '',
+        assetLabel: options?.clone ? '' : p.code || p.assetLabel || '',
         domainName: p.domainName,
         deviceModelId: p.deviceModelId,
         assetConditionId: p.assetConditionId,
@@ -182,18 +206,18 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
         schoolId: p.schoolId,
         orderNumber: p.orderNumber,
         byod: p.byod ?? false,
-        warrantyMonths: p.warrantyMonths,
-        lifespanEndDate: toDateInput(p.lifespanEndDate),
         purchaseDate: toDateInput(p.purchaseDate),
         purchasePrice: p.purchasePrice,
-        warrantyExpiryDate: toDateInput(p.warrantyExpiryDate),
+        warrantyExpiryDate: toDateInput(p.warrantyExpiryDate ?? p.lifespanEndDate),
       });
-      setActive(p.active ?? p.isActive ?? true);
+      setActive(options?.clone ? true : (p.active ?? p.isActive ?? true));
       if (p.primarySupplierId) setSupplierId(p.primarySupplierId);
       else if (p.suppliers?.[0]?.id) setSupplierId(p.suppliers[0].id);
       if (p.deviceModelId) {
         const models = await inventoryService.getDeviceModels();
-        setSelectedModel(models.find((x) => x.id === p.deviceModelId) || null);
+        const model = models.find((x) => x.id === p.deviceModelId) || null;
+        applyDeviceModelSelection(model);
+        setDeviceModels(models);
       }
       const locRes = await locationService.getAllLocations();
       if (locRes.success && Array.isArray(locRes.data)) {
@@ -207,9 +231,10 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
         setLocationLeafId(levels.leafId);
       }
     } catch {
-      setError('Ürün yüklenemedi');
+      setError(options?.clone ? 'Klonlanacak ürün yüklenemedi' : 'Ürün yüklenemedi');
     } finally {
       setLoading(false);
+      setInitializing(false);
     }
   };
 
@@ -273,7 +298,6 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
       imageUrl: form.imageUrls?.[0],
       supplierIds: supplierId ? [supplierId] : [],
       purchaseDate: toDateTimePayload(form.purchaseDate),
-      lifespanEndDate: toDateTimePayload(form.lifespanEndDate),
       warrantyExpiryDate: toDateTimePayload(form.warrantyExpiryDate),
     };
   };
@@ -358,12 +382,33 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
     setForm((prev) => ({ ...prev, code, assetLabel: code }));
   };
 
+  const handleDeviceModelUpdated = async (updated: DeviceModel) => {
+    setDeviceModels((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+    applyDeviceModelSelection(updated);
+  };
+
+  const reloadSuppliers = async () => {
+    if (form.categoryId) {
+      const list = await supplierService.getSuppliersByCategory(form.categoryId).catch(() => []);
+      setSuppliers(list);
+      return list;
+    }
+    const list = await supplierService.getActiveSuppliers().catch(() => []);
+    setSuppliers(list);
+    return list;
+  };
+
+  const handleSupplierCreated = async (created: Supplier) => {
+    const list = await reloadSuppliers();
+    const supplier = list.find((s) => s.id === created.id) ?? created;
+    setSupplierId(supplier.id);
+  };
+
   const handleDeviceModelCreated = async (created: DeviceModel) => {
     const models = await inventoryService.getDeviceModels();
     const model = models.find((x) => x.id === created.id) ?? created;
     setDeviceModels(models);
-    setSelectedModel(model);
-    setForm((prev) => ({ ...prev, deviceModelId: model.id }));
+    applyDeviceModelSelection(model);
   };
 
   const createCondition = async () => {
@@ -396,6 +441,14 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
       setError(err instanceof Error ? err.message : 'Konum oluşturulamadı');
     }
   };
+
+  if (initializing) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -568,32 +621,33 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                 label="Marka / model"
                 required={assetFieldsRequired}
                 error={fieldError(fieldErrors, 'deviceModelId')}
+                className="sm:col-span-2"
+                hint="Listeden seçin; seçtikten sonra kalem ile düzenleyebilirsiniz"
               >
-                <InputWithButton
-                  button={
-                    <button type="button" className={btnInlinePrimary} onClick={() => setShowDeviceModelModal(true)}>
-                      Yeni
+                <div className="flex gap-2 items-center">
+                  <div className="min-w-0 flex-1">
+                    <SearchableDeviceModelSelect
+                      models={deviceModels}
+                      value={form.deviceModelId ?? null}
+                      hasError={Boolean(fieldError(fieldErrors, 'deviceModelId'))}
+                      onChange={applyDeviceModelSelection}
+                    />
+                  </div>
+                  {form.deviceModelId != null && (
+                    <button
+                      type="button"
+                      className={btnInline}
+                      onClick={() => setShowEditDeviceModelModal(true)}
+                      title="Marka / model düzenle"
+                      aria-label="Marka / model düzenle"
+                    >
+                      <PencilIcon className="h-4 w-4" />
                     </button>
-                  }
-                >
-                  <select
-                    className={`${formSelect}${fieldError(fieldErrors, 'deviceModelId') ? ' border-red-500' : ''}`}
-                    value={form.deviceModelId ?? ''}
-                    onChange={(e) => {
-                      const id = e.target.value ? Number(e.target.value) : null;
-                      const model = deviceModels.find((x) => x.id === id) || null;
-                      setSelectedModel(model);
-                      setForm({ ...form, deviceModelId: id });
-                    }}
-                  >
-                    <option value="">Marka ve model seçin</option>
-                    {deviceModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {formatDeviceModelLabel(m)}
-                      </option>
-                    ))}
-                  </select>
-                </InputWithButton>
+                  )}
+                  <button type="button" className={btnInlinePrimary} onClick={() => setShowDeviceModelModal(true)}>
+                    Yeni
+                  </button>
+                </div>
               </FormField>
 
               <FormField label="Durum" hint="Zimmet için 'Hazır' ve dağıtılabilir durum seçin">
@@ -692,22 +746,6 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                   placeholder="ör. laptop-ahmet"
                 />
               </FormField>
-              <FormField label="Garanti süresi">
-                <div className="flex rounded-md shadow-sm">
-                  <input
-                    type="number"
-                    min={0}
-                    className={`${formInput} rounded-r-none`}
-                    value={form.warrantyMonths ?? ''}
-                    onChange={(e) =>
-                      setForm({ ...form, warrantyMonths: e.target.value ? Number(e.target.value) : null })
-                    }
-                  />
-                  <span className="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-600">
-                    ay
-                  </span>
-                </div>
-              </FormField>
               <div className="sm:col-span-2 flex items-center rounded-md border border-gray-200 bg-white px-4 py-3">
                 <input
                   type="checkbox"
@@ -741,18 +779,18 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
                   onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })}
                 />
               </FormField>
-              <FormField label="Ömür (bitiş)">
+              <FormField label="Garanti bitiş süresi">
                 <input
                   type="date"
                   className={formInput}
-                  value={form.lifespanEndDate || ''}
-                  onChange={(e) => setForm({ ...form, lifespanEndDate: e.target.value })}
+                  value={form.warrantyExpiryDate || ''}
+                  onChange={(e) => setForm({ ...form, warrantyExpiryDate: e.target.value })}
                 />
               </FormField>
               <FormField label="Tedarikçi">
                 <InputWithButton
                   button={
-                    <button type="button" className={btnInlinePrimary} onClick={() => navigate('/suppliers/create')}>
+                    <button type="button" className={btnInlinePrimary} onClick={() => setShowCreateSupplierModal(true)}>
                       Yeni
                     </button>
                   }
@@ -844,6 +882,18 @@ export const ProductForm = ({ mode, productId, onSuccess, onCancel }: ProductFor
       isOpen={showDeviceModelModal}
       onClose={() => setShowDeviceModelModal(false)}
       onCreated={handleDeviceModelCreated}
+    />
+    <EditDeviceModelModal
+      isOpen={showEditDeviceModelModal}
+      model={selectedModel}
+      onClose={() => setShowEditDeviceModelModal(false)}
+      onUpdated={handleDeviceModelUpdated}
+    />
+    <CreateSupplierModal
+      isOpen={showCreateSupplierModal}
+      defaultCategoryId={form.categoryId}
+      onClose={() => setShowCreateSupplierModal(false)}
+      onCreated={handleSupplierCreated}
     />
     </>
   );

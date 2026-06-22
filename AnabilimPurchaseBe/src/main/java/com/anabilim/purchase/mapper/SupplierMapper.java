@@ -39,7 +39,7 @@ public class SupplierMapper {
         supplier.setContactPhone(dto.getContactPhone());
         supplier.setContactEmail(dto.getContactEmail());
         supplier.setBankAccount(dto.getBankAccount());
-        supplier.setIban(dto.getIban());
+        supplier.setIban(normalizeIban(dto.getIban()));
         supplier.setPreferred(dto.isPreferred());
         supplier.setActive(true);
         
@@ -69,7 +69,7 @@ public class SupplierMapper {
         if (dto.getContactPhone() != null) supplier.setContactPhone(dto.getContactPhone());
         if (dto.getContactEmail() != null) supplier.setContactEmail(dto.getContactEmail());
         if (dto.getBankAccount() != null) supplier.setBankAccount(dto.getBankAccount());
-        if (dto.getIban() != null) supplier.setIban(dto.getIban());
+        supplier.setIban(normalizeIban(dto.getIban()));
         supplier.setActive(dto.isActive());
         supplier.setPreferred(dto.isPreferred());
         
@@ -127,5 +127,13 @@ public class SupplierMapper {
         return suppliers.stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+    }
+
+    private String normalizeIban(String iban) {
+        if (iban == null) {
+            return null;
+        }
+        String normalized = iban.replaceAll("\\s", "").trim();
+        return normalized.isEmpty() ? null : normalized.toUpperCase();
     }
 } 

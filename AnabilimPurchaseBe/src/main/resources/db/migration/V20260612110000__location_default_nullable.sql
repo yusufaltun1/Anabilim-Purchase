@@ -1,0 +1,1 @@
+ALTER TABLE "Location" ALTER COLUMN is_default DROP NOT NULL;

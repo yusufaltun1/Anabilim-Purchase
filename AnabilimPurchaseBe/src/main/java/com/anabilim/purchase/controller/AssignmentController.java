@@ -3,6 +3,7 @@ package com.anabilim.purchase.controller;
 import com.anabilim.purchase.dto.ApiResponse;
 import com.anabilim.purchase.dto.request.CreateAssignmentDto;
 import com.anabilim.purchase.dto.response.AssignmentDto;
+import com.anabilim.purchase.dto.response.AssignmentFormPhotoDto;
 import com.anabilim.purchase.dto.response.AssignmentSignedFormDto;
 import com.anabilim.purchase.dto.response.AttachmentDownloadResult;
 import com.anabilim.purchase.entity.enums.AssignmentStatus;
@@ -50,7 +51,7 @@ public class AssignmentController {
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteAssignment(@PathVariable Long id) {
         assignmentService.deleteAssignment(id);
-        return ResponseEntity.ok(ApiResponse.success("Zimmet başarıyla silindi", null));
+        return ResponseEntity.ok(ApiResponse.success("Zimmet iptal edildi, bağlı stok hareketi silindi", null));
     }
     
     // ========== Ürün Bazlı İşlemler ==========
@@ -69,6 +70,14 @@ public class AssignmentController {
         List<AssignmentDto> assignments = assignmentService.getAssignmentsByProductIdAndStatus(productId, status);
         return ResponseEntity.ok(ApiResponse.success(
                 "Ürün ID: " + productId + " ve durum: " + status + " için zimmetler listelendi", assignments));
+    }
+
+    @GetMapping("/stock-item/{stockItemId}")
+    public ResponseEntity<ApiResponse<List<AssignmentDto>>> getAssignmentsByStockItemId(
+            @PathVariable Long stockItemId) {
+        List<AssignmentDto> assignments = assignmentService.getAssignmentsByStockItemId(stockItemId);
+        return ResponseEntity.ok(ApiResponse.success(
+                "Stock item ID: " + stockItemId + " için zimmetler listelendi", assignments));
     }
     
     // ========== Kullanıcı Bazlı İşlemler ==========
@@ -174,6 +183,25 @@ public class AssignmentController {
         return ResponseEntity.ok()
                 .contentType(mediaType)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.getFileName() + "\"")
+                .body(result.getResource());
+    }
+
+    @PostMapping(value = "/{id}/form/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<AssignmentFormPhotoDto>> uploadAssignmentFormPhoto(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        AssignmentFormPhotoDto dto = assignmentFormService.uploadFormPhoto(id, file);
+        return ResponseEntity.ok(ApiResponse.success("Ürün fotoğrafı yüklendi", dto));
+    }
+
+    @GetMapping("/{id}/form/photo")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadAssignmentFormPhoto(@PathVariable Long id) {
+        AttachmentDownloadResult result = assignmentFormService.downloadFormPhoto(id);
+        MediaType mediaType = MediaType.parseMediaType(
+                result.getContentType() != null ? result.getContentType() : "application/octet-stream");
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + result.getFileName() + "\"")
                 .body(result.getResource());
     }
 

@@ -157,9 +157,11 @@ public class ProductInventoryService {
         dto.setMacAddress(item.getMacAddress());
         if (item.getDefaultParentLocation() != null) {
             dto.setDefaultParentLocationId(item.getDefaultParentLocation().getId());
+            dto.setDefaultParentLocationName(item.getDefaultParentLocation().getName());
         }
         if (item.getDefaultChildLocation() != null) {
             dto.setDefaultChildLocationId(item.getDefaultChildLocation().getId());
+            dto.setDefaultChildLocationName(item.getDefaultChildLocation().getName());
         }
         dto.setNotes(item.getNotes());
         dto.setPurchaseDate(item.getPurchaseDate());

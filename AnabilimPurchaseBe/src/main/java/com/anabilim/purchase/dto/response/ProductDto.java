@@ -40,6 +40,8 @@ public class ProductDto {
     private Boolean allowsAssignment;
     private Long defaultParentLocationId;
     private Long defaultChildLocationId;
+    private String defaultParentLocationName;
+    private String defaultChildLocationName;
     private Long purchaseRequestId;
     private String purchaseRequestTitle;
     private LocalDateTime warrantyExpiryDate;

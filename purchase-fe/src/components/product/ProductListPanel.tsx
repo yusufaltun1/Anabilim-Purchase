@@ -1,10 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FiCopy, FiEye, FiEdit2, FiPrinter, FiTrash2, FiUserPlus, FiImage } from 'react-icons/fi';
 import { ProductLabelPrint } from '../ProductLabelPrint';
 import { authService } from '../../services/auth.service';
 import { productService } from '../../services/product.service';
 import { Product, PRODUCT_TYPE_LABELS } from '../../types/product';
 import { CATEGORY_PRODUCT_TYPE_OPTIONS } from '../../types/category';
+import {
+  AssetLabelCell,
+  CategoryCell,
+  LocationCell,
+  ModelCell,
+  ProductNameCell,
+  SerialNumberCell,
+  StockStatusCell,
+} from './productListVisuals';
 
 const productTypeLabel = (type?: string) =>
   CATEGORY_PRODUCT_TYPE_OPTIONS.find((o) => o.value === type)?.label ||
@@ -12,16 +22,38 @@ const productTypeLabel = (type?: string) =>
   type ||
   '';
 
-const formatCurrency = (amount: number, currency?: string) => {
-  try {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: currency || 'TRY',
-    }).format(amount);
-  } catch {
-    return `${amount.toLocaleString('tr-TR')} ₺`;
-  }
-};
+const getProductImage = (product: Product): string | undefined =>
+  product.imageUrl || product.imageUrls?.[0];
+
+const thClass =
+  'px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap';
+const tdClass = 'px-3 py-3 align-middle text-sm text-gray-700';
+
+interface IconActionButtonProps {
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  children: React.ReactNode;
+}
+
+const IconActionButton = ({ title, onClick, disabled, danger, children }: IconActionButtonProps) => (
+  <button
+    type="button"
+    title={title}
+    aria-label={title}
+    disabled={disabled}
+    onClick={(e) => {
+      e.stopPropagation();
+      onClick();
+    }}
+    className={`inline-flex h-8 w-8 items-center justify-center rounded-md border-0 !bg-transparent !p-0 text-[17px] text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 ${
+      danger ? 'hover:!bg-red-50 hover:!text-red-600' : ''
+    }`}
+  >
+    {children}
+  </button>
+);
 
 interface ProductListPanelProps {
   products: Product[];
@@ -63,144 +95,206 @@ export const ProductListPanel = ({
     }
   };
 
+  const renderThumbnail = (product: Product) => {
+    const imageSrc = getProductImage(product);
+
+    if (imageSrc) {
+      return (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedImage(imageSrc);
+          }}
+          className="block h-14 w-11 overflow-hidden rounded border border-gray-200 bg-gray-50 !p-0 transition hover:border-gray-300"
+          title="Görseli büyüt"
+        >
+          <img src={imageSrc} alt={product.name} className="h-full w-full object-cover" />
+        </button>
+      );
+    }
+
+    return (
+      <div
+        className="flex h-14 w-11 items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 text-gray-300"
+        title="Görsel yok"
+      >
+        <FiImage className="text-lg" aria-hidden />
+      </div>
+    );
+  };
+
+  const renderActions = (product: Product) => (
+    <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+      {product.canAssign && (
+        <IconActionButton
+          title="Zimmetle"
+          onClick={() => navigate(`/products/${product.id}?assign=1`)}
+        >
+          <FiUserPlus />
+        </IconActionButton>
+      )}
+      <IconActionButton title="Detay" onClick={() => navigate(`/products/${product.id}`)}>
+        <FiEye />
+      </IconActionButton>
+      {canInventoryManage && (
+        <IconActionButton
+          title="Klonla"
+          onClick={() => navigate(`/products/create?cloneFrom=${product.id}`)}
+        >
+          <FiCopy />
+        </IconActionButton>
+      )}
+      {canInventoryManage && (
+        <IconActionButton
+          title="Düzenle"
+          onClick={() => navigate(`/products/edit/${product.id}`)}
+        >
+          <FiEdit2 />
+        </IconActionButton>
+      )}
+      <IconActionButton title="Etiket bas" onClick={() => setPrintingProduct(product)}>
+        <FiPrinter />
+      </IconActionButton>
+      {canInventoryManage && (
+        <IconActionButton
+          title="Sil"
+          danger
+          disabled={deleting}
+          onClick={() => handleDelete(product.id)}
+        >
+          <FiTrash2 />
+        </IconActionButton>
+      )}
+    </div>
+  );
+
+  const stickyActionHeadClass = `${thClass} sticky right-0 z-20 bg-gray-50 shadow-[-6px_0_8px_-4px_rgba(0,0,0,0.08)]`;
+  const stickyActionCellClass = `${tdClass} sticky right-0 z-10 bg-white shadow-[-6px_0_8px_-4px_rgba(0,0,0,0.06)] group-hover:bg-gray-50`;
+
   return (
     <>
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+      <div className="overflow-hidden bg-white shadow sm:rounded-lg">
         {showHeader && (
-          <div className="px-4 py-5 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-5">
             <h3 className="text-lg font-medium text-gray-900">{title}</h3>
             {headerAction}
           </div>
         )}
 
         {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+          <div className="flex items-center justify-center py-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-indigo-600" />
           </div>
         ) : products.length === 0 ? (
-          <p className="p-6 text-center text-gray-500 text-sm">{emptyMessage}</p>
+          <p className="p-8 text-center text-sm text-gray-500">{emptyMessage}</p>
         ) : (
-          <ul className="divide-y divide-gray-200">
-            {products.map((product) => (
-              <li key={product.id}>
-                <div className="block hover:bg-gray-50">
-                  <div className="px-4 py-4 sm:px-6">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center min-w-0">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-indigo-600 truncate">{product.name}</p>
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                              {product.code}
-                            </span>
-                            {product.productType && (
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {productTypeLabel(String(product.productType))}
-                              </span>
-                            )}
-                            {(product.active === false || product.isActive === false) && (
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                Pasif
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-shrink-0 items-center flex-wrap justify-end gap-2 sm:gap-4">
-                        {product.imageUrl && (
-                          <img
-                            src={product.imageUrl}
-                            alt={product.name}
-                            className="h-12 w-12 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => setSelectedImage(product.imageUrl!)}
-                          />
-                        )}
-                        <p className="px-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          {formatCurrency(product.estimatedUnitPrice || 0)}
-                        </p>
-                        {product.mustReturnFirst && (
-                          <span className="text-xs text-orange-600 font-medium" title="Önce depoya iade">
-                            Kullanımda
-                          </span>
-                        )}
-                        {product.canAssign && (
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/products/${product.id}?assign=1`)}
-                            className="text-green-600 hover:text-green-900 font-medium text-sm"
-                          >
-                            Zimmetle
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/products/${product.id}`)}
-                          className="text-indigo-600 hover:text-indigo-900 font-medium text-sm"
-                        >
-                          Detay
-                        </button>
-                        {canInventoryManage && (
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/products/edit/${product.id}`)}
-                            className="text-yellow-600 hover:text-yellow-900 font-medium text-sm"
-                          >
-                            Düzenle
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setPrintingProduct(product)}
-                          className="text-blue-600 hover:text-blue-900 font-medium text-sm"
-                        >
-                          Bas
-                        </button>
-                        {canInventoryManage && (
-                          <button
-                            type="button"
-                            disabled={deleting}
-                            onClick={() => handleDelete(product.id)}
-                            className="text-red-600 hover:text-red-900 font-medium text-sm disabled:opacity-50"
-                          >
-                            Sil
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-2 sm:flex sm:justify-between gap-2">
-                      {product.description && (
-                        <p className="text-sm text-gray-500 line-clamp-2">{product.description}</p>
-                      )}
-                      <p className="text-sm text-gray-500 sm:text-right flex-shrink-0">
-                        Miktar: {product.minQuantity ?? '—'} - {product.maxQuantity ?? '—'}{' '}
-                        {product.unitOfMeasure || ''}
-                        {product.serialNumber ? ` · Seri: ${product.serialNumber}` : ''}
-                        {product.assetLabel ? ` · Etiket: ${product.assetLabel}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="overflow-x-auto">
+            <table className="min-w-full table-fixed divide-y divide-gray-200">
+              <colgroup>
+                <col className="w-[52px]" />
+                <col className="w-[17%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[11%]" />
+                <col className="w-[10%]" />
+                <col className="w-[11%]" />
+                <col className="w-[13%]" />
+                <col className="w-[168px]" />
+              </colgroup>
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className={thClass}>
+                    Görsel
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Ürün
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Etiket
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Seri no
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Model
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Kategori
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Stok / Zimmet
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Konum
+                  </th>
+                  <th scope="col" className={stickyActionHeadClass}>
+                    İşlemler
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {products.map((product) => (
+                  <tr
+                    key={product.id}
+                    className="group cursor-pointer transition hover:bg-gray-50"
+                    onClick={() => navigate(`/products/${product.id}`)}
+                  >
+                    <td className={tdClass}>{renderThumbnail(product)}</td>
+                    <td className={tdClass}>
+                      <ProductNameCell
+                        name={product.name}
+                        code={product.code}
+                        productType={
+                          product.productType
+                            ? productTypeLabel(String(product.productType))
+                            : undefined
+                        }
+                      />
+                    </td>
+                    <td className={tdClass}>
+                      <AssetLabelCell label={product.assetLabel} />
+                    </td>
+                    <td className={tdClass}>
+                      <SerialNumberCell serialNumber={product.serialNumber} />
+                    </td>
+                    <td className={tdClass}>
+                      <ModelCell modelName={product.deviceModelName} />
+                    </td>
+                    <td className={tdClass}>
+                      <CategoryCell name={product.category?.name} />
+                    </td>
+                    <td className={tdClass}>
+                      <StockStatusCell product={product} />
+                    </td>
+                    <td className={tdClass}>
+                      <LocationCell product={product} />
+                    </td>
+                    <td className={stickyActionCellClass}>{renderActions(product)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {selectedImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
           <button
             type="button"
             onClick={() => setSelectedImage(null)}
-            className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70 transition-all z-10"
+            className="absolute right-4 top-4 z-10 rounded-full border-0 bg-black/50 !p-2 text-white transition hover:bg-black/70"
+            aria-label="Kapat"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
           <img
             src={selectedImage}
-            alt="Büyük resim görünümü"
-            className="max-w-[80vw] max-h-[80vh] object-contain rounded-lg shadow-xl"
+            alt="Büyük görsel"
+            className="max-h-[80vh] max-w-[80vw] rounded-lg object-contain shadow-xl"
             onClick={(e) => e.stopPropagation()}
           />
         </div>

@@ -12,7 +12,8 @@ import {
   ProductStockListResponse,
   StockItem,
   StockItemResponse,
-  CreateStockItemRequest
+  CreateStockItemRequest,
+  StockMovementDetail
 } from '../types/warehouse';
 
 class WarehouseService {
@@ -238,6 +239,17 @@ class WarehouseService {
     }
     if (Array.isArray(body)) {
       return body;
+    }
+    return [];
+  }
+
+  async getStockItemMovements(stockItemId: number): Promise<StockMovementDetail[]> {
+    const response = await axiosInstance.get<{ success?: boolean; data?: StockMovementDetail[] }>(
+      `/api/v1/stock-items/${stockItemId}/movements`
+    );
+    const body = response.data;
+    if (body && typeof body === 'object' && 'data' in body && Array.isArray(body.data)) {
+      return body.data;
     }
     return [];
   }

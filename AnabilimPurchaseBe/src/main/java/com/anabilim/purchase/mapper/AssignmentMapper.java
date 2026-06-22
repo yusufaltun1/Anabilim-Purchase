@@ -80,10 +80,17 @@ public class AssignmentMapper {
         dto.setUserAssignment(entity.isUserAssignment());
         dto.setLocationAssignment(entity.isLocationAssignment());
         dto.setCanBeReturned(entity.canBeReturned());
+        dto.setCanBeCancelled(entity.canBeCancelled());
 
         dto.setHasSignedForm(entity.getSignedFormStoredPath() != null && !entity.getSignedFormStoredPath().isBlank());
         dto.setSignedFormFileName(entity.getSignedFormFileName());
         dto.setSignedFormUploadedAt(entity.getSignedFormUploadedAt());
+
+        dto.setHasFormPhoto(entity.getFormPhotoStoredPath() != null && !entity.getFormPhotoStoredPath().isBlank());
+        if (dto.isHasFormPhoto()) {
+            dto.setFormPhotoUrl("/api/v1/assignments/" + entity.getId() + "/form/photo");
+        }
+        dto.setFormPhotoFileName(entity.getFormPhotoFileName());
         
         return dto;
     }

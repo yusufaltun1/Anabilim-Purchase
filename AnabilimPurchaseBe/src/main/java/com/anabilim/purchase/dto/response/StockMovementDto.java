@@ -18,6 +18,8 @@ public class StockMovementDto {
     private String referenceType;
     private Long referenceId;
     private String notes;
+    private Long stockItemId;
+    private String stockItemSerialNumber;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 } 

@@ -45,8 +45,7 @@ public class CreateSupplierDto {
     private String contactEmail;
     
     private String bankAccount;
-    
-    @Pattern(regexp = "^TR[0-9]{24}$", message = "Geçerli bir IBAN numarası giriniz")
+
     private String iban;
     
     private boolean isPreferred = false;

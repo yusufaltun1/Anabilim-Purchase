@@ -61,6 +61,8 @@ export interface Product {
   primarySupplierName?: string;
   defaultParentLocationId?: number;
   defaultChildLocationId?: number;
+  defaultParentLocationName?: string;
+  defaultChildLocationName?: string;
   stockItemStatus?: string;
   stockItemId?: number;
   currentStock?: number;

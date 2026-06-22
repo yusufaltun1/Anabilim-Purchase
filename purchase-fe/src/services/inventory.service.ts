@@ -54,6 +54,22 @@ export const inventoryService = {
     return res.json() as Promise<DeviceModel>;
   },
 
+  async updateDeviceModel(
+    id: number,
+    body: { name: string; brand: string; enableIp?: boolean; enableMac?: boolean }
+  ) {
+    const res = await fetch(`${API_CONFIG.BASE_URL}/api/inventory/device-models/${id}`, {
+      method: 'PUT',
+      headers: headers(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message || 'Model güncellenemedi');
+    }
+    return res.json() as Promise<DeviceModel>;
+  },
+
   async getAssetConditions(): Promise<AssetCondition[]> {
     const res = await fetch(`${API_CONFIG.BASE_URL}/api/inventory/asset-conditions`, { headers: headers() });
     return res.ok ? res.json() : [];

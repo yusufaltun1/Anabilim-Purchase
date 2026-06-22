@@ -203,7 +203,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
                 }
                 forwardToUser(request, approver, currentApproval, sendToUser);
             } else if (userHasRole(approver, "SERKAN_BEY")) {
-                forwardToPurchaseDepartment(request, approver, currentApproval);
+                forwardToPurchaseDepartment(request, approver, currentApproval, false, null);
             } else {
                 request.setStatus(RequestStatus.APPROVED);
                 request.setCompletedAt(LocalDateTime.now());
@@ -259,6 +259,13 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             return purchaseRequestMapper.toDto(request);
         }
 
+        if (userHasRole(approver, "SERKAN_BEY")) {
+            request.setRejectionReason(reason);
+            forwardToPurchaseDepartment(request, approver, currentApproval, true, reason);
+            request = purchaseRequestRepository.save(request);
+            return purchaseRequestMapper.toDto(request);
+        }
+
         // Tamamen reddet
         request.setStatus(RequestStatus.REJECTED);
         request.setRejectionReason(reason);
@@ -292,7 +299,12 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         notificationService.createNotification(sendToUser, message, request);
     }
 
-    private void forwardToPurchaseDepartment(PurchaseRequest request, User approver, PurchaseRequestApproval currentApproval) {
+    private void forwardToPurchaseDepartment(
+            PurchaseRequest request,
+            User approver,
+            PurchaseRequestApproval currentApproval,
+            boolean fromRejection,
+            String rejectionReason) {
         User purchaseUser = resolvePurchaseDepartmentAssignee();
         int nextStepOrder = request.getApprovals().stream().mapToInt(PurchaseRequestApproval::getStepOrder).max().orElse(0) + 1;
         PurchaseRequestApproval nextApproval = new PurchaseRequestApproval();
@@ -305,14 +317,26 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         nextApproval.setForwardedFromSenior(true);
         approvalRepository.save(nextApproval);
         request.setStatus(RequestStatus.IN_APPROVAL);
-        String purchaseMessage = String.format(
-                "'%s' başlıklı satın alma talebi %s tarafından onaylandı; satın alma sürecine iletildi.",
-                request.getTitle(), approver.getFirstName());
-        notificationService.createNotification(purchaseUser, purchaseMessage, request);
-        String requesterMessage = String.format(
-                "'%s' başlıklı talebiniz %s tarafından onaylandı ve satın alma departmanına iletildi.",
-                request.getTitle(), approver.getFirstName());
-        notificationService.createNotification(request.getRequester(), requesterMessage, request);
+        if (fromRejection) {
+            String reasonText = rejectionReason != null ? rejectionReason : "";
+            String purchaseMessage = String.format(
+                    "'%s' başlıklı satın alma talebi %s tarafından reddedildi; satın alma sürecine iletildi. Gerekçe: %s",
+                    request.getTitle(), approver.getFirstName(), reasonText);
+            notificationService.createNotification(purchaseUser, purchaseMessage, request);
+            String requesterMessage = String.format(
+                    "'%s' başlıklı talebiniz %s tarafından reddedildi ve satın alma departmanına iletildi. Gerekçe: %s",
+                    request.getTitle(), approver.getFirstName(), reasonText);
+            notificationService.createNotification(request.getRequester(), requesterMessage, request);
+        } else {
+            String purchaseMessage = String.format(
+                    "'%s' başlıklı satın alma talebi %s tarafından onaylandı; satın alma sürecine iletildi.",
+                    request.getTitle(), approver.getFirstName());
+            notificationService.createNotification(purchaseUser, purchaseMessage, request);
+            String requesterMessage = String.format(
+                    "'%s' başlıklı talebiniz %s tarafından onaylandı ve satın alma departmanına iletildi.",
+                    request.getTitle(), approver.getFirstName());
+            notificationService.createNotification(request.getRequester(), requesterMessage, request);
+        }
     }
 
     private User resolvePurchaseDepartmentAssignee() {

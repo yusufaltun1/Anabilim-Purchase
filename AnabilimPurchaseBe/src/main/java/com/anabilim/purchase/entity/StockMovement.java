@@ -26,6 +26,10 @@ public class StockMovement {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "warehouse_stock_id", nullable = false)
     private WarehouseStock warehouseStock;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_item_id")
+    private StockItem stockItem;
     
     @Column(name = "quantity", nullable = false)
     private Integer quantity;

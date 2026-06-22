@@ -66,6 +66,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.school IS NULL AND u.isActive = true")
     List<User> findNonSchoolEmployees();
     
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.workLocationParent LEFT JOIN FETCH u.workLocationChild WHERE u.email = :email AND u.isActive = true")
+    Optional<User> findActiveByEmailWithWorkLocations(@Param("email") String email);
+
     boolean existsByEmail(String email);
     
     boolean existsByMicrosoft365Id(String microsoft365Id);

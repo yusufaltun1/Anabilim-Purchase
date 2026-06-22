@@ -71,10 +71,37 @@ class AssignmentService {
     await axiosInstance.delete(`${this.baseUrl}/${id}`);
   }
 
+  async cancelAssignment(id: number): Promise<void> {
+    try {
+      await this.deleteAssignment(id);
+    } catch (error: unknown) {
+      const axiosError = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const message =
+        axiosError.response?.data?.message ??
+        axiosError.message ??
+        'Zimmet iptal edilirken bir hata oluştu';
+      throw new Error(message);
+    }
+  }
+
   // Ürün Bazlı İşlemler
   async getAssignmentsByProduct(productId: number): Promise<AssignmentResponse> {
     const response = await axiosInstance.get<AssignmentResponse>(`${this.baseUrl}/product/${productId}`);
     return response.data;
+  }
+
+  async getAssignmentsByStockItem(stockItemId: number): Promise<Assignment[]> {
+    const response = await axiosInstance.get<{ success?: boolean; data?: Assignment[] }>(
+      `${this.baseUrl}/stock-item/${stockItemId}`
+    );
+    const body = response.data;
+    if (body && typeof body === 'object' && 'data' in body && Array.isArray(body.data)) {
+      return body.data;
+    }
+    return [];
   }
 
   async getAssignmentsByProductAndStatus(productId: number, status: AssignmentStatus): Promise<AssignmentResponse> {
@@ -397,6 +424,31 @@ class AssignmentService {
       if (match) fileName = match[1].trim();
     }
     this.triggerBlobDownload(blob, fileName);
+  }
+
+  async uploadFormPhoto(assignmentId: number, file: File): Promise<void> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/${assignmentId}/form/photo`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: formData,
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message || 'Ürün fotoğrafı yüklenemedi');
+    }
+  }
+
+  async fetchFormPhotoBlobUrl(assignmentId: number): Promise<string> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/${assignmentId}/form/photo`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      throw new Error('Fotoğraf yüklenemedi');
+    }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
   }
 }
 

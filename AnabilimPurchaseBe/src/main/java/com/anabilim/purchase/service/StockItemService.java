@@ -5,6 +5,7 @@ import com.anabilim.purchase.dto.request.CreateStockItemDto;
 import com.anabilim.purchase.dto.request.UpdateStockItemDto;
 import com.anabilim.purchase.dto.response.StockItemDto;
 import com.anabilim.purchase.dto.response.StockItemSummaryDto;
+import com.anabilim.purchase.dto.response.StockMovementDto;
 import com.anabilim.purchase.entity.enums.StockItemStatus;
 
 import java.util.List;
@@ -32,6 +33,8 @@ public interface StockItemService {
     List<StockItemSummaryDto> getStockItemSummariesByProductId(Long productId);
     
     List<StockItemDto> getStockItemsByProductIdAndStatus(Long productId, StockItemStatus status);
+
+    List<StockMovementDto> getStockItemMovements(Long stockItemId);
     
     // Depo Bazlı İşlemler
     List<StockItemDto> getStockItemsByWarehouseId(Long warehouseId);

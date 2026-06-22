@@ -15,7 +15,7 @@ import {
 import { User } from '../types/user';
 import { AddItemsForm } from '../components/AddItemsForm';
 import { authService } from '../services/auth.service';
-import { formatDate } from '../utils/date';
+import { formatDate, getTomorrowInputDate } from '../utils/date';
 import { SupplierQuoteList } from '../components/SupplierQuoteList';
 import { ConvertRequestToOrderModal } from '../components/ConvertRequestToOrderModal';
 import { useNotification } from '../contexts/NotificationContext';
@@ -63,6 +63,7 @@ export const PurchaseRequestDetail = () => {
   const [counterOfferError, setCounterOfferError] = useState<string | null>(null);
   const canApproveRequest = authService.hasCapability('REQUEST_APPROVE');
   const canQuoteCollect = authService.hasCapability('QUOTE_COLLECT');
+  const canEnterCounterOffer = authService.hasCapability('COUNTER_OFFER');
   const canOrderCreate = authService.hasCapability('ORDER_CREATE');
   const canEditRequest = authService.hasCapability('REQUEST_EDIT');
   const currentUserId = authService.getCurrentUser()?.id;
@@ -213,7 +214,11 @@ export const PurchaseRequestDetail = () => {
       const payload = {
         comment: rejectionComment,
         rejectionReason: rejectionComment,
-        returnToUserId: returnToUserId === '' ? null : returnToUserId,
+        returnToUserId: isSerkanBeyApprover
+          ? null
+          : returnToUserId === ''
+            ? null
+            : returnToUserId,
       };
       await purchaseRequestService.rejectRequest(parseInt(id), payload);
       setShowRejectModal(false);
@@ -222,6 +227,8 @@ export const PurchaseRequestDetail = () => {
       await loadRequestData();
       if (payload.returnToUserId != null) {
         showNotification('Talep seçtiğiniz kişiye geri gönderildi', 'success');
+      } else if (isSerkanBeyApprover) {
+        showNotification('Talep reddedildi ve satın alma departmanına iletildi', 'success');
       } else {
         showNotification('Talep başarıyla reddedildi', 'success');
       }
@@ -456,7 +463,7 @@ export const PurchaseRequestDetail = () => {
                       <div className="lg:col-span-8 space-y-5">
                         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                           <div className="rounded-md bg-gray-50 px-3 py-2 border border-gray-100">
-                            <dt className="text-gray-500 font-medium">Miktar</dt>
+                            <dt className="text-gray-500 font-medium">Talep edilen miktar</dt>
                             <dd className="mt-0.5 text-gray-900 font-semibold">{item.quantity ?? '—'}</dd>
                           </div>
                           <div className="rounded-md bg-gray-50 px-3 py-2 border border-gray-100">
@@ -561,7 +568,7 @@ export const PurchaseRequestDetail = () => {
 
                   <div className="border-t border-gray-200 bg-gray-50/50 px-4 py-5 sm:px-6">
                     <h4 className="text-sm font-semibold text-gray-900 mb-3">Tedarikçi teklifleri</h4>
-                    {quotes.length === 0 && (
+                    {quotes.length === 0 && canEnterCounterOffer && (
                       <p className="mb-4 text-sm text-gray-500">
                         Bu kalem için teklif girildikten sonra, tabloda her tedarikçi satırında karşı teklif
                         girebilirsiniz.
@@ -574,10 +581,10 @@ export const PurchaseRequestDetail = () => {
                       }
                       onEditQuote={canQuoteCollect ? (quote) => handleEditQuoteOpen(quote) : undefined}
                       onEnterCounterOffer={
-                        canQuoteCollect ? (quote) => openCounterOfferPopover(item, quote) : undefined
+                        canEnterCounterOffer ? (quote) => openCounterOfferPopover(item, quote) : undefined
                       }
                       onEditQuoteFromCounterOffer={
-                        canQuoteCollect ? (quote) => handleEditQuoteOpenFromCounterOffer(quote) : undefined
+                        canEnterCounterOffer ? (quote) => handleEditQuoteOpenFromCounterOffer(quote) : undefined
                       }
                     />
                   </div>
@@ -622,14 +629,15 @@ export const PurchaseRequestDetail = () => {
   };
 
   const handleEditQuoteOpen = (quote: any) => {
+    const tomorrow = getTomorrowInputDate();
     setEditingQuote(quote);
     setQuoteError(null);
     setQuoteFormData({
       unitPrice: quote.unitPrice || 0,
       quantity: quote.quantity || 0,
       currency: quote.currency || 'TRY',
-      deliveryDate: quote.deliveryDate?.split('T')[0] || '',
-      validityDate: quote.validityDate?.split('T')[0] || '',
+      deliveryDate: quote.deliveryDate?.split('T')[0] || tomorrow,
+      validityDate: quote.validityDate?.split('T')[0] || tomorrow,
       notes: quote.notes || '',
       supplierReference: quote.supplierReference || ''
     });
@@ -637,14 +645,15 @@ export const PurchaseRequestDetail = () => {
 
   /** Karşı teklif hücresine tıklanınca güncelleme modalını karşı teklif miktarlarıyla açar */
   const handleEditQuoteOpenFromCounterOffer = (quote: any) => {
+    const tomorrow = getTomorrowInputDate();
     setEditingQuote(quote);
     setQuoteError(null);
     setQuoteFormData({
       unitPrice: quote.counterOfferUnitPrice != null ? quote.counterOfferUnitPrice : (quote.unitPrice || 0),
       quantity: quote.counterOfferQuantity != null ? quote.counterOfferQuantity : (quote.quantity || 0),
       currency: quote.currency || 'TRY',
-      deliveryDate: quote.deliveryDate?.split('T')[0] || '',
-      validityDate: quote.validityDate?.split('T')[0] || '',
+      deliveryDate: quote.deliveryDate?.split('T')[0] || tomorrow,
+      validityDate: quote.validityDate?.split('T')[0] || tomorrow,
       notes: quote.notes || '',
       supplierReference: quote.supplierReference || ''
     });
@@ -1058,23 +1067,13 @@ export const PurchaseRequestDetail = () => {
                         )}
                       </div>
                     )}
-                    {request.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0 && (
+                    {request.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0 && !isSerkanBeyApprover && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Üst onaycı bulunmuyor</label>
                         <p className="mt-1 text-xs text-gray-500 mb-2">
-                          {isSerkanBeyApprover ? (
-                            <>
-                              Kişi seçmeden <span className="font-medium text-gray-700">Onayla</span> derseniz talep otomatik
-                              olarak satın alma departmanına iletilir. İsterseniz aşağıdan başka bir kişiye de
-                              yönlendirebilirsiniz.
-                            </>
-                          ) : (
-                            <>
-                              Talebi aşağıdaki kişilerden birine iletmek için seçim yapın. Onay zincirini burada sonlandırmak için alttaki
-                              <span className="font-medium text-gray-700"> Tamamen onayla </span>
-                              düğmesini kullanın.
-                            </>
-                          )}
+                          Talebi aşağıdaki kişilerden birine iletmek için seçim yapın. Onay zincirini burada sonlandırmak için alttaki
+                          <span className="font-medium text-gray-700"> Tamamen onayla </span>
+                          düğmesini kullanın.
                         </p>
                         <select
                           className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
@@ -1090,37 +1089,27 @@ export const PurchaseRequestDetail = () => {
                         </select>
                       </div>
                     )}
+                    {isSerkanBeyApprover && request.hasNoNextApprover && (
+                      <p className="text-sm text-gray-600 rounded-md border border-green-100 bg-green-50/60 px-3 py-2">
+                        Onayladığınızda talep doğrudan satın alma departmanına iletilecektir.
+                      </p>
+                    )}
                     <textarea rows={3} className="shadow-sm block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Onay yorumu ekleyin (opsiyonel)..." value={actionComment} onChange={(e) => setActionComment(e.target.value)} />
                     <div className="mt-5 flex flex-wrap gap-3">
                       {hasSendDownUi ? (
                         <>
                           {isSerkanBeyApprover ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleApprove(false)}
-                                disabled={
-                                  loading ||
-                                  (selectableCandidates.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
-                                }
-                                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Onayla ve satın almaya ilet
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleApprove(false)}
-                                disabled={
-                                  loading ||
-                                  (selectableCandidates.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
-                                  sendToUserId === '' ||
-                                  sendToUserId == null
-                                }
-                                className="inline-flex items-center px-4 py-2 border border-green-700 rounded-md shadow-sm text-sm font-medium text-green-800 bg-white hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Seçilen kişiye ilet
-                              </button>
-                            </>
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(false)}
+                              disabled={
+                                loading ||
+                                (selectableCandidates.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
+                              }
+                              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Onayla ve satın almaya ilet
+                            </button>
                           ) : (
                             <>
                               <button
@@ -1182,9 +1171,15 @@ export const PurchaseRequestDetail = () => {
                     </svg>
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">Talebi Reddet</h3>
+                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                      {isSerkanBeyApprover ? 'Reddet ve Satın Almaya İlet' : 'Talebi Reddet'}
+                    </h3>
                     <div className="mt-2">
-                      <p className="text-sm text-gray-500">Bu talebi reddetmek istediğinizden emin misiniz? Lütfen reddetme gerekçenizi belirtin.</p>
+                      <p className="text-sm text-gray-500">
+                        {isSerkanBeyApprover
+                          ? 'Talep kapanmaz; gerekçenizle birlikte doğrudan satın alma departmanına iletilecektir.'
+                          : 'Bu talebi reddetmek istediğinizden emin misiniz? Lütfen reddetme gerekçenizi belirtin.'}
+                      </p>
                     </div>
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Reddetme gerekçesi (zorunlu)</label>
@@ -1196,28 +1191,36 @@ export const PurchaseRequestDetail = () => {
                         onChange={(e) => setRejectionComment(e.target.value)}
                       />
                     </div>
-                    <div className="mt-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Geri gönderilecek kişi</label>
-                      <select
-                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                        value={returnToUserId}
-                        onChange={(e) => setReturnToUserId(e.target.value === '' ? '' : Number(e.target.value))}
-                      >
-                        <option value="">Tamamen reddet (talep kapanır)</option>
-                        {getReturnToCandidates().map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="mt-1 text-xs text-gray-500">Talep sahibi veya onay zincirinde sizden önceki kişilerden birine geri gönderebilirsiniz.</p>
-                    </div>
+                    {!isSerkanBeyApprover && (
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Geri gönderilecek kişi</label>
+                        <select
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                          value={returnToUserId}
+                          onChange={(e) => setReturnToUserId(e.target.value === '' ? '' : Number(e.target.value))}
+                        >
+                          <option value="">Tamamen reddet (talep kapanır)</option>
+                          {getReturnToCandidates().map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">Talep sahibi veya onay zincirinde sizden önceki kişilerden birine geri gönderebilirsiniz.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button type="button" onClick={submitRejection} disabled={loading} className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm">
-                  {loading ? 'İşleniyor...' : returnToUserId === '' ? 'Talebi Reddet' : 'Geri Gönder'}
+                  {loading
+                    ? 'İşleniyor...'
+                    : isSerkanBeyApprover
+                      ? 'Reddet ve satın almaya ilet'
+                      : returnToUserId === ''
+                        ? 'Talebi Reddet'
+                        : 'Geri Gönder'}
                 </button>
                 <button type="button" onClick={() => { setShowRejectModal(false); setReturnToUserId(''); }} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">
                   İptal
@@ -1238,7 +1241,7 @@ export const PurchaseRequestDetail = () => {
         />
       )}
 
-      {canQuoteCollect && editingQuote && (
+      {(canQuoteCollect || canEnterCounterOffer) && editingQuote && (
         <div className="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>

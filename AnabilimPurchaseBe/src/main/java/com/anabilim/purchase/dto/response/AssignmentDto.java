@@ -68,9 +68,18 @@ public class AssignmentDto {
     
     private boolean canBeReturned;
 
+    private boolean canBeCancelled;
+
     private boolean hasSignedForm;
 
     private String signedFormFileName;
 
     private LocalDateTime signedFormUploadedAt;
+
+    @JsonProperty("hasFormPhoto")
+    private boolean hasFormPhoto;
+
+    private String formPhotoUrl;
+
+    private String formPhotoFileName;
 }

@@ -339,6 +339,8 @@ public class WarehouseStockController {
                 movement.getReferenceType(),
                 movement.getReferenceId(),
                 movement.getNotes(),
+                movement.getStockItem() != null ? movement.getStockItem().getId() : null,
+                movement.getStockItem() != null ? movement.getStockItem().getSerialNumber() : null,
                 movement.getCreatedAt(),
                 movement.getUpdatedAt()
         );

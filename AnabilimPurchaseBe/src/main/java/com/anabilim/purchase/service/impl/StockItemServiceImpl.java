@@ -5,14 +5,18 @@ import com.anabilim.purchase.dto.request.CreateStockItemDto;
 import com.anabilim.purchase.dto.request.UpdateStockItemDto;
 import com.anabilim.purchase.dto.response.StockItemDto;
 import com.anabilim.purchase.dto.response.StockItemSummaryDto;
+import com.anabilim.purchase.dto.response.StockMovementDto;
+import com.anabilim.purchase.dto.response.WarehouseStockDto;
 import com.anabilim.purchase.entity.*;
 import com.anabilim.purchase.entity.enums.StockItemStatus;
 import com.anabilim.purchase.exception.ResourceAlreadyExistsException;
 import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.mapper.StockItemMapper;
+import com.anabilim.purchase.repository.AssignmentRepository;
 import com.anabilim.purchase.repository.ProductRepository;
 import com.anabilim.purchase.repository.SchoolRepository;
 import com.anabilim.purchase.repository.StockItemRepository;
+import com.anabilim.purchase.repository.StockMovementRepository;
 import com.anabilim.purchase.repository.UserRepository;
 import com.anabilim.purchase.repository.WarehouseRepository;
 import com.anabilim.purchase.service.AssetConditionSupport;
@@ -21,7 +25,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +42,8 @@ public class StockItemServiceImpl implements StockItemService {
     private final SchoolRepository schoolRepository;
     private final StockItemMapper stockItemMapper;
     private final AssetConditionSupport assetConditionSupport;
+    private final StockMovementRepository stockMovementRepository;
+    private final AssignmentRepository assignmentRepository;
     
     @Override
     public StockItemDto createStockItem(CreateStockItemDto dto) {
@@ -138,6 +147,44 @@ public class StockItemServiceImpl implements StockItemService {
     public List<StockItemDto> getStockItemsByProductIdAndStatus(Long productId, StockItemStatus status) {
         List<StockItem> stockItems = stockItemRepository.findByProductIdAndStatus(productId, status);
         return stockItemMapper.toDtoList(stockItems);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StockMovementDto> getStockItemMovements(Long stockItemId) {
+        StockItem stockItem = stockItemRepository.findById(stockItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("StockItem bulunamadı: " + stockItemId));
+
+        Map<Long, StockMovement> merged = new LinkedHashMap<>();
+
+        stockMovementRepository.findByStockItemIdOrderByCreatedAtDesc(stockItemId)
+                .forEach(movement -> merged.putIfAbsent(movement.getId(), movement));
+
+        List<Long> assignmentIds = assignmentRepository.findByStockItemId(stockItemId).stream()
+                .map(Assignment::getId)
+                .toList();
+        if (!assignmentIds.isEmpty()) {
+            stockMovementRepository.findByReferenceTypeAndReferenceIdInOrderByCreatedAtDesc("ASSIGNMENT", assignmentIds)
+                    .forEach(movement -> merged.putIfAbsent(movement.getId(), movement));
+            stockMovementRepository.findByReferenceTypeAndReferenceIdInOrderByCreatedAtDesc("ASSIGNMENT_RETURN", assignmentIds)
+                    .forEach(movement -> merged.putIfAbsent(movement.getId(), movement));
+            stockMovementRepository.findByReferenceTypeAndReferenceIdInOrderByCreatedAtDesc("ASSIGNMENT_CANCEL", assignmentIds)
+                    .forEach(movement -> merged.putIfAbsent(movement.getId(), movement));
+        }
+
+        String serial = stockItem.getSerialNumber();
+        if (serial != null && !serial.isBlank()) {
+            String serialMarker = "SN: " + serial;
+            stockMovementRepository.findRecentMovementsByProduct(stockItem.getProduct(), org.springframework.data.domain.PageRequest.of(0, 200))
+                    .stream()
+                    .filter(movement -> movement.getNotes() != null && movement.getNotes().contains(serialMarker))
+                    .forEach(movement -> merged.putIfAbsent(movement.getId(), movement));
+        }
+
+        return merged.values().stream()
+                .sorted(Comparator.comparing(StockMovement::getCreatedAt).reversed())
+                .map(this::convertToMovementDto)
+                .toList();
     }
     
     @Override
@@ -343,5 +390,56 @@ public class StockItemServiceImpl implements StockItemService {
         
         StockItem savedStockItem = stockItemRepository.save(stockItem);
         return stockItemMapper.toDto(savedStockItem);
+    }
+    
+    private StockMovementDto convertToMovementDto(StockMovement movement) {
+        StockMovementDto dto = new StockMovementDto();
+        dto.setId(movement.getId());
+        dto.setQuantity(movement.getQuantity());
+        dto.setMovementType(movement.getMovementType());
+        dto.setReferenceType(movement.getReferenceType());
+        dto.setReferenceId(movement.getReferenceId());
+        dto.setNotes(movement.getNotes());
+        dto.setCreatedAt(movement.getCreatedAt());
+        dto.setUpdatedAt(movement.getUpdatedAt());
+        if (movement.getStockItem() != null) {
+            dto.setStockItemId(movement.getStockItem().getId());
+            dto.setStockItemSerialNumber(movement.getStockItem().getSerialNumber());
+        }
+        WarehouseStock warehouseStock = movement.getWarehouseStock();
+        if (warehouseStock != null) {
+            WarehouseStockDto stockDto = new WarehouseStockDto();
+            stockDto.setId(warehouseStock.getId());
+            stockDto.setCurrentStock(warehouseStock.getCurrentStock());
+            stockDto.setMinStock(warehouseStock.getMinStock());
+            stockDto.setMaxStock(warehouseStock.getMaxStock());
+            stockDto.setCreatedAt(warehouseStock.getCreatedAt());
+            stockDto.setUpdatedAt(warehouseStock.getUpdatedAt());
+            if (warehouseStock.getWarehouse() != null) {
+                stockDto.setWarehouse(new com.anabilim.purchase.dto.response.WarehouseDto(
+                        warehouseStock.getWarehouse().getId(),
+                        warehouseStock.getWarehouse().getName(),
+                        warehouseStock.getWarehouse().getCode(),
+                        warehouseStock.getWarehouse().getAddress(),
+                        warehouseStock.getWarehouse().getPhone(),
+                        warehouseStock.getWarehouse().getEmail(),
+                        warehouseStock.getWarehouse().getManagerName(),
+                        warehouseStock.getWarehouse().isActive(),
+                        warehouseStock.getWarehouse().getCreatedAt(),
+                        warehouseStock.getWarehouse().getUpdatedAt()
+                ));
+            }
+            if (warehouseStock.getProduct() != null) {
+                Product product = warehouseStock.getProduct();
+                stockDto.setProduct(new WarehouseStockDto.ProductBasicDto(
+                        product.getId(),
+                        product.getName(),
+                        product.getCode(),
+                        product.getUnitOfMeasure() != null ? product.getUnitOfMeasure().getDisplayName() : null
+                ));
+            }
+            dto.setWarehouseStock(stockDto);
+        }
+        return dto;
     }
 }

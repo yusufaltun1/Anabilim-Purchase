@@ -18,6 +18,7 @@ export type AppCapability =
   | 'REQUEST_VIEW'
   | 'REQUEST_APPROVE'
   | 'QUOTE_COLLECT'
+  | 'COUNTER_OFFER'
   | 'ORDER_CREATE'
   | 'REQUEST_CLOSE'
   | 'SYSTEM_MANAGE'
@@ -147,6 +148,8 @@ export const authService = {
           'SEDA_HANIM', 'SATIN_ALMA_DEPARTMANI', 'BILGI_ISLEM_DEPARTMANI',
           'SYSTEM_ADMIN', 'MANAGER', 'PURCHASE_MANAGER'
         ]) || permissions.includes('APPROVAL_APPROVE');
+      case 'COUNTER_OFFER':
+        return hasRole(['SERKAN_BEY', 'BILGI_ISLEM_DEPARTMANI', 'SYSTEM_ADMIN']);
       case 'QUOTE_COLLECT':
       case 'ORDER_CREATE':
       case 'REQUEST_CLOSE':

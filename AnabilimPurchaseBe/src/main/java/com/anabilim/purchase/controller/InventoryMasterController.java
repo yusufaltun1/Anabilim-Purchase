@@ -2,6 +2,7 @@ package com.anabilim.purchase.controller;
 
 import com.anabilim.purchase.dto.request.CreateAssetConditionDto;
 import com.anabilim.purchase.dto.request.CreateDeviceModelDto;
+import com.anabilim.purchase.dto.request.UpdateDeviceModelDto;
 import com.anabilim.purchase.dto.request.CreateLocationDto;
 import com.anabilim.purchase.dto.response.AssetConditionDto;
 import com.anabilim.purchase.dto.response.DeviceModelDto;
@@ -70,6 +71,30 @@ public class InventoryMasterController {
         }
         model = deviceModelRepository.save(model);
         return ResponseEntity.status(HttpStatus.CREATED).body(toDeviceModelDto(model));
+    }
+
+    @PutMapping("/device-models/{id}")
+    public ResponseEntity<DeviceModelDto> updateDeviceModel(
+            @PathVariable Long id,
+            @RequestBody UpdateDeviceModelDto dto) {
+        if (dto.getName() == null || dto.getName().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (dto.getBrand() == null || dto.getBrand().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        DeviceModel model = deviceModelRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cihaz modeli bulunamadı: " + id));
+        model.setName(dto.getName().trim());
+        model.setBrand(dto.getBrand().trim());
+        if (dto.getEnableIp() != null) {
+            model.setEnableIp(dto.getEnableIp());
+        }
+        if (dto.getEnableMac() != null) {
+            model.setEnableMac(dto.getEnableMac());
+        }
+        model = deviceModelRepository.save(model);
+        return ResponseEntity.ok(toDeviceModelDto(model));
     }
 
     @GetMapping("/asset-conditions")

@@ -10,6 +10,7 @@ import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.mapper.AssignmentMapper;
 import com.anabilim.purchase.repository.*;
 import com.anabilim.purchase.service.AssetConditionSupport;
+import com.anabilim.purchase.service.AssignmentFormService;
 import com.anabilim.purchase.service.AssignmentService;
 import com.anabilim.purchase.entity.enums.MovementType;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class AssignmentServiceImpl implements AssignmentService {
     private final WarehouseStockRepository warehouseStockRepository;
     private final WarehouseRepository warehouseRepository;
     private final AssetConditionSupport assetConditionSupport;
+    private final AssignmentFormService assignmentFormService;
     
     @Override
     public AssignmentDto createAssignment(CreateAssignmentDto dto) {
@@ -121,10 +123,19 @@ public class AssignmentServiceImpl implements AssignmentService {
     
     @Override
     public void deleteAssignment(Long id) {
-        if (!assignmentRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Zimmet bulunamadı: " + id);
+        Assignment assignment = assignmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Zimmet bulunamadı: " + id));
+
+        if (!assignment.canBeCancelled()) {
+            if (assignment.getSignedFormStoredPath() != null && !assignment.getSignedFormStoredPath().isBlank()) {
+                throw new IllegalArgumentException("İmzalı form yüklenmiş zimmet iptal edilemez");
+            }
+            throw new IllegalArgumentException("Bu zimmet iptal edilemez");
         }
-        assignmentRepository.deleteById(id);
+
+        revertStockForCancelledAssignment(assignment);
+        assignmentFormService.deleteFormPhotoFiles(assignment);
+        assignmentRepository.delete(assignment);
     }
     
     @Override
@@ -138,6 +149,13 @@ public class AssignmentServiceImpl implements AssignmentService {
     @Transactional(readOnly = true)
     public List<AssignmentDto> getAssignmentsByProductIdAndStatus(Long productId, AssignmentStatus status) {
         List<Assignment> assignments = assignmentRepository.findByProductIdAndStatus(productId, status);
+        return assignmentMapper.toDtoList(assignments);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AssignmentDto> getAssignmentsByStockItemId(Long stockItemId) {
+        List<Assignment> assignments = assignmentRepository.findByStockItemId(stockItemId);
         return assignmentMapper.toDtoList(assignments);
     }
     
@@ -222,7 +240,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         
         return assignmentMapper.toDto(savedAssignment);
     }
-    
+
     @Override
     public AssignmentDto markAssignmentAsLost(Long assignmentId) {
         Assignment assignment = assignmentRepository.findById(assignmentId)
@@ -377,6 +395,7 @@ public class AssignmentServiceImpl implements AssignmentService {
                     // Çıkış hareketi oluştur
                     StockMovement movement = new StockMovement();
                     movement.setWarehouseStock(warehouseStock);
+                    movement.setStockItem(stockItem);
                     movement.setQuantity(1); // Seri numaralı ürünler için 1 adet
                     movement.setMovementType(MovementType.OUT);
                     movement.setReferenceType("ASSIGNMENT");
@@ -443,68 +462,106 @@ public class AssignmentServiceImpl implements AssignmentService {
      * Zimmet geri alındığında depoya giriş kaydı oluşturur
      */
     private void createStockMovementForReturn(Assignment assignment) {
+        createStockMovementForReturn(assignment, "ASSIGNMENT_RETURN", "Zimmet geri alındı - ");
+    }
+
+    private void revertStockForCancelledAssignment(Assignment assignment) {
         Product product = assignment.getProduct();
-        
-        // Ürünün stok takip tipini kontrol et
         if (product.getStockTrackingType() == null) {
-            return; // Stok takibi yapılmayan ürünler için hareket kaydı oluşturma
+            return;
         }
-        
-        // Seri numaralı ürünler için StockItem'ı depoya geri al
+
+        List<StockMovement> assignmentMovements = stockMovementRepository
+                .findByReferenceTypeAndReferenceIdOrderByCreatedAtDesc("ASSIGNMENT", assignment.getId());
+
+        WarehouseStock warehouseStock = assignmentMovements.stream()
+                .findFirst()
+                .map(StockMovement::getWarehouseStock)
+                .orElse(null);
+
+        if (!assignmentMovements.isEmpty()) {
+            stockMovementRepository.deleteAll(assignmentMovements);
+        }
+
+        // Önceki iptal denemelerinden kalmış telafi hareketlerini de temizle
+        List<StockMovement> cancelMovements = stockMovementRepository
+                .findByReferenceTypeAndReferenceIdOrderByCreatedAtDesc("ASSIGNMENT_CANCEL", assignment.getId());
+        if (!cancelMovements.isEmpty()) {
+            stockMovementRepository.deleteAll(cancelMovements);
+        }
+
         if (assignment.getStockItem() != null) {
             StockItem stockItem = assignment.getStockItem();
-            
-            // Varsayılan depo veya ilk depoya geri al
-            List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(product);
-            if (!warehouseStocks.isEmpty()) {
-                Warehouse warehouse = warehouseStocks.get(0).getWarehouse();
-                
-                // Giriş hareketi oluştur
-                StockMovement movement = new StockMovement();
-                movement.setWarehouseStock(warehouseStocks.get(0));
-                movement.setQuantity(1); // Seri numaralı ürünler için 1 adet
-                movement.setMovementType(MovementType.IN);
-                movement.setReferenceType("ASSIGNMENT_RETURN");
-                movement.setReferenceId(assignment.getId());
-                movement.setNotes("Zimmet geri alındı - " + 
-                        (assignment.getAssignedUser() != null ? 
-                                "Kullanıcı: " + assignment.getAssignedUser().getFullName() :
-                                "Konum: " + (assignment.getAssignedLocation() != null ? 
-                                        assignment.getAssignedLocation().getName() : 
-                                        assignment.getLocationName())));
-                
-                stockMovementRepository.save(movement);
-                
-                // StockItem'ı depoya geri al
-                stockItem.setCurrentWarehouse(warehouse);
-                stockItem.setStatus(com.anabilim.purchase.entity.enums.StockItemStatus.IN_STOCK);
-                stockItemRepository.save(stockItem);
+            if (warehouseStock != null) {
+                stockItem.setCurrentWarehouse(warehouseStock.getWarehouse());
+            } else {
+                warehouseStockRepository.findByProduct(product).stream()
+                        .findFirst()
+                        .ifPresent(ws -> stockItem.setCurrentWarehouse(ws.getWarehouse()));
             }
-        } else {
-            // Miktar bazlı ürünler için WarehouseStock'a geri ekle
-            List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(product);
-            
-            if (!warehouseStocks.isEmpty()) {
-                // İlk depoya geri ekle
-                WarehouseStock warehouseStock = warehouseStocks.get(0);
-                
-                // Giriş hareketi oluştur
-                StockMovement movement = new StockMovement();
-                movement.setWarehouseStock(warehouseStock);
-                movement.setQuantity(assignment.getQuantity());
-                movement.setMovementType(MovementType.IN);
-                movement.setReferenceType("ASSIGNMENT_RETURN");
-                movement.setReferenceId(assignment.getId());
-                movement.setNotes("Zimmet geri alındı - " + 
-                        (assignment.getAssignedUser() != null ? 
-                                "Kullanıcı: " + assignment.getAssignedUser().getFullName() :
-                                "Konum: " + (assignment.getAssignedLocation() != null ? 
-                                        assignment.getAssignedLocation().getName() : 
-                                        assignment.getLocationName())));
-                
-                stockMovementRepository.save(movement);
-            }
+            stockItem.setStatus(StockItemStatus.IN_STOCK);
+            stockItemRepository.save(stockItem);
         }
+    }
+
+    private void createStockMovementForReturn(
+            Assignment assignment,
+            String referenceType,
+            String notePrefix
+    ) {
+        Product product = assignment.getProduct();
+
+        if (product.getStockTrackingType() == null) {
+            return;
+        }
+
+        if (assignment.getStockItem() != null) {
+            StockItem stockItem = assignment.getStockItem();
+            List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(product);
+            if (!warehouseStocks.isEmpty()) {
+                restoreStockAfterAssignment(assignment, warehouseStocks.get(0), referenceType, notePrefix);
+            }
+            return;
+        }
+
+        List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(product);
+        if (!warehouseStocks.isEmpty()) {
+            restoreStockAfterAssignment(assignment, warehouseStocks.get(0), referenceType, notePrefix);
+        }
+    }
+
+    private void restoreStockAfterAssignment(
+            Assignment assignment,
+            WarehouseStock warehouseStock,
+            String referenceType,
+            String notePrefix
+    ) {
+        StockMovement movement = new StockMovement();
+        movement.setWarehouseStock(warehouseStock);
+        movement.setStockItem(assignment.getStockItem());
+        movement.setQuantity(assignment.getStockItem() != null ? 1 : assignment.getQuantity());
+        movement.setMovementType(MovementType.IN);
+        movement.setReferenceType(referenceType);
+        movement.setReferenceId(assignment.getId());
+        movement.setNotes(notePrefix + assignmentTargetNote(assignment));
+        stockMovementRepository.save(movement);
+
+        if (assignment.getStockItem() != null) {
+            StockItem stockItem = assignment.getStockItem();
+            stockItem.setCurrentWarehouse(warehouseStock.getWarehouse());
+            stockItem.setStatus(StockItemStatus.IN_STOCK);
+            stockItemRepository.save(stockItem);
+        }
+    }
+
+    private String assignmentTargetNote(Assignment assignment) {
+        if (assignment.getAssignedUser() != null) {
+            return "Kullanıcı: " + assignment.getAssignedUser().getFullName();
+        }
+        if (assignment.getAssignedLocation() != null) {
+            return "Konum: " + assignment.getAssignedLocation().getName();
+        }
+        return "Konum: " + assignment.getLocationName();
     }
     
     @Override

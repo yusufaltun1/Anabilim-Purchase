@@ -108,9 +108,19 @@ export interface StockMovementDetail {
   };
   quantity: number;
   movementType: 'IN' | 'OUT' | 'TRANSFER' | 'ADJUSTMENT';
-  referenceType: 'PURCHASE_ORDER' | 'SALES_ORDER' | 'TRANSFER' | 'ADJUSTMENT' | 'MANUAL';
+  referenceType:
+    | 'PURCHASE_ORDER'
+    | 'SALES_ORDER'
+    | 'TRANSFER'
+    | 'ADJUSTMENT'
+    | 'MANUAL'
+    | 'ASSIGNMENT'
+    | 'ASSIGNMENT_RETURN'
+    | 'ASSIGNMENT_CANCEL';
   referenceId: number | null;
   notes: string;
+  stockItemId?: number;
+  stockItemSerialNumber?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -231,6 +241,10 @@ export interface StockItem {
   assetConditionId?: number;
   assetConditionName?: string;
   allowsAssignment?: boolean;
+  assignmentId?: number;
+  assignmentStatus?: string;
+  assignmentDate?: string;
+  assignmentNotes?: string;
 }
 
 export interface CreateStockItemRequest {

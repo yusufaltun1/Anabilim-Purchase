@@ -6,6 +6,7 @@ import com.anabilim.purchase.dto.request.CreateStockItemDto;
 import com.anabilim.purchase.dto.request.UpdateStockItemDto;
 import com.anabilim.purchase.dto.response.StockItemDto;
 import com.anabilim.purchase.dto.response.StockItemSummaryDto;
+import com.anabilim.purchase.dto.response.StockMovementDto;
 import com.anabilim.purchase.entity.enums.StockItemStatus;
 import com.anabilim.purchase.service.StockItemService;
 import jakarta.validation.Valid;
@@ -86,6 +87,14 @@ public class StockItemController {
             @PathVariable Long productId, @PathVariable StockItemStatus status) {
         List<StockItemDto> stockItems = stockItemService.getStockItemsByProductIdAndStatus(productId, status);
         return ResponseEntity.ok(ApiResponse.success("Ürüne ait seri numaralı ürünler başarıyla getirildi", stockItems));
+    }
+
+    @GetMapping("/{id}/movements")
+    public ResponseEntity<ApiResponse<List<StockMovementDto>>> getStockItemMovements(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Stok kalemi hareketleri listelendi",
+                stockItemService.getStockItemMovements(id)));
     }
     
     // Depo Bazlı İşlemler

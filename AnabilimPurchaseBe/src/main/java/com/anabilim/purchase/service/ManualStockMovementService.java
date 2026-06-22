@@ -140,7 +140,7 @@ public class ManualStockMovementService {
 
                 CreateStockMovementByWarehouseDto unitRequest = copyWith(
                         request, 1, "Manuel giriş — SN: " + serial + suffixNotes(request.getNotes()));
-                lastMovement = persistMovement(unitRequest, warehouse, product);
+                lastMovement = persistMovement(unitRequest, warehouse, product, item);
             }
             return toDto(lastMovement);
         }
@@ -163,7 +163,7 @@ public class ManualStockMovementService {
             String serial = item.getSerialNumber() != null ? item.getSerialNumber() : ("#" + item.getId());
             CreateStockMovementByWarehouseDto unitRequest = copyWith(
                     request, 1, "Manuel çıkış — SN: " + serial + suffixNotes(request.getNotes()));
-            StockMovement movement = persistMovement(unitRequest, warehouse, product);
+            StockMovement movement = persistMovement(unitRequest, warehouse, product, item);
 
             item.setCurrentWarehouse(null);
             stockItemRepository.save(item);
@@ -192,11 +192,20 @@ public class ManualStockMovementService {
 
     private StockMovement persistMovement(
             CreateStockMovementByWarehouseDto request, Warehouse warehouse, Product product) {
+        return persistMovement(request, warehouse, product, null);
+    }
+
+    private StockMovement persistMovement(
+            CreateStockMovementByWarehouseDto request,
+            Warehouse warehouse,
+            Product product,
+            StockItem stockItem) {
         WarehouseStock stock = findOrCreateWarehouseStock(warehouse, product);
         if (MovementType.OUT.equals(request.getMovementType())) {
             validateAvailableStock(stock, request);
         }
         StockMovement movement = buildMovement(request);
+        movement.setStockItem(stockItem);
         stock.addMovement(movement);
         warehouseStockRepository.save(stock);
         return movement;
@@ -302,6 +311,8 @@ public class ManualStockMovementService {
                 movement.getReferenceType(),
                 movement.getReferenceId(),
                 movement.getNotes(),
+                movement.getStockItem() != null ? movement.getStockItem().getId() : null,
+                movement.getStockItem() != null ? movement.getStockItem().getSerialNumber() : null,
                 movement.getCreatedAt(),
                 movement.getUpdatedAt()
         );

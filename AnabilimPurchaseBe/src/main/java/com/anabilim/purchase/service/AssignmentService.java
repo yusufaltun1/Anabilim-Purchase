@@ -21,6 +21,8 @@ public interface AssignmentService {
     List<AssignmentDto> getAssignmentsByProductId(Long productId);
     
     List<AssignmentDto> getAssignmentsByProductIdAndStatus(Long productId, AssignmentStatus status);
+
+    List<AssignmentDto> getAssignmentsByStockItemId(Long stockItemId);
     
     // Kullanıcı Bazlı İşlemler
     List<AssignmentDto> getAssignmentsByUserId(Long userId);
