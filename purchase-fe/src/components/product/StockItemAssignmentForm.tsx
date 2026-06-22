@@ -1,0 +1,305 @@
+import { useEffect, useState } from 'react';
+import { assignmentService } from '../../services/assignment.service';
+import { userService } from '../../services/user.service';
+import { schoolService } from '../../services/school.service';
+import { locationService } from '../../services/location.service';
+import { User } from '../../types/user';
+import { School } from '../../types/school';
+import { Location } from '../../types/location';
+import { useNotification } from '../../contexts/NotificationContext';
+
+interface StockItemAssignmentFormProps {
+  productId: number;
+  stockItemId: number;
+  serialLabel?: string;
+  onSuccess: () => void;
+}
+
+export const StockItemAssignmentForm = ({
+  productId,
+  stockItemId,
+  serialLabel,
+  onSuccess,
+}: StockItemAssignmentFormProps) => {
+  const { showNotification } = useNotification();
+  const [submitting, setSubmitting] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+
+  const [assignmentType, setAssignmentType] = useState<'user' | 'location'>('user');
+  const [assignedUserId, setAssignedUserId] = useState('');
+  const [assignedSchoolId, setAssignedSchoolId] = useState('');
+  const [assignedLocationId, setAssignedLocationId] = useState('');
+  const [locationDetails, setLocationDetails] = useState('');
+  const [expectedReturnDate, setExpectedReturnDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [formPhotoFile, setFormPhotoFile] = useState<File | null>(null);
+  const [formPhotoPreview, setFormPhotoPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      userService.getAllUsers(),
+      schoolService.getAllSchools({ size: 500 }),
+      locationService.getAllLocations(),
+    ]).then(([userList, schoolRes, locationRes]) => {
+      setUsers(userList);
+      setFilteredUsers(userList);
+      setSchools(schoolRes.content ?? []);
+      setLocations(Array.isArray(locationRes.data) ? locationRes.data : []);
+    });
+  }, []);
+
+  const handleUserSearch = (term: string) => {
+    setUserSearchTerm(term);
+    if (!term.trim()) {
+      setFilteredUsers(users);
+      return;
+    }
+    const lower = term.toLowerCase();
+    setFilteredUsers(
+      users.filter(
+        (u) =>
+          u.firstName?.toLowerCase().includes(lower) ||
+          u.lastName?.toLowerCase().includes(lower) ||
+          u.email?.toLowerCase().includes(lower)
+      )
+    );
+  };
+
+  const selectedUser = users.find((u) => u.id.toString() === assignedUserId);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (assignmentType === 'user' && !assignedUserId) {
+      showNotification('Lütfen bir kullanıcı seçin', 'error');
+      return;
+    }
+    if (assignmentType === 'location' && !assignedLocationId) {
+      showNotification('Lütfen bir konum seçin', 'error');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const result = await assignmentService.createAssignment({
+        productId,
+        stockItemId,
+        expectedReturnDate: expectedReturnDate || undefined,
+        notes: notes.trim() || undefined,
+        ...(assignmentType === 'user'
+          ? {
+              assignedUserId: parseInt(assignedUserId, 10),
+              assignedSchoolId: assignedSchoolId ? parseInt(assignedSchoolId, 10) : undefined,
+            }
+          : {
+              assignedLocationId: parseInt(assignedLocationId, 10),
+              locationDetails: locationDetails.trim() || undefined,
+            }),
+      });
+
+      const created = result.data && !Array.isArray(result.data) ? result.data : null;
+      if (created?.id) {
+        try {
+          if (formPhotoFile) {
+            await assignmentService.uploadFormPhoto(created.id, formPhotoFile);
+          }
+          await assignmentService.downloadAssignmentForm(created.id);
+          showNotification(
+            formPhotoFile
+              ? 'Zimmet oluşturuldu. Fotoğraf forma eklendi, form indirildi.'
+              : 'Zimmet oluşturuldu. Form indirildi.',
+            'success'
+          );
+        } catch (err: unknown) {
+          showNotification(
+            err instanceof Error ? err.message : 'Zimmet oluşturuldu ancak fotoğraf/form işlemi tamamlanamadı.',
+            'error'
+          );
+        }
+      } else {
+        showNotification('Zimmet başarıyla oluşturuldu', 'success');
+      }
+
+      onSuccess();
+    } catch (err: unknown) {
+      showNotification(err instanceof Error ? err.message : 'Zimmet oluşturulamadı', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-lg border border-indigo-200 bg-white p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold text-gray-900">Zimmet et</h4>
+        {serialLabel && <span className="text-xs text-gray-500 truncate">{serialLabel}</span>}
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Zimmet tipi</label>
+        <select
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+          value={assignmentType}
+          onChange={(e) => setAssignmentType(e.target.value as 'user' | 'location')}
+        >
+          <option value="user">Kişi zimmeti</option>
+          <option value="location">Konum zimmeti</option>
+        </select>
+      </div>
+
+      {assignmentType === 'user' ? (
+        <>
+          <div className="relative">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Kullanıcı *</label>
+            <input
+              type="text"
+              value={
+                selectedUser
+                  ? `${selectedUser.firstName} ${selectedUser.lastName} (${selectedUser.email})`
+                  : userSearchTerm
+              }
+              onChange={(e) => {
+                if (assignedUserId) {
+                  setAssignedUserId('');
+                  setUserSearchTerm(e.target.value);
+                  handleUserSearch(e.target.value);
+                } else {
+                  handleUserSearch(e.target.value);
+                }
+              }}
+              placeholder="Ad, soyad veya e-posta ile ara..."
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              required={!assignedUserId}
+            />
+            {userSearchTerm && !assignedUserId && (
+              <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-auto">
+                {filteredUsers.length > 0 ? (
+                  filteredUsers.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => {
+                        setAssignedUserId(user.id.toString());
+                        setUserSearchTerm('');
+                      }}
+                      className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                    >
+                      {user.firstName} {user.lastName} ({user.email})
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-3 py-2 text-sm text-gray-500">Kullanıcı bulunamadı</p>
+                )}
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Okul (opsiyonel)</label>
+            <select
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              value={assignedSchoolId}
+              onChange={(e) => setAssignedSchoolId(e.target.value)}
+            >
+              <option value="">Seçin</option>
+              {schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
+      ) : (
+        <>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Konum *</label>
+            <select
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              value={assignedLocationId}
+              onChange={(e) => setAssignedLocationId(e.target.value)}
+              required
+            >
+              <option value="">Konum seçin</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Konum detayı</label>
+            <input
+              type="text"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              value={locationDetails}
+              onChange={(e) => setLocationDetails(e.target.value)}
+              placeholder="Örn: 3. kat, oda 12"
+            />
+          </div>
+        </>
+      )}
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Beklenen iade tarihi</label>
+        <input
+          type="date"
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+          value={expectedReturnDate}
+          onChange={(e) => setExpectedReturnDate(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Ürün fotoğrafı (form F8 hücresi)
+        </label>
+        <input
+          type="file"
+          accept="image/jpeg,image/png"
+          className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+          onChange={(e) => {
+            const file = e.target.files?.[0] ?? null;
+            setFormPhotoFile(file);
+            if (formPhotoPreview) {
+              URL.revokeObjectURL(formPhotoPreview);
+            }
+            setFormPhotoPreview(file ? URL.createObjectURL(file) : null);
+          }}
+        />
+        {formPhotoPreview && (
+          <img
+            src={formPhotoPreview}
+            alt="Seçilen ürün fotoğrafı"
+            className="mt-2 h-16 w-16 rounded object-cover border border-gray-200"
+          />
+        )}
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Not</label>
+        <textarea
+          rows={2}
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Zimmet notu..."
+        />
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="px-4 py-2 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {submitting ? 'Zimmetleniyor…' : 'Zimmeti kaydet'}
+        </button>
+      </div>
+    </form>
+  );
+};
