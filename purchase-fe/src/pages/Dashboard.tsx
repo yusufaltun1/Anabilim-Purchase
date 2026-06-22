@@ -51,7 +51,7 @@ export const Dashboard = () => {
           });
 
       const [purchaseRequestsResponse, pendingResponse, forwardedResponse] = await Promise.all([
-        purchaseRequestService.getAllRequests(),
+        purchaseRequestService.getMyRequests(),
         pendingPromise,
         forwardedPromise,
       ]);
@@ -351,7 +351,7 @@ export const Dashboard = () => {
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">İşlemde Olan Talepler</h3>
               <p className="mt-1 text-sm text-gray-500">
-                Onaylanmış ve işlemde olan satın alma talepleri
+                Sizin oluşturduğunuz, onaylanmış ve işlemde olan satın alma talepleri
               </p>
             </div>
             

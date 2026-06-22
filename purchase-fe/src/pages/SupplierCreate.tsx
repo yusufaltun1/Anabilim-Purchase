@@ -329,7 +329,6 @@ export const SupplierCreate = () => {
                   type="text"
                   name="iban"
                   id="iban"
-                  required
                   placeholder="TR33 0001 0002 3456 7890 1234 56"
                   maxLength={34}
                   value={formData.iban}

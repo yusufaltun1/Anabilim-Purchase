@@ -12,7 +12,8 @@ class SupplierService {
   }
 
   private mapRequestToApi(request: CreateSupplierRequest | UpdateSupplierRequest) {
-    const apiRequest: any = {
+    const iban = request.iban?.replace(/\s/g, '').trim().toUpperCase();
+    const apiRequest: Record<string, unknown> = {
       name: request.name,
       taxOffice: request.taxOffice,
       address: request.address,
@@ -23,17 +24,16 @@ class SupplierService {
       contactPhone: request.contactPhone,
       contactEmail: request.contactEmail,
       bankAccount: request.bankAccount,
-      iban: request.iban,
+      iban: iban || null,
       active: 'isActive' in request ? request.isActive : true,
       preferred: request.isPreferred,
-      categoryIds: request.categoryIds || []
+      categoryIds: request.categoryIds || [],
     };
 
     if ('taxNumber' in request) {
       apiRequest.taxNumber = request.taxNumber;
     }
 
-    console.log('Mapped API request:', apiRequest);
     return apiRequest;
   }
 
