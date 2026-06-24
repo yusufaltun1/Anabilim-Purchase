@@ -23,7 +23,8 @@ export type AppCapability =
   | 'REQUEST_CLOSE'
   | 'SYSTEM_MANAGE'
   | 'INVENTORY_VIEW'
-  | 'INVENTORY_MANAGE';
+  | 'INVENTORY_MANAGE'
+  | 'ACCOUNTING_VIEW';
 
 interface LoginResponse {
   success: boolean;
@@ -172,6 +173,11 @@ export const authService = {
         return (
           permissions.includes('INVENTORY_UPDATE') ||
           hasRole(['SATIN_ALMA_DEPARTMANI', 'BILGI_ISLEM_DEPARTMANI', 'SYSTEM_ADMIN', 'PURCHASE_MANAGER'])
+        );
+      case 'ACCOUNTING_VIEW':
+        return (
+          permissions.includes('ACCOUNTING_READ') ||
+          hasRole(['MUHASEBE', 'BILGI_ISLEM_DEPARTMANI', 'SYSTEM_ADMIN'])
         );
       default:
         return false;

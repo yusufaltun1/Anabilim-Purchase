@@ -8,15 +8,19 @@ import com.anabilim.purchase.dto.response.WarehouseDto;
 import com.anabilim.purchase.entity.Product;
 import com.anabilim.purchase.entity.PurchaseOrder;
 import com.anabilim.purchase.entity.SupplierQuote;
+import com.anabilim.purchase.entity.User;
 import com.anabilim.purchase.entity.Warehouse;
 import com.anabilim.purchase.entity.enums.OrderStatus;
 import com.anabilim.purchase.entity.enums.QuoteStatus;
 import com.anabilim.purchase.repository.PurchaseOrderRepository;
 import com.anabilim.purchase.repository.SupplierQuoteRepository;
+import com.anabilim.purchase.repository.UserRepository;
 import com.anabilim.purchase.repository.WarehouseRepository;
+import com.anabilim.purchase.service.NotificationService;
 import com.anabilim.purchase.service.PurchaseOrderService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,12 +29,15 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final SupplierQuoteRepository supplierQuoteRepository;
     private final WarehouseRepository warehouseRepository;
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Override
     public PurchaseOrderDto createPurchaseOrder(CreatePurchaseOrderDto dto) {
@@ -50,9 +57,35 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         purchaseOrder = purchaseOrderRepository.save(purchaseOrder);
 
         supplierQuote.setStatus(QuoteStatus.CONVERTED_TO_ORDER);
-
         supplierQuoteRepository.save(supplierQuote);
+
+        notifyAccountingUsers(purchaseOrder);
+
         return convertToDto(purchaseOrder);
+    }
+
+    private void notifyAccountingUsers(PurchaseOrder order) {
+        try {
+            List<User> muhasebeUsers = userRepository.findByRoleName("MUHASEBE");
+            if (muhasebeUsers.isEmpty()) return;
+
+            String productName = order.getSupplierQuote() != null
+                    && order.getSupplierQuote().getRequestItem() != null
+                    && order.getSupplierQuote().getRequestItem().getProduct() != null
+                    ? order.getSupplierQuote().getRequestItem().getProduct().getName()
+                    : "Ürün";
+
+            String message = String.format(
+                    "Yeni sipariş oluşturuldu: %s | Sipariş No: %s | Toplam: %.2f",
+                    productName, order.getOrderCode(), order.getTotalPrice()
+            );
+
+            for (User user : muhasebeUsers) {
+                notificationService.createSystemNotification(user, message);
+            }
+        } catch (Exception e) {
+            log.warn("Muhasebe bildirimi gönderilemedi: {}", e.getMessage());
+        }
     }
 
     @Override

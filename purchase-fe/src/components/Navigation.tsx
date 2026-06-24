@@ -16,6 +16,7 @@ export const Navigation = () => {
   const canQuoteCollect = authService.hasCapability('QUOTE_COLLECT');
   const canOrderCreate = authService.hasCapability('ORDER_CREATE');
   const canRequestView = authService.hasCapability('REQUEST_VIEW');
+  const canAccountingView = authService.hasCapability('ACCOUNTING_VIEW');
   const isRealSystemAdmin = authService.isRealSystemAdmin();
   const perspectiveRole = authService.getPerspectiveRole() || '';
   const [isSystemMenuOpen, setIsSystemMenuOpen] = useState(false);
@@ -131,6 +132,15 @@ export const Navigation = () => {
               </div>
               )}
 
+              {canAccountingView && (
+                <button
+                  onClick={() => navigate('/accounting')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/accounting') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                >
+                  Muhasebe
+                </button>
+              )}
+
               {canRequestView && <button onClick={() => navigate('/purchase-requests')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname.startsWith('/purchase-requests') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50'}`}>
                 Satın Alma Talepleri
               </button>}
@@ -184,6 +194,7 @@ export const Navigation = () => {
                   <option value="BOLUM_BASKANI">Bölüm Başkanı</option>
                   <option value="KAMPUS_MUDURU">Kampüs Müdürü</option>
                   <option value="SEDA_HANIM">Seda Hanım</option>
+                  <option value="MUHASEBE">Muhasebe</option>
                 </select>
               )}
               <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">

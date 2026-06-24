@@ -68,6 +68,9 @@ public class DataInitializer implements CommandLineRunner {
         // Inventory permissions
         createPermission("INVENTORY_READ", "Envanter Görüntüle", "INVENTORY", "READ");
         createPermission("INVENTORY_UPDATE", "Envanter Güncelle", "INVENTORY", "UPDATE");
+
+        // Accounting permissions
+        createPermission("ACCOUNTING_READ", "Muhasebe Görüntüle", "ACCOUNTING", "READ");
         
         log.info("Permissions oluşturuldu");
     }
@@ -173,8 +176,11 @@ public class DataInitializer implements CommandLineRunner {
                 "REQUEST_CREATE", "REQUEST_READ", "REQUEST_UPDATE", "REQUEST_DELETE",
                 "APPROVAL_APPROVE", "APPROVAL_REJECT", "APPROVAL_RETURN",
                 "WORKFLOW_CREATE", "WORKFLOW_READ", "WORKFLOW_UPDATE", "WORKFLOW_DELETE",
-                "INVENTORY_READ", "INVENTORY_UPDATE");
-        
+                "INVENTORY_READ", "INVENTORY_UPDATE", "ACCOUNTING_READ");
+
+        Role muhasebeRole = createRole("MUHASEBE", "Muhasebe", "Muhasebe departmanı, sipariş ve finansal raporları görüntüler.");
+        assignPermissionsToRole(muhasebeRole, "ACCOUNTING_READ", "REQUEST_READ");
+
         log.info("Roles oluşturuldu");
     }
     
