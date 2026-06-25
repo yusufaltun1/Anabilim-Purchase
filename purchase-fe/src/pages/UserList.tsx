@@ -22,109 +22,88 @@ export const UserList = () => {
 
   useEffect(() => {
     loadUsers();
-    
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
       navigate(location.pathname, { replace: true });
       setTimeout(() => setSuccessMessage(null), 5000);
     }
-  }, []); // Sadece component mount olduğunda çalışsın
+  }, []);
 
   const loadUsers = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('Loading all users...');
       const data = await userService.getAllUsers();
-      
-      console.log('Loaded users:', data);
-      console.log('Users array length:', data?.length);
-      console.log('Users array type:', Array.isArray(data));
-      
       if (Array.isArray(data)) {
         setUsers(data);
-        setCurrentPage(1); // Reset to first page when loading new data
+        setCurrentPage(1);
       } else {
-        console.error('Data is not an array:', data);
         setUsers([]);
         setError('Beklenmeyen veri formatı');
       }
-    } catch (err) {
+    } catch {
       setError('Kullanıcılar yüklenirken hata oluştu');
-      console.error('Error loading users:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateUser = () => {
-    navigate('/users/create');
-  };
-
-  const handleEditUser = (id: number) => {
-    navigate(`/users/edit/${id}`);
-  };
+  const handleEditUser = (id: number) => navigate(`/users/edit/${id}`);
 
   const handleDeleteUser = async (id: number) => {
-    if (window.confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz?')) {
-      try {
-        await userService.deleteUser(id);
-        setUsers(users.filter(u => u.id !== id));
-        setSuccessMessage('Kullanıcı başarıyla silindi!');
-        setTimeout(() => setSuccessMessage(null), 5000);
-      } catch (err) {
-        setError('Kullanıcı silinirken hata oluştu');
-        console.error('Error deleting user:', err);
-      }
+    if (!window.confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz?')) return;
+    try {
+      await userService.deleteUser(id);
+      setUsers(prev => prev.filter(u => u.id !== id));
+      setSuccessMessage('Kullanıcı başarıyla silindi!');
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch {
+      setError('Kullanıcı silinirken hata oluştu');
     }
   };
 
   const handleSort = (field: keyof User) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
       setSortDirection('asc');
     }
   };
 
+  const hasActiveFilters = searchTerm || filter !== 'all' || departmentFilter || roleFilter;
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilter('all');
+    setDepartmentFilter('');
+    setRoleFilter('');
+    setCurrentPage(1);
+  };
+
   const toSearchText = (value: unknown) => (value ?? '').toString().toLowerCase();
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
   const filteredUsers = users.filter(user => {
-    // Arama filtresi
-    const matchesSearch = 
+    const matchesSearch =
       toSearchText(user.email).includes(normalizedSearchTerm) ||
       toSearchText(user.firstName).includes(normalizedSearchTerm) ||
       toSearchText(user.lastName).includes(normalizedSearchTerm) ||
       toSearchText(user.department).includes(normalizedSearchTerm) ||
       toSearchText(user.position).includes(normalizedSearchTerm);
-    
-    // Durum filtresi
     const matchesStatus = filter === 'all' || (filter === 'active' && user.isActive);
-    
-    // Departman filtresi
     const matchesDepartment = !departmentFilter || user.department === departmentFilter;
-    
-    // Rol filtresi
     const matchesRole = !roleFilter || (user.roles ?? []).includes(roleFilter);
-    
     return matchesSearch && matchesStatus && matchesDepartment && matchesRole;
   }).sort((a, b) => {
     if (sortField === 'roles') {
-      const aValue = a[sortField].join(', ');
-      const bValue = b[sortField].join(', ');
-      return sortDirection === 'asc' 
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
+      const aV = a.roles.join(', ');
+      const bV = b.roles.join(', ');
+      return sortDirection === 'asc' ? aV.localeCompare(bV) : bV.localeCompare(aV);
     }
-    
-    const aValue = a[sortField]?.toString() || '';
-    const bValue = b[sortField]?.toString() || '';
-    return sortDirection === 'asc' 
-      ? aValue.localeCompare(bValue)
-      : bValue.localeCompare(aValue);
+    const aV = a[sortField]?.toString() || '';
+    const bV = b[sortField]?.toString() || '';
+    return sortDirection === 'asc' ? aV.localeCompare(bV) : bV.localeCompare(aV);
   });
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
@@ -133,277 +112,245 @@ export const UserList = () => {
     currentPage * itemsPerPage
   );
 
-  const departments = Array.from(new Set(users.map(user => user.department).filter(Boolean)));
-  const roles = Array.from(new Set(users.flatMap(user => user.roles ?? [])));
+  const departments = Array.from(new Set(users.map(u => u.department).filter(Boolean)));
+  const roles = Array.from(new Set(users.flatMap(u => u.roles ?? [])));
 
   const SortIcon = ({ field }: { field: keyof User }) => (
-    <span className="ml-1">
-      {sortField === field ? (
-        sortDirection === 'asc' ? '↑' : '↓'
-      ) : '↕'}
+    <span className="ml-1 text-gray-400">
+      {sortField === field ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
     </span>
   );
+
+  const pageNumbers = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages: (number | '...')[] = [1];
+    if (currentPage > 3) pages.push('...');
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+      pages.push(i);
+    }
+    if (currentPage < totalPages - 2) pages.push('...');
+    pages.push(totalPages);
+    return pages;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
-      
+
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="px-4 py-6 sm:px-0">
-          <div className="flex justify-between items-center">
+        <div className="px-4 sm:px-0">
+
+          {/* Başlık */}
+          <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Kullanıcılar</h1>
-              <p className="mt-2 text-gray-600">
-                Sistemdeki tüm kullanıcıları yönetin
+              <p className="mt-1 text-sm text-gray-500">
+                Toplam {users.length} kullanıcı
+                {users.filter(u => u.isActive).length !== users.length && (
+                  <span className="ml-2 text-green-600 font-medium">
+                    ({users.filter(u => u.isActive).length} aktif)
+                  </span>
+                )}
               </p>
             </div>
             <button
-              onClick={handleCreateUser}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
+              onClick={() => navigate('/users/create')}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              <span>Yeni Kullanıcı</span>
+              Yeni Kullanıcı
             </button>
           </div>
-        </div>
 
-        {/* Success Message */}
-        {successMessage && (
-          <div className="px-4 sm:px-0 mb-6">
-            <div className="bg-green-50 border border-green-200 rounded-md p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-green-800">{successMessage}</h3>
-                </div>
-              </div>
+          {/* Başarı mesajı */}
+          {successMessage && (
+            <div className="mb-4 bg-green-50 border border-green-200 rounded-md p-4 flex items-center gap-3">
+              <svg className="h-5 w-5 text-green-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium text-green-800">{successMessage}</span>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Filters */}
-        <div className="px-4 sm:px-0 mb-6">
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Filtreler */}
+          <div className="bg-white shadow rounded-lg p-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
-                <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
-                  Arama
-                </label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Arama</label>
                 <input
                   type="text"
-                  id="search"
                   value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Ad, soyad, email veya pozisyon ara..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                  placeholder="Ad, e-posta, pozisyon..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label htmlFor="filter" className="block text-sm font-medium text-gray-700 mb-2">
-                  Durum
-                </label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Durum</label>
                 <select
-                  id="filter"
                   value={filter}
-                  onChange={(e) => {
-                    setFilter(e.target.value as 'all' | 'active');
-                    setCurrentPage(1);
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  onChange={(e) => { setFilter(e.target.value as 'all' | 'active'); setCurrentPage(1); }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
                   <option value="all">Tümü</option>
                   <option value="active">Aktif</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">
-                  Departman
-                </label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Departman</label>
                 <select
-                  id="department"
                   value={departmentFilter}
-                  onChange={(e) => {
-                    setDepartmentFilter(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  onChange={(e) => { setDepartmentFilter(e.target.value); setCurrentPage(1); }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
                   <option value="">Tümü</option>
-                  {departments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
+                  {departments.map(dept => <option key={dept} value={dept}>{dept}</option>)}
                 </select>
               </div>
               <div>
-                <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-                  Rol
-                </label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Rol</label>
                 <select
-                  id="role"
                   value={roleFilter}
-                  onChange={(e) => {
-                    setRoleFilter(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
                   <option value="">Tümü</option>
-                  {roles.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
+                  {roles.map(role => <option key={role} value={role}>{role}</option>)}
                 </select>
               </div>
             </div>
+            {hasActiveFilters && (
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-gray-500">
+                  <span className="font-semibold text-gray-700">{filteredUsers.length}</span> sonuç bulundu
+                </span>
+                <button
+                  onClick={clearFilters}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Filtreleri temizle
+                </button>
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Users Table */}
-        <div className="px-4 sm:px-0">
+          {/* Tablo */}
           {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <div className="flex justify-center items-center py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
             </div>
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                </div>
-              </div>
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-center gap-3">
+              <svg className="h-5 w-5 text-red-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium text-red-800">{error}</span>
             </div>
           ) : filteredUsers.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            <div className="text-center py-16">
+              <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Kullanıcı bulunamadı</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {searchTerm || filter !== 'all' || departmentFilter || roleFilter
-                  ? 'Arama kriterlerinize uygun kullanıcı bulunamadı.'
-                  : 'Henüz hiç kullanıcı oluşturulmamış.'
-                }
+              <p className="mt-3 text-sm text-gray-500">
+                {hasActiveFilters ? 'Arama kriterlerine uygun kullanıcı bulunamadı.' : 'Henüz kullanıcı eklenmemiş.'}
               </p>
+              {hasActiveFilters && (
+                <button onClick={clearFilters} className="mt-2 text-sm text-indigo-600 hover:underline">
+                  Filtreleri temizle
+                </button>
+              )}
             </div>
           ) : (
             <>
-              <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+              {/* Scroll wrapper — yatay kaydırma buradan */}
+              <div className="overflow-x-auto rounded-lg shadow border border-gray-200">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      <th
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
                         onClick={() => handleSort('firstName')}
                       >
-                        Ad Soyad
-                        <SortIcon field="firstName" />
+                        Ad Soyad <SortIcon field="firstName" />
                       </th>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      <th
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
                         onClick={() => handleSort('email')}
                       >
-                        Email
-                        <SortIcon field="email" />
+                        E-posta <SortIcon field="email" />
                       </th>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      <th
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
                         onClick={() => handleSort('department')}
                       >
-                        Departman
-                        <SortIcon field="department" />
+                        Departman <SortIcon field="department" />
                       </th>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      <th
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
                         onClick={() => handleSort('position')}
                       >
-                        Pozisyon
-                        <SortIcon field="position" />
+                        Pozisyon <SortIcon field="position" />
                       </th>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      <th
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap hover:bg-gray-100"
                         onClick={() => handleSort('roles')}
                       >
-                        Roller
-                        <SortIcon field="roles" />
+                        Roller <SortIcon field="roles" />
                       </th>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                         Durum
                       </th>
-                      <th scope="col" className="relative px-6 py-3">
-                        <span className="sr-only">İşlemler</span>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        İşlemler
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-gray-100">
                     {paginatedUsers.map((user) => (
-                      <tr key={user.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.firstName} {user.lastName}
-                          </div>
+                      <tr key={user.id} className="hover:bg-indigo-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {user.firstName} {user.lastName}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{user.email}</div>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {user.email}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{user.department}</div>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {user.department || '—'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{user.position}</div>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {user.position || '—'}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex flex-wrap gap-1">
-                            {user.roles.map((role, index) => (
-                              <span
-                                key={index}
-                                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
-                              >
+                          <div className="flex flex-wrap gap-1 min-w-[120px]">
+                            {(user.roles ?? []).map((role, i) => (
+                              <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                                 {role}
                               </span>
                             ))}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            user.isActive 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
                             {user.isActive ? 'Aktif' : 'Pasif'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
                           <button
                             onClick={() => handleEditUser(user.id!)}
-                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            className="text-indigo-600 hover:text-indigo-900 font-medium"
                           >
                             Düzenle
                           </button>
                           <button
                             onClick={() => handleDeleteUser(user.id!)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-red-500 hover:text-red-700 font-medium"
                           >
                             Sil
                           </button>
@@ -416,58 +363,45 @@ export const UserList = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6 mt-4 rounded-lg">
-                  <div className="flex justify-between w-full">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Toplam <span className="font-medium">{filteredUsers.length}</span> kullanıcıdan{' '}
-                        <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span>-
-                        <span className="font-medium">
-                          {Math.min(currentPage * itemsPerPage, filteredUsers.length)}
-                        </span>{' '}
-                        arası gösteriliyor
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white border border-gray-200 rounded-lg px-4 py-3">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">{filteredUsers.length}</span> kullanıcıdan{' '}
+                    <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span>–
+                    <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> gösteriliyor
+                  </p>
+                  <nav className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      ← Önceki
+                    </button>
+                    {pageNumbers().map((p, i) =>
+                      p === '...' ? (
+                        <span key={`ellipsis-${i}`} className="px-2 text-gray-400">…</span>
+                      ) : (
                         <button
-                          onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
-                          disabled={currentPage === 1}
-                          className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                            currentPage === 1
-                              ? 'text-gray-300 cursor-not-allowed'
-                              : 'text-gray-500 hover:bg-gray-50'
+                          key={p}
+                          onClick={() => setCurrentPage(p as number)}
+                          className={`w-8 h-8 rounded border text-sm font-medium ${
+                            currentPage === p
+                              ? 'bg-indigo-600 border-indigo-600 text-white'
+                              : 'border-gray-300 text-gray-600 hover:bg-gray-50'
                           }`}
                         >
-                          Önceki
+                          {p}
                         </button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                              currentPage === page
-                                ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        ))}
-                        <button
-                          onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
-                          disabled={currentPage === totalPages}
-                          className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                            currentPage === totalPages
-                              ? 'text-gray-300 cursor-not-allowed'
-                              : 'text-gray-500 hover:bg-gray-50'
-                          }`}
-                        >
-                          Sonraki
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
+                      )
+                    )}
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Sonraki →
+                    </button>
+                  </nav>
                 </div>
               )}
             </>
@@ -476,4 +410,4 @@ export const UserList = () => {
       </div>
     </div>
   );
-}; 
+};
