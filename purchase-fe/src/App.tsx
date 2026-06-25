@@ -56,6 +56,7 @@ import { LocationList } from './pages/LocationList';
 import { LocationDetail } from './pages/LocationDetail';
 import { LocationEdit } from './pages/LocationEdit';
 import UserGroupWhiteboard from './pages/UserGroupWhiteboard';
+import { AccountingOrders } from './pages/AccountingOrders';
 
 interface AppProps {
   instance: PublicClientApplication;
@@ -401,6 +402,16 @@ function App({ instance }: AppProps) {
               <Route path="/locations/:id" element={<PrivateRoute><CapabilityRoute capability="INVENTORY_VIEW"><LocationDetail /></CapabilityRoute></PrivateRoute>} />
               <Route path="/locations/edit/:id" element={<PrivateRoute><CapabilityRoute capability="INVENTORY_MANAGE"><LocationEdit /></CapabilityRoute></PrivateRoute>} />
               <Route path="/user-groups/whiteboard" element={<PrivateRoute><UserGroupWhiteboard /></PrivateRoute>} />
+              <Route
+                path="/accounting"
+                element={
+                  <PrivateRoute>
+                    <CapabilityRoute capability="ACCOUNTING_VIEW">
+                      <AccountingOrders />
+                    </CapabilityRoute>
+                  </PrivateRoute>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

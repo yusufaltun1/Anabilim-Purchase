@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /Users/ysfaltn/IdeaProjects/Anabilim/ && ls -la /Users/ysfaltn/IdeaProjects/ 2>/dev/null | head -20)",
+      "Read(//Users/ysfaltn/IdeaProjects/**)",
+      "Read(//Users/ysfaltn/**)"
+    ]
+  }
+}
