@@ -305,7 +305,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             PurchaseRequestApproval currentApproval,
             boolean fromRejection,
             String rejectionReason) {
-        User purchaseUser = resolvePurchaseDepartmentAssignee();
+        User purchaseUser = resolvePurchaseDepartmentAssignee(approver);
         int nextStepOrder = request.getApprovals().stream().mapToInt(PurchaseRequestApproval::getStepOrder).max().orElse(0) + 1;
         PurchaseRequestApproval nextApproval = new PurchaseRequestApproval();
         nextApproval.setPurchaseRequest(request);
@@ -339,7 +339,27 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         }
     }
 
-    private User resolvePurchaseDepartmentAssignee() {
+    /**
+     * Onay akışındaki mevcut onaycının (örn. SERKAN_BEY) grup hiyerarşisinden
+     * üst gruptaki SATIN_ALMA_DEPARTMANI üyesini bulur.
+     * Hiyerarşide bulunamazsa rol tabanlı arama ile devam eder.
+     */
+    private User resolvePurchaseDepartmentAssignee(User currentApprover) {
+        // 1. Onaycının UserGroup hiyerarşisindeki üst gruplarından SATIN_ALMA kullanıcısını bul
+        List<ParentApproverCandidateDto> candidates =
+                userGroupService.findParentApproverCandidatesForUser(currentApprover);
+
+        for (ParentApproverCandidateDto candidate : candidates) {
+            if (candidate.getUserId() == null) continue;
+            User candidateUser = userRepository.findById(candidate.getUserId()).orElse(null);
+            if (candidateUser != null
+                    && Boolean.TRUE.equals(candidateUser.getIsActive())
+                    && userHasRole(candidateUser, "SATIN_ALMA_DEPARTMANI")) {
+                return candidateUser;
+            }
+        }
+
+        // 2. Hiyerarşide yoksa aktif SATIN_ALMA kullanıcısı ara
         List<User> purchaseUsers = userRepository.findByRoleName("SATIN_ALMA_DEPARTMANI");
         if (purchaseUsers.isEmpty()) {
             purchaseUsers = userRepository.findByRoleName("PURCHASE_MANAGER");
@@ -347,6 +367,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         if (purchaseUsers.isEmpty()) {
             throw new ValidationException("Satın alma departmanında aktif kullanıcı bulunamadı.");
         }
+        log.warn("Onay akışında SATIN_ALMA kullanıcısı bulunamadı, role göre seçildi: {}",
+                purchaseUsers.get(0).getEmail());
         return purchaseUsers.get(0);
     }
 
