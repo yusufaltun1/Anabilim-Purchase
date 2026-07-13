@@ -10,6 +10,7 @@ interface SearchableDeviceModelSelectProps {
   disabled?: boolean;
   placeholder?: string;
   hasError?: boolean;
+  allowClear?: boolean;
 }
 
 export const SearchableDeviceModelSelect = ({
@@ -19,6 +20,7 @@ export const SearchableDeviceModelSelect = ({
   disabled,
   placeholder = 'Marka veya model ara...',
   hasError,
+  allowClear = false,
 }: SearchableDeviceModelSelectProps) => {
   const [query, setQuery] = useState('');
 
@@ -52,7 +54,8 @@ export const SearchableDeviceModelSelect = ({
       }}
       disabled={disabled}
     >
-      <div className="relative w-full">
+      <div className="relative w-full flex gap-1">
+        <div className="relative flex-1 min-w-0">
         <div
           className={`cursor-default overflow-hidden rounded-md bg-white text-left border shadow-sm focus-within:ring-1 ${borderClass}`}
         >
@@ -121,6 +124,17 @@ export const SearchableDeviceModelSelect = ({
             )}
           </Combobox.Options>
         </Transition>
+        </div>
+        {allowClear && value != null && !disabled && (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className="shrink-0 rounded-md border border-gray-300 px-2 text-sm text-gray-600 hover:bg-gray-50"
+            title="Temizle"
+          >
+            ×
+          </button>
+        )}
       </div>
     </Combobox>
   );

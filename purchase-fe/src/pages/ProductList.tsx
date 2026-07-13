@@ -5,11 +5,12 @@ import { ProductListPanel } from '../components/product/ProductListPanel';
 import { ActiveFiltersBar } from '../components/ActiveFiltersBar';
 import { SearchableCategorySelect } from '../components/common/SearchableCategorySelect';
 import { SearchableSupplierSelect } from '../components/common/SearchableSupplierSelect';
+import { SearchableDeviceModelSelect } from '../components/common/SearchableDeviceModelSelect';
+import { SearchableOptionSelect } from '../components/common/SearchableOptionSelect';
 import { authService } from '../services/auth.service';
 import { productService } from '../services/product.service';
 import { categoryService } from '../services/category.service';
 import { DeviceModel, inventoryService } from '../services/inventory.service';
-import { formatDeviceModelLabel } from '../utils/deviceModel';
 import { schoolService } from '../services/school.service';
 import { supplierService } from '../services/supplier.service';
 import { Product } from '../types/product';
@@ -29,6 +30,65 @@ import {
 const filterInputClass =
   'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500';
 const filterLabelClass = 'block text-sm font-medium text-gray-700 mb-1';
+
+const PRODUCT_TYPE_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'Tümü' },
+  ...CATEGORY_PRODUCT_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+];
+
+const ACTIVE_STATUS_OPTIONS = [
+  { value: 'ALL', label: 'Tümü' },
+  { value: 'ACTIVE', label: 'Aktif' },
+  { value: 'INACTIVE', label: 'Pasif' },
+];
+
+const YES_NO_ALL_OPTIONS = [
+  { value: 'ALL', label: 'Tümü' },
+  { value: 'YES', label: 'Evet' },
+  { value: 'NO', label: 'Hayır' },
+];
+
+const ASSET_LABEL_OPTIONS = [
+  { value: 'ALL', label: 'Tümü' },
+  { value: 'YES', label: 'Etiketli' },
+  { value: 'NO', label: 'Etiketsiz' },
+];
+
+const STOCK_STATUS_OPTIONS = [
+  { value: 'ALL', label: 'Tümü' },
+  { value: 'IN_STOCK', label: 'Stokta' },
+  { value: 'ASSIGNED', label: 'Zimmetli' },
+  { value: 'IN_USE', label: 'Kullanımda' },
+  { value: 'MAINTENANCE', label: 'Bakımda' },
+  { value: 'RETIRED', label: 'Emekli' },
+];
+
+const ASSIGNMENT_STATUS_OPTIONS = [
+  { value: 'ALL', label: 'Tümü' },
+  { value: 'CAN_ASSIGN', label: 'Zimmetlenebilir' },
+  { value: 'IN_USE', label: 'Önce iade gerekli' },
+  { value: 'NOT_ASSIGNABLE', label: 'Dağıtılamaz' },
+];
+
+const UNIT_OF_MEASURE_OPTIONS = [
+  { value: '', label: 'Tümü' },
+  { value: 'PIECE', label: 'Adet' },
+  { value: 'METER', label: 'Metre' },
+  { value: 'LITER', label: 'Litre' },
+  { value: 'KILOGRAM', label: 'Kilogram' },
+  { value: 'BOX', label: 'Kutu' },
+  { value: 'PACKAGE', label: 'Paket' },
+  { value: 'SET', label: 'Takım' },
+  { value: 'PAIR', label: 'Çift' },
+];
+
+const SORT_BY_OPTIONS = [
+  { value: 'name', label: 'Ad' },
+  { value: 'code', label: 'Kod' },
+  { value: 'price', label: 'Tahmini fiyat' },
+  { value: 'purchasePrice', label: 'Satın alma fiyatı' },
+  { value: 'createdAt', label: 'Oluşturma tarihi' },
+];
 
 export const ProductList = () => {
   const navigate = useNavigate();
@@ -114,6 +174,23 @@ export const ProductList = () => {
       setLoading(false);
     }
   };
+
+  const schoolOptions = useMemo(
+    () => schools.map((s) => ({ value: s.id, label: s.name })),
+    [schools]
+  );
+  const conditionOptions = useMemo(
+    () => conditions.map((c) => ({ value: c.id, label: c.name })),
+    [conditions]
+  );
+  const parentLocationOptions = useMemo(
+    () => parentLocs.map((l) => ({ value: l.id, label: l.name })),
+    [parentLocs]
+  );
+  const childLocationOptions = useMemo(
+    () => filterChildLocs.map((l) => ({ value: l.id, label: l.name })),
+    [filterChildLocs]
+  );
 
   const filterLookup = useMemo(
     () => ({
@@ -241,7 +318,7 @@ export const ProductList = () => {
                 type="search"
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                placeholder="Hızlı ara: ad, kod, etiket, seri no, sipariş no…"
+                placeholder="Hızlı ara: ad, kod, kategori, etiket, seri no, sipariş no…"
                 className={`${filterInputClass} pl-10`}
               />
             </div>
@@ -305,28 +382,21 @@ export const ProductList = () => {
                     </div>
                     <div>
                       <label className={filterLabelClass}>Ürün tipi</label>
-                      <select
+                      <SearchableOptionSelect
+                        options={PRODUCT_TYPE_FILTER_OPTIONS}
                         value={filters.productType}
-                        onChange={(e) => handleFilterChange('productType', e.target.value)}
-                        className={filterInputClass}
-                      >
-                        <option value="ALL">Tümü</option>
-                        {CATEGORY_PRODUCT_TYPE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
+                        onChange={(v) => handleFilterChange('productType', v ?? 'ALL')}
+                        placeholder="Ürün tipi ara…"
+                      />
                     </div>
                     <div>
                       <label className={filterLabelClass}>Kayıt durumu</label>
-                      <select
+                      <SearchableOptionSelect
+                        options={ACTIVE_STATUS_OPTIONS}
                         value={filters.activeStatus}
-                        onChange={(e) => handleFilterChange('activeStatus', e.target.value as ProductListFilters['activeStatus'])}
-                        className={filterInputClass}
-                      >
-                        <option value="ALL">Tümü</option>
-                        <option value="ACTIVE">Aktif</option>
-                        <option value="INACTIVE">Pasif</option>
-                      </select>
+                        onChange={(v) => handleFilterChange('activeStatus', (v ?? 'ALL') as ProductListFilters['activeStatus'])}
+                        placeholder="Durum ara…"
+                      />
                     </div>
                   </div>
                 </div>
@@ -336,121 +406,92 @@ export const ProductList = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     <div>
                       <label className={filterLabelClass}>Şirket</label>
-                      <select
-                        value={filters.schoolId ?? ''}
-                        onChange={(e) => handleFilterChange('schoolId', e.target.value ? Number(e.target.value) : null)}
-                        className={filterInputClass}
-                      >
-                        <option value="">Tümü</option>
-                        {schools.map((s) => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                      </select>
+                      <SearchableOptionSelect
+                        options={schoolOptions}
+                        value={filters.schoolId}
+                        onChange={(v) => handleFilterChange('schoolId', v)}
+                        placeholder="Şirket ara…"
+                        allowClear
+                      />
                     </div>
                     <div>
                       <label className={filterLabelClass}>Model</label>
-                      <select
-                        value={filters.deviceModelId ?? ''}
-                        onChange={(e) => handleFilterChange('deviceModelId', e.target.value ? Number(e.target.value) : null)}
-                        className={filterInputClass}
-                      >
-                        <option value="">Tümü</option>
-                        {deviceModels.map((m) => (
-                          <option key={m.id} value={m.id}>{formatDeviceModelLabel(m)}</option>
-                        ))}
-                      </select>
+                      <SearchableDeviceModelSelect
+                        models={deviceModels}
+                        value={filters.deviceModelId}
+                        onChange={(m) => handleFilterChange('deviceModelId', m?.id ?? null)}
+                        placeholder="Marka veya model ara…"
+                        allowClear
+                      />
                     </div>
                     <div>
                       <label className={filterLabelClass}>Cihaz durumu</label>
-                      <select
-                        value={filters.assetConditionId ?? ''}
-                        onChange={(e) => handleFilterChange('assetConditionId', e.target.value ? Number(e.target.value) : null)}
-                        className={filterInputClass}
-                      >
-                        <option value="">Tümü</option>
-                        {conditions.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
+                      <SearchableOptionSelect
+                        options={conditionOptions}
+                        value={filters.assetConditionId}
+                        onChange={(v) => handleFilterChange('assetConditionId', v)}
+                        placeholder="Cihaz durumu ara…"
+                        allowClear
+                      />
                     </div>
                     <div>
                       <label className={filterLabelClass}>Demirbaş etiketi</label>
-                      <select
+                      <SearchableOptionSelect
+                        options={ASSET_LABEL_OPTIONS}
                         value={filters.hasAssetLabel}
-                        onChange={(e) => handleFilterChange('hasAssetLabel', e.target.value as ProductListFilters['hasAssetLabel'])}
-                        className={filterInputClass}
-                      >
-                        <option value="ALL">Tümü</option>
-                        <option value="YES">Etiketli</option>
-                        <option value="NO">Etiketsiz</option>
-                      </select>
+                        onChange={(v) => handleFilterChange('hasAssetLabel', (v ?? 'ALL') as ProductListFilters['hasAssetLabel'])}
+                        placeholder="Etiket durumu ara…"
+                      />
                     </div>
                     <div>
                       <label className={filterLabelClass}>Üst konum</label>
-                      <select
-                        value={filters.parentLocationId ?? ''}
-                        onChange={(e) => handleFilterChange('parentLocationId', e.target.value ? Number(e.target.value) : null)}
-                        className={filterInputClass}
-                      >
-                        <option value="">Tümü</option>
-                        {parentLocs.map((l) => (
-                          <option key={l.id} value={l.id}>{l.name}</option>
-                        ))}
-                      </select>
+                      <SearchableOptionSelect
+                        options={parentLocationOptions}
+                        value={filters.parentLocationId}
+                        onChange={(v) => handleFilterChange('parentLocationId', v)}
+                        placeholder="Üst konum ara…"
+                        allowClear
+                      />
                     </div>
                     <div>
                       <label className={filterLabelClass}>Alt konum</label>
-                      <select
-                        value={filters.childLocationId ?? ''}
-                        onChange={(e) => handleFilterChange('childLocationId', e.target.value ? Number(e.target.value) : null)}
-                        className={filterInputClass}
+                      <SearchableOptionSelect
+                        options={childLocationOptions}
+                        value={filters.childLocationId}
+                        onChange={(v) => handleFilterChange('childLocationId', v)}
+                        placeholder="Alt konum ara…"
+                        allowClear
                         disabled={!filters.parentLocationId}
-                      >
-                        <option value="">Tümü</option>
-                        {filterChildLocs.map((l) => (
-                          <option key={l.id} value={l.id}>{l.name}</option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div>
                       <label className={filterLabelClass}>BYOD</label>
-                      <select
+                      <SearchableOptionSelect
+                        options={YES_NO_ALL_OPTIONS}
                         value={filters.byod}
-                        onChange={(e) => handleFilterChange('byod', e.target.value as ProductListFilters['byod'])}
-                        className={filterInputClass}
-                      >
-                        <option value="ALL">Tümü</option>
-                        <option value="YES">Evet</option>
-                        <option value="NO">Hayır</option>
-                      </select>
+                        onChange={(v) => handleFilterChange('byod', (v ?? 'ALL') as ProductListFilters['byod'])}
+                        placeholder="BYOD ara…"
+                      />
                     </div>
                     <div>
                       <label className={filterLabelClass}>Stok kalemi durumu</label>
-                      <select
+                      <SearchableOptionSelect
+                        options={STOCK_STATUS_OPTIONS}
                         value={filters.stockStatus}
-                        onChange={(e) => handleFilterChange('stockStatus', e.target.value as ProductListFilters['stockStatus'])}
-                        className={filterInputClass}
-                      >
-                        <option value="ALL">Tümü</option>
-                        <option value="IN_STOCK">Stokta</option>
-                        <option value="ASSIGNED">Zimmetli</option>
-                        <option value="IN_USE">Kullanımda</option>
-                        <option value="MAINTENANCE">Bakımda</option>
-                        <option value="RETIRED">Emekli</option>
-                      </select>
+                        onChange={(v) => handleFilterChange('stockStatus', (v ?? 'ALL') as ProductListFilters['stockStatus'])}
+                        placeholder="Stok durumu ara…"
+                      />
                     </div>
                     <div>
                       <label className={filterLabelClass}>Zimmet / kullanım</label>
-                      <select
+                      <SearchableOptionSelect
+                        options={ASSIGNMENT_STATUS_OPTIONS}
                         value={filters.assignmentStatus}
-                        onChange={(e) => handleFilterChange('assignmentStatus', e.target.value as ProductListFilters['assignmentStatus'])}
-                        className={filterInputClass}
-                      >
-                        <option value="ALL">Tümü</option>
-                        <option value="CAN_ASSIGN">Zimmetlenebilir</option>
-                        <option value="IN_USE">Önce iade gerekli</option>
-                        <option value="NOT_ASSIGNABLE">Dağıtılamaz</option>
-                      </select>
+                        onChange={(v) =>
+                          handleFilterChange('assignmentStatus', (v ?? 'ALL') as ProductListFilters['assignmentStatus'])
+                        }
+                        placeholder="Zimmet durumu ara…"
+                      />
                     </div>
                   </div>
                 </div>
@@ -516,36 +557,26 @@ export const ProductList = () => {
                     </div>
                     <div>
                       <label className={filterLabelClass}>Birim</label>
-                      <select
-                        value={filters.unitOfMeasure}
-                        onChange={(e) => handleFilterChange('unitOfMeasure', e.target.value)}
-                        className={filterInputClass}
-                      >
-                        <option value="">Tümü</option>
-                        <option value="PIECE">Adet</option>
-                        <option value="METER">Metre</option>
-                        <option value="LITER">Litre</option>
-                        <option value="KILOGRAM">Kilogram</option>
-                        <option value="BOX">Kutu</option>
-                        <option value="PACKAGE">Paket</option>
-                        <option value="SET">Takım</option>
-                        <option value="PAIR">Çift</option>
-                      </select>
+                      <SearchableOptionSelect
+                        options={UNIT_OF_MEASURE_OPTIONS}
+                        value={filters.unitOfMeasure || ''}
+                        onChange={(v) => handleFilterChange('unitOfMeasure', v ?? '')}
+                        placeholder="Birim ara…"
+                      />
                     </div>
                     <div>
                       <label className={filterLabelClass}>Sırala</label>
                       <div className="flex gap-2">
-                        <select
-                          value={filters.sortBy}
-                          onChange={(e) => handleFilterChange('sortBy', e.target.value as ProductListFilters['sortBy'])}
-                          className={`${filterInputClass} flex-1`}
-                        >
-                          <option value="name">Ad</option>
-                          <option value="code">Kod</option>
-                          <option value="price">Tahmini fiyat</option>
-                          <option value="purchasePrice">Satın alma fiyatı</option>
-                          <option value="createdAt">Oluşturma tarihi</option>
-                        </select>
+                        <div className="flex-1 min-w-0">
+                          <SearchableOptionSelect
+                            options={SORT_BY_OPTIONS}
+                            value={filters.sortBy}
+                            onChange={(v) =>
+                              handleFilterChange('sortBy', (v ?? 'name') as ProductListFilters['sortBy'])
+                            }
+                            placeholder="Sıralama alanı ara…"
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => handleFilterChange('sortOrder', filters.sortOrder === 'asc' ? 'desc' : 'asc')}

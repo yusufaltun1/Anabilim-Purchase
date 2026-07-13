@@ -62,8 +62,24 @@ export interface FilterLookup {
   childLocs: { id: number; name: string }[];
 }
 
+function categorySearchFields(category: Category | undefined): string[] {
+  if (!category) return [];
+  const fields: (string | undefined | null)[] = [
+    category.name,
+    category.code,
+    category.description,
+  ];
+  if (category.productType) {
+    fields.push(category.productType);
+    fields.push(
+      CATEGORY_PRODUCT_TYPE_OPTIONS.find((o) => o.value === category.productType)?.label
+    );
+  }
+  return fields.filter((f): f is string => !!f && String(f).trim().length > 0);
+}
+
 function matchesSearch(p: Product, q: string): boolean {
-  const fields = [
+  const fields: (string | undefined | null)[] = [
     p.name,
     p.code,
     p.description,
@@ -79,7 +95,16 @@ function matchesSearch(p: Product, q: string): boolean {
     p.ipAddress,
     p.macAddress,
     p.stockItemStatus,
+    ...categorySearchFields(p.category),
+    ...(p.categories?.flatMap((c) => categorySearchFields(c)) ?? []),
   ];
+
+  if (p.productType) {
+    fields.push(String(p.productType));
+    const productTypeLabel = PRODUCT_TYPE_LABELS[p.productType as ProductType]?.label;
+    if (productTypeLabel) fields.push(productTypeLabel);
+  }
+
   return fields.some((f) => f && String(f).toLowerCase().includes(q));
 }
 

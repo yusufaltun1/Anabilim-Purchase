@@ -42,6 +42,9 @@ services:
       - MAIL_USERNAME=your-email@example.com
       - MAIL_PASSWORD=your-mail-password
       - JWT_SECRET=your-super-secret-jwt-key-that-is-very-long-and-secure
+      - UPLOAD_DIR=/app/uploads
+    volumes:
+      - ./uploads:/app/uploads
     networks:
       - anabilim-network
 

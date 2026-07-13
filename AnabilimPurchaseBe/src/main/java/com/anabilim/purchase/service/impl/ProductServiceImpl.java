@@ -218,9 +218,6 @@ public class ProductServiceImpl implements ProductService {
         if (dto.getDeviceModelId() == null) {
             throw new ValidationException("Model seçimi zorunludur");
         }
-        if (dto.getDefaultParentLocationId() == null) {
-            throw new ValidationException("Konum seçimi zorunludur");
-        }
     }
 
     private void createStockItemFromDto(Product product, CreateProductDto dto) {

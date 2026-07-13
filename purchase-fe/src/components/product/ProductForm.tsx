@@ -17,6 +17,16 @@ import { AssetCondition, DeviceModel, inventoryService } from '../../services/in
 import { CreateDeviceModelModal } from './CreateDeviceModelModal';
 import { CreateSupplierModal } from './CreateSupplierModal';
 import { EditDeviceModelModal } from './EditDeviceModelModal';
+import { CameraCaptureModal } from '../common/CameraCaptureModal';
+import {
+  emptyProductAssignmentState,
+  ProductCreateAssignmentSection,
+  ProductCreateAssignmentState,
+  resolveAssignmentLocationId,
+} from './ProductCreateAssignmentSection';
+import { assignmentService } from '../../services/assignment.service';
+import { userService } from '../../services/user.service';
+import { User } from '../../types/user';
 import { LocationHierarchyPickers } from '../common/LocationHierarchyPickers';
 import { locationService } from '../../services/location.service';
 import {
@@ -92,12 +102,17 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
   const [showDeviceModelModal, setShowDeviceModelModal] = useState(false);
   const [showEditDeviceModelModal, setShowEditDeviceModelModal] = useState(false);
   const [showCreateSupplierModal, setShowCreateSupplierModal] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
   const [conditions, setConditions] = useState<AssetCondition[]>([]);
   const [locationRootId, setLocationRootId] = useState<number | null>(null);
   const [locationMiddleId, setLocationMiddleId] = useState<number | null>(null);
   const [locationLeafId, setLocationLeafId] = useState<number | null>(null);
   const [locationReloadToken, setLocationReloadToken] = useState(0);
   const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null);
+  const [assignmentState, setAssignmentState] = useState<ProductCreateAssignmentState>(
+    emptyProductAssignmentState()
+  );
+  const [users, setUsers] = useState<User[]>([]);
 
   const applyDeviceModelSelection = (model: DeviceModel | null) => {
     setSelectedModel(model);
@@ -111,6 +126,10 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
 
   const effectiveProductType = resolveProductType(selectedCategory?.productType ?? form.productType);
   const assetFieldsRequired = mode === 'create' && isAssetProductType(effectiveProductType);
+
+  const isDepotSelected = form.warehouseId != null;
+  const showCreateAssignment = mode === 'create' && assetFieldsRequired && !isDepotSelected;
+  const showDefaultLocationPickers = mode === 'edit';
 
   useEffect(() => {
     (async () => {
@@ -156,6 +175,9 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
       setConditions(conds);
       setSchools(schoolList);
       setWarehouses(warehouseList);
+      if (mode === 'create') {
+        userService.getAllUsers().then(setUsers).catch(() => setUsers([]));
+      }
       return loadedCategories;
     } catch {
       setError('Form verileri yüklenirken hata oluştu');
@@ -258,6 +280,17 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
     setSupplierId(null);
   };
 
+  const addImageDataUrl = (url: string) => {
+    const base64 = url.includes(',') ? url.split(',')[1] : '';
+    const approxBytes = base64 ? (base64.length * 3) / 4 : 0;
+    const maxBytes = 8 * 1024 * 1024;
+    if (approxBytes > maxBytes) {
+      setError('Dosya boyutu en fazla 8 MB olabilir');
+      return;
+    }
+    setForm((prev) => ({ ...prev, imageUrls: [...(prev.imageUrls || []), url] }));
+  };
+
   const handleImages = (files: FileList | null) => {
     if (!files) return;
     const maxBytes = 8 * 1024 * 1024;
@@ -268,11 +301,14 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
       }
       const reader = new FileReader();
       reader.onload = () => {
-        const url = reader.result as string;
-        setForm((prev) => ({ ...prev, imageUrls: [...(prev.imageUrls || []), url] }));
+        addImageDataUrl(reader.result as string);
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const handleCameraCapture = (dataUrl: string) => {
+    addImageDataUrl(dataUrl);
   };
 
   const removeImage = (index: number) => {
@@ -284,9 +320,31 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
 
   const buildPayload = () => {
     const code = form.code.trim().toUpperCase();
-    const locationFields = resolveProductLocationPayload(locationRootId, locationMiddleId, locationLeafId);
-    const warehouseId =
-      form.warehouseId ?? (warehouses.length === 1 ? warehouses[0].id : null);
+    const warehouseId = isDepotSelected ? form.warehouseId : null;
+
+    let locationFields: {
+      defaultParentLocationId?: number | null;
+      defaultChildLocationId?: number | null;
+    } = {};
+
+    if (mode === 'edit') {
+      locationFields = resolveProductLocationPayload(locationRootId, locationMiddleId, locationLeafId);
+    } else if (!isDepotSelected) {
+      if (assignmentState.assignmentType === 'location') {
+        locationFields = resolveProductLocationPayload(
+          assignmentState.assignedLocationRootId,
+          assignmentState.assignedLocationMiddleId,
+          assignmentState.assignedLocationLeafId
+        );
+      } else if (assignmentState.assignedUserId) {
+        const user = users.find((u) => u.id?.toString() === assignmentState.assignedUserId);
+        locationFields = {
+          defaultParentLocationId: user?.workLocationParentId ?? null,
+          defaultChildLocationId: user?.workLocationChildId ?? null,
+        };
+      }
+    }
+
     return {
       ...form,
       ...locationFields,
@@ -302,6 +360,21 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
     };
   };
 
+  const validateAssignmentFields = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    if (!showCreateAssignment) {
+      return errors;
+    }
+    if (assignmentState.assignmentType === 'user') {
+      if (!assignmentState.assignedUserId) {
+        errors.assignedUserId = 'Zimmet için kullanıcı seçin';
+      }
+    } else if (!resolveAssignmentLocationId(assignmentState)) {
+      errors.assignedLocationId = 'Zimmet için konum seçin';
+    }
+    return errors;
+  };
+
   const validateAssetFields = (): Record<string, string> => {
     const errors: Record<string, string> = {};
     if (!form.code.trim()) {
@@ -313,13 +386,41 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
     if (!form.deviceModelId) {
       errors.deviceModelId = 'Model seçimi zorunludur';
     }
-    if (!locationRootId) {
+    if (showDefaultLocationPickers && !locationRootId) {
       errors.defaultParentLocationId = 'Konum seçimi zorunludur';
     }
-    if (warehouses.length > 1 && !form.warehouseId) {
-      errors.warehouseId = 'Depo seçimi zorunludur';
-    }
     return errors;
+  };
+
+  const createAssignmentAfterProduct = async (productId: number, stockItemId: number) => {
+    const assignedLocationId = resolveAssignmentLocationId(assignmentState);
+    const result = await assignmentService.createAssignment({
+      productId,
+      stockItemId,
+      expectedReturnDate: assignmentState.expectedReturnDate || undefined,
+      notes: assignmentState.notes.trim() || undefined,
+      ...(assignmentState.assignmentType === 'user'
+        ? {
+            assignedUserId: parseInt(assignmentState.assignedUserId, 10),
+            assignedSchoolId: assignmentState.assignedSchoolId
+              ? parseInt(assignmentState.assignedSchoolId, 10)
+              : undefined,
+          }
+        : {
+            assignedLocationId: assignedLocationId!,
+            locationDetails: assignmentState.locationDetails.trim() || undefined,
+          }),
+    });
+
+    const created = result.data && !Array.isArray(result.data) ? result.data : null;
+    if (!created?.id) {
+      return;
+    }
+
+    if (assignmentState.formPhotoFile) {
+      await assignmentService.uploadFormPhoto(created.id, assignmentState.formPhotoFile);
+    }
+    await assignmentService.downloadAssignmentForm(created.id);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -334,9 +435,15 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
     }
     if (assetFieldsRequired) {
       const assetErrors = validateAssetFields();
-      if (Object.keys(assetErrors).length > 0) {
-        setFieldErrors(assetErrors);
-        setError('Lütfen zorunlu demirbaş alanlarını doldurun');
+      const assignmentErrors = validateAssignmentFields();
+      const mergedErrors = { ...assetErrors, ...assignmentErrors };
+      if (Object.keys(mergedErrors).length > 0) {
+        setFieldErrors(mergedErrors);
+        setError(
+          showCreateAssignment
+            ? 'Lütfen zorunlu demirbaş ve zimmet alanlarını doldurun'
+            : 'Lütfen zorunlu demirbaş alanlarını doldurun'
+        );
         return;
       }
     }
@@ -355,6 +462,28 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
         if (!res.success) {
           handleFailure(res);
           return;
+        }
+        if (showCreateAssignment && res.data) {
+          const createdProduct = Array.isArray(res.data) ? null : res.data;
+          const stockItemId = createdProduct?.stockItemId;
+          if (!createdProduct?.id) {
+            setError('Ürün oluşturuldu ancak zimmet için ürün kaydı okunamadı');
+            return;
+          }
+          if (!stockItemId) {
+            setError('Ürün oluşturuldu ancak zimmet için cihaz kaydı bulunamadı');
+            return;
+          }
+          try {
+            await createAssignmentAfterProduct(createdProduct.id, stockItemId);
+          } catch (assignmentErr: unknown) {
+            setError(
+              assignmentErr instanceof Error
+                ? `Ürün oluşturuldu ancak zimmet kaydı tamamlanamadı: ${assignmentErr.message}`
+                : 'Ürün oluşturuldu ancak zimmet kaydı tamamlanamadı'
+            );
+            return;
+          }
         }
       } else if (productId) {
         const serial = form.serialNumber?.trim();
@@ -572,18 +701,29 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
               {warehouses.length > 0 && (
                 <FormField
                   label="Depo"
-                  required={assetFieldsRequired && warehouses.length > 1}
-                  hint={warehouses.length === 1 ? 'Tek depo olduğu için otomatik seçilir' : undefined}
+                  hint={
+                    mode === 'create'
+                      ? 'Boş bırakırsanız ürün doğrudan zimmetlenir'
+                      : warehouses.length === 1
+                        ? 'Tek depo mevcut'
+                        : undefined
+                  }
                   error={fieldError(fieldErrors, 'warehouseId')}
                 >
                   <select
                     className={`${formSelect}${fieldError(fieldErrors, 'warehouseId') ? ' border-red-500' : ''}`}
-                    value={form.warehouseId ?? (warehouses.length === 1 ? warehouses[0].id : '')}
-                    onChange={(e) =>
-                      setForm({ ...form, warehouseId: e.target.value ? Number(e.target.value) : null })
-                    }
+                    value={form.warehouseId ?? ''}
+                    onChange={(e) => {
+                      const nextId = e.target.value ? Number(e.target.value) : null;
+                      setForm({ ...form, warehouseId: nextId });
+                      if (nextId != null) {
+                        setAssignmentState(emptyProductAssignmentState());
+                      }
+                    }}
                   >
-                    <option value="">Depo seç</option>
+                    <option value="">
+                      {mode === 'create' ? 'Depo seçme (zimmetle)' : 'Depo seç'}
+                    </option>
                     {warehouses.map((w) => (
                       <option key={w.id} value={w.id}>{w.name}</option>
                     ))}
@@ -706,6 +846,7 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
                 />
               </FormField>
 
+              {showDefaultLocationPickers && (
               <FormField
                 label="Konum"
                 required={assetFieldsRequired}
@@ -733,6 +874,17 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
                   </div>
                 </InputWithButton>
               </FormField>
+              )}
+
+              {showCreateAssignment && (
+                <div className="sm:col-span-2">
+                  <ProductCreateAssignmentSection
+                    value={assignmentState}
+                    onChange={setAssignmentState}
+                    fieldErrors={fieldErrors}
+                  />
+                </div>
+              )}
             </div>
           </FormSection>
 
@@ -823,15 +975,24 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
           </FormSection>
 
       <FormSection title="Görseller">
-        <FormField label="Dosya yükle" hint="jpg, webp, png, gif, svg — en fazla 8 MB">
-          <input
-            type="file"
-            accept=".jpg,.jpeg,.webp,.png,.gif,.svg,image/*"
-            multiple
-            onChange={(e) => handleImages(e.target.files)}
-            className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-          />
-        </FormField>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <FormField label="Dosya yükle" hint="jpg, webp, png, gif, svg — en fazla 8 MB" className="flex-1">
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.webp,.png,.gif,.svg,image/*"
+              multiple
+              onChange={(e) => handleImages(e.target.files)}
+              className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+            />
+          </FormField>
+          <button
+            type="button"
+            onClick={() => setShowCameraModal(true)}
+            className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 whitespace-nowrap"
+          >
+            Kameradan çek
+          </button>
+        </div>
         {(form.imageUrls?.length ?? 0) > 0 && (
           <div className="mt-4 flex flex-wrap gap-3">
             {form.imageUrls!.map((url, i) => (
@@ -894,6 +1055,11 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
       defaultCategoryId={form.categoryId}
       onClose={() => setShowCreateSupplierModal(false)}
       onCreated={handleSupplierCreated}
+    />
+    <CameraCaptureModal
+      isOpen={showCameraModal}
+      onClose={() => setShowCameraModal(false)}
+      onCapture={handleCameraCapture}
     />
     </>
   );

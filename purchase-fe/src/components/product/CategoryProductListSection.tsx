@@ -172,7 +172,7 @@ export const CategoryProductListSection = ({
           <label className={filterLabelClass}>Hızlı arama</label>
           <input
             type="text"
-            placeholder="Ad, kod, etiket, seri no, sipariş no, IP…"
+            placeholder="Ad, kod, kategori, etiket, seri no, sipariş no, IP…"
             value={filters.search}
             onChange={(e) => handleFilterChange('search', e.target.value)}
             className={filterInputClass}
