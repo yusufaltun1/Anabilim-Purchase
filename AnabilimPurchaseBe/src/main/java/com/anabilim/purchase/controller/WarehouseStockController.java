@@ -331,18 +331,26 @@ public class WarehouseStockController {
     }
 
     private StockMovementDto convertToMovementDto(StockMovement movement) {
-        return new StockMovementDto(
-                movement.getId(),
-                convertToStockDto(movement.getWarehouseStock()),
-                movement.getQuantity(),
-                movement.getMovementType(),
-                movement.getReferenceType(),
-                movement.getReferenceId(),
-                movement.getNotes(),
-                movement.getStockItem() != null ? movement.getStockItem().getId() : null,
-                movement.getStockItem() != null ? movement.getStockItem().getSerialNumber() : null,
-                movement.getCreatedAt(),
-                movement.getUpdatedAt()
-        );
+        StockMovementDto dto = new StockMovementDto();
+        dto.setId(movement.getId());
+        dto.setWarehouseStock(convertToStockDto(movement.getWarehouseStock()));
+        dto.setQuantity(movement.getQuantity());
+        dto.setMovementType(movement.getMovementType());
+        dto.setReferenceType(movement.getReferenceType());
+        dto.setReferenceId(movement.getReferenceId());
+        dto.setNotes(movement.getNotes());
+        dto.setStockItemId(movement.getStockItem() != null ? movement.getStockItem().getId() : null);
+        dto.setStockItemSerialNumber(movement.getStockItem() != null ? movement.getStockItem().getSerialNumber() : null);
+        if (movement.getParentLocation() != null) {
+            dto.setParentLocationId(movement.getParentLocation().getId());
+            dto.setParentLocationName(movement.getParentLocation().getName());
+        }
+        if (movement.getChildLocation() != null) {
+            dto.setChildLocationId(movement.getChildLocation().getId());
+            dto.setChildLocationName(movement.getChildLocation().getName());
+        }
+        dto.setCreatedAt(movement.getCreatedAt());
+        dto.setUpdatedAt(movement.getUpdatedAt());
+        return dto;
     }
 } 

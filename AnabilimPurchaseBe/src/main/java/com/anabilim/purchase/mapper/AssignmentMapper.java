@@ -91,6 +91,16 @@ public class AssignmentMapper {
             dto.setFormPhotoUrl("/api/v1/assignments/" + entity.getId() + "/form/photo");
         }
         dto.setFormPhotoFileName(entity.getFormPhotoFileName());
+
+        dto.setHasReturnPhoto(entity.getReturnPhotoStoredPath() != null && !entity.getReturnPhotoStoredPath().isBlank());
+        if (dto.isHasReturnPhoto()) {
+            dto.setReturnPhotoUrl("/api/v1/assignments/" + entity.getId() + "/return/photo");
+        }
+        dto.setReturnPhotoFileName(entity.getReturnPhotoFileName());
+
+        dto.setHasReturnDocument(entity.getReturnDocumentStoredPath() != null && !entity.getReturnDocumentStoredPath().isBlank());
+        dto.setReturnDocumentFileName(entity.getReturnDocumentFileName());
+        dto.setReturnNotes(entity.getReturnNotes());
         
         return dto;
     }

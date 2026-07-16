@@ -2,6 +2,7 @@ package com.anabilim.purchase.service;
 
 import com.anabilim.purchase.dto.request.CreateStockMovementByWarehouseDto;
 import com.anabilim.purchase.dto.response.StockMovementDto;
+import com.anabilim.purchase.entity.Location;
 import com.anabilim.purchase.entity.Product;
 import com.anabilim.purchase.entity.StockItem;
 import com.anabilim.purchase.entity.StockMovement;
@@ -12,6 +13,7 @@ import com.anabilim.purchase.entity.enums.StockTrackingType;
 import com.anabilim.purchase.exception.ResourceAlreadyExistsException;
 import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.exception.ValidationException;
+import com.anabilim.purchase.repository.LocationRepository;
 import com.anabilim.purchase.repository.ProductRepository;
 import com.anabilim.purchase.repository.StockItemRepository;
 import com.anabilim.purchase.repository.WarehouseRepository;
@@ -33,6 +35,7 @@ public class ManualStockMovementService {
     private final WarehouseRepository warehouseRepository;
     private final ProductRepository productRepository;
     private final StockItemRepository stockItemRepository;
+    private final LocationRepository locationRepository;
     private final AssetConditionSupport assetConditionSupport;
 
     public StockMovementDto createManualMovement(CreateStockMovementByWarehouseDto request) {
@@ -112,7 +115,38 @@ public class ManualStockMovementService {
 
     private StockMovementDto createSerialTrackedMovement(
             CreateStockMovementByWarehouseDto request, Warehouse warehouse, Product product) {
+        Location parentLocation = resolveParentLocation(request);
+        Location childLocation = resolveChildLocation(request);
+        requireDemirbasLocations(parentLocation);
+
         if (MovementType.IN.equals(request.getMovementType())) {
+            if (request.getStockItemId() != null) {
+                StockItem item = stockItemRepository.findById(request.getStockItemId())
+                        .orElseThrow(() -> new ResourceNotFoundException(
+                                "Cihaz bulunamadı: " + request.getStockItemId()));
+                if (!item.getProduct().getId().equals(product.getId())) {
+                    throw new ValidationException("Seçilen cihaz bu ürüne ait değil");
+                }
+                if (item.getCurrentWarehouse() != null) {
+                    throw new ValidationException("Seçilen cihaz zaten bir depoda");
+                }
+
+                String serial = item.getSerialNumber() != null ? item.getSerialNumber() : ("#" + item.getId());
+                CreateStockMovementByWarehouseDto unitRequest = copyWith(
+                        request, 1, appendLocationNotes(
+                                "Manuel giriş — SN: " + serial + suffixNotes(request.getNotes()),
+                                parentLocation,
+                                childLocation));
+                StockMovement movement = persistMovement(
+                        unitRequest, warehouse, product, item, parentLocation, childLocation);
+
+                item.setCurrentWarehouse(warehouse);
+                assetConditionSupport.applyReadyState(item);
+                applyLocationsToStockItem(item, parentLocation, childLocation);
+                stockItemRepository.save(item);
+                return toDto(movement);
+            }
+
             List<String> serials = normalizeSerials(request);
             if (serials.isEmpty()) {
                 throw new ValidationException("Demirbaş girişi için en az bir seri numarası gerekli");
@@ -135,12 +169,16 @@ public class ManualStockMovementService {
                     item.setAssetLabel(product.getCode());
                 }
                 item.setNotes(request.getNotes());
+                applyLocationsToStockItem(item, parentLocation, childLocation);
                 assetConditionSupport.applyReadyState(item);
                 stockItemRepository.save(item);
 
                 CreateStockMovementByWarehouseDto unitRequest = copyWith(
-                        request, 1, "Manuel giriş — SN: " + serial + suffixNotes(request.getNotes()));
-                lastMovement = persistMovement(unitRequest, warehouse, product, item);
+                        request, 1, appendLocationNotes(
+                                "Manuel giriş — SN: " + serial + suffixNotes(request.getNotes()),
+                                parentLocation,
+                                childLocation));
+                lastMovement = persistMovement(unitRequest, warehouse, product, item, parentLocation, childLocation);
             }
             return toDto(lastMovement);
         }
@@ -162,9 +200,14 @@ public class ManualStockMovementService {
 
             String serial = item.getSerialNumber() != null ? item.getSerialNumber() : ("#" + item.getId());
             CreateStockMovementByWarehouseDto unitRequest = copyWith(
-                    request, 1, "Manuel çıkış — SN: " + serial + suffixNotes(request.getNotes()));
-            StockMovement movement = persistMovement(unitRequest, warehouse, product, item);
+                    request, 1, appendLocationNotes(
+                            "Manuel çıkış — SN: " + serial + suffixNotes(request.getNotes()),
+                            parentLocation,
+                            childLocation));
+            StockMovement movement = persistMovement(
+                    unitRequest, warehouse, product, item, parentLocation, childLocation);
 
+            applyLocationsToStockItem(item, parentLocation, childLocation);
             item.setCurrentWarehouse(null);
             stockItemRepository.save(item);
             return toDto(movement);
@@ -192,7 +235,7 @@ public class ManualStockMovementService {
 
     private StockMovement persistMovement(
             CreateStockMovementByWarehouseDto request, Warehouse warehouse, Product product) {
-        return persistMovement(request, warehouse, product, null);
+        return persistMovement(request, warehouse, product, null, null, null);
     }
 
     private StockMovement persistMovement(
@@ -200,15 +243,86 @@ public class ManualStockMovementService {
             Warehouse warehouse,
             Product product,
             StockItem stockItem) {
+        return persistMovement(request, warehouse, product, stockItem, null, null);
+    }
+
+    private StockMovement persistMovement(
+            CreateStockMovementByWarehouseDto request,
+            Warehouse warehouse,
+            Product product,
+            StockItem stockItem,
+            Location parentLocation,
+            Location childLocation) {
         WarehouseStock stock = findOrCreateWarehouseStock(warehouse, product);
         if (MovementType.OUT.equals(request.getMovementType())) {
             validateAvailableStock(stock, request);
         }
         StockMovement movement = buildMovement(request);
         movement.setStockItem(stockItem);
+        movement.setParentLocation(parentLocation);
+        movement.setChildLocation(childLocation);
         stock.addMovement(movement);
         warehouseStockRepository.save(stock);
         return movement;
+    }
+
+    private void requireDemirbasLocations(Location parentLocation) {
+        if (parentLocation == null) {
+            throw new ValidationException("Demirbaş giriş/çıkış için lokasyon seçilmelidir");
+        }
+    }
+
+    private Location resolveParentLocation(CreateStockMovementByWarehouseDto request) {
+        if (request.getParentLocationId() == null) {
+            return null;
+        }
+        return locationRepository.findById(request.getParentLocationId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Üst lokasyon bulunamadı: " + request.getParentLocationId()));
+    }
+
+    private Location resolveChildLocation(CreateStockMovementByWarehouseDto request) {
+        if (request.getChildLocationId() == null) {
+            return null;
+        }
+        return locationRepository.findById(request.getChildLocationId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Alt lokasyon bulunamadı: " + request.getChildLocationId()));
+    }
+
+    private void applyLocationsToStockItem(StockItem item, Location parentLocation, Location childLocation) {
+        if (parentLocation != null) {
+            item.setDefaultParentLocation(parentLocation);
+        }
+        if (childLocation != null) {
+            item.setDefaultChildLocation(childLocation);
+        } else if (parentLocation != null) {
+            item.setDefaultChildLocation(null);
+        }
+    }
+
+    private String appendLocationNotes(String baseNotes, Location parentLocation, Location childLocation) {
+        String locationLabel = formatLocationLabel(parentLocation, childLocation);
+        if (locationLabel == null) {
+            return baseNotes;
+        }
+        if (baseNotes == null || baseNotes.isBlank()) {
+            return "Lokasyon: " + locationLabel;
+        }
+        return baseNotes + " — Lokasyon: " + locationLabel;
+    }
+
+    private String formatLocationLabel(Location parentLocation, Location childLocation) {
+        if (parentLocation == null && childLocation == null) {
+            return null;
+        }
+        if (parentLocation != null && childLocation != null) {
+            return parentLocation.getName() + " / " + childLocation.getName();
+        }
+        if (childLocation != null) {
+            return childLocation.getName();
+        }
+        return parentLocation.getName();
     }
 
     private WarehouseStock findOrCreateWarehouseStock(Warehouse warehouse, Product product) {
@@ -270,6 +384,8 @@ public class ManualStockMovementService {
         copy.setReferenceId(source.getReferenceId());
         copy.setNotes(notes);
         copy.setStockItemId(source.getStockItemId());
+        copy.setParentLocationId(source.getParentLocationId());
+        copy.setChildLocationId(source.getChildLocationId());
         return copy;
     }
 
@@ -303,18 +419,26 @@ public class ManualStockMovementService {
     }
 
     private StockMovementDto toDto(StockMovement movement) {
-        return new StockMovementDto(
-                movement.getId(),
-                null,
-                movement.getQuantity(),
-                movement.getMovementType(),
-                movement.getReferenceType(),
-                movement.getReferenceId(),
-                movement.getNotes(),
-                movement.getStockItem() != null ? movement.getStockItem().getId() : null,
-                movement.getStockItem() != null ? movement.getStockItem().getSerialNumber() : null,
-                movement.getCreatedAt(),
-                movement.getUpdatedAt()
-        );
+        StockMovementDto dto = new StockMovementDto();
+        dto.setId(movement.getId());
+        dto.setQuantity(movement.getQuantity());
+        dto.setMovementType(movement.getMovementType());
+        dto.setReferenceType(movement.getReferenceType());
+        dto.setReferenceId(movement.getReferenceId());
+        dto.setNotes(movement.getNotes());
+        dto.setStockItemId(movement.getStockItem() != null ? movement.getStockItem().getId() : null);
+        dto.setStockItemSerialNumber(
+                movement.getStockItem() != null ? movement.getStockItem().getSerialNumber() : null);
+        if (movement.getParentLocation() != null) {
+            dto.setParentLocationId(movement.getParentLocation().getId());
+            dto.setParentLocationName(movement.getParentLocation().getName());
+        }
+        if (movement.getChildLocation() != null) {
+            dto.setChildLocationId(movement.getChildLocation().getId());
+            dto.setChildLocationName(movement.getChildLocation().getName());
+        }
+        dto.setCreatedAt(movement.getCreatedAt());
+        dto.setUpdatedAt(movement.getUpdatedAt());
+        return dto;
     }
 }

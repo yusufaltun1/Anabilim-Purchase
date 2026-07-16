@@ -46,6 +46,14 @@ public class StockMovement {
     
     @Column(name = "notes")
     private String notes;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_location_id")
+    private Location parentLocation;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "child_location_id")
+    private Location childLocation;
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

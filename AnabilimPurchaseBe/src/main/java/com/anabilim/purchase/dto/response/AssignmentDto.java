@@ -82,4 +82,18 @@ public class AssignmentDto {
     private String formPhotoUrl;
 
     private String formPhotoFileName;
+
+    @JsonProperty("hasReturnPhoto")
+    private boolean hasReturnPhoto;
+
+    private String returnPhotoUrl;
+
+    private String returnPhotoFileName;
+
+    @JsonProperty("hasReturnDocument")
+    private boolean hasReturnDocument;
+
+    private String returnDocumentFileName;
+
+    private String returnNotes;
 }

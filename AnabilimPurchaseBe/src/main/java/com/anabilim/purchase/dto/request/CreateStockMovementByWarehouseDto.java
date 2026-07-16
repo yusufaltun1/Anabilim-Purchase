@@ -43,4 +43,10 @@ public class CreateStockMovementByWarehouseDto {
 
     /** Demirbaş / yarı demirbaş giriş seri numaraları */
     private List<String> serialNumbers;
+
+    /** Demirbaş giriş/çıkış üst lokasyonu */
+    private Long parentLocationId;
+
+    /** Demirbaş giriş/çıkış alt/detay lokasyonu */
+    private Long childLocationId;
 } 

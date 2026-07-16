@@ -140,6 +140,123 @@ public class AssignmentFormService {
 
     public void deleteFormPhotoFiles(Assignment assignment) {
         deleteStoredFile(assignment.getFormPhotoStoredPath());
+        deleteStoredFile(assignment.getReturnPhotoStoredPath());
+        deleteStoredFile(assignment.getReturnDocumentStoredPath());
+        deleteStoredFile(assignment.getSignedFormStoredPath());
+    }
+
+    @Transactional
+    public void storeReturnAttachments(Assignment assignment, MultipartFile photo, MultipartFile document) {
+        if (photo == null || photo.isEmpty()) {
+            throw new ValidationException("İade için ürün fotoğrafı zorunludur.");
+        }
+        if (document == null || document.isEmpty()) {
+            throw new ValidationException("İade için dosya yükleme zorunludur.");
+        }
+        if (photo.getSize() > MAX_FILE_SIZE || document.getSize() > MAX_FILE_SIZE) {
+            throw new ValidationException("Dosya boyutu 20 MB'dan büyük olamaz.");
+        }
+        if (!isAllowedImageType(photo.getContentType(), photo.getOriginalFilename())) {
+            throw new ValidationException("İade fotoğrafı sadece JPEG veya PNG olabilir.");
+        }
+        if (!isAllowedSignedFormType(document.getContentType(), document.getOriginalFilename())) {
+            throw new ValidationException("İade dosyası Excel (.xlsx), PDF veya resim olmalıdır.");
+        }
+
+        deleteStoredFile(assignment.getReturnPhotoStoredPath());
+        deleteStoredFile(assignment.getReturnDocumentStoredPath());
+
+        String photoStored = storeMultipart(
+                photo,
+                assignment.getId(),
+                "return-photos",
+                "iade-foto"
+        );
+        assignment.setReturnPhotoFileName(
+                photo.getOriginalFilename() != null && !photo.getOriginalFilename().isBlank()
+                        ? photo.getOriginalFilename()
+                        : "iade-foto"
+        );
+        assignment.setReturnPhotoContentType(
+                photo.getContentType() != null ? photo.getContentType() : "application/octet-stream"
+        );
+        assignment.setReturnPhotoStoredPath(photoStored);
+
+        String documentStored = storeMultipart(
+                document,
+                assignment.getId(),
+                "return-documents",
+                "iade-belge"
+        );
+        assignment.setReturnDocumentFileName(
+                document.getOriginalFilename() != null && !document.getOriginalFilename().isBlank()
+                        ? document.getOriginalFilename()
+                        : "iade-belge"
+        );
+        assignment.setReturnDocumentContentType(
+                document.getContentType() != null ? document.getContentType() : "application/octet-stream"
+        );
+        assignment.setReturnDocumentStoredPath(documentStored);
+    }
+
+    @Transactional(readOnly = true)
+    public AttachmentDownloadResult downloadReturnPhoto(Long assignmentId) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Zimmet bulunamadı: " + assignmentId));
+        if (assignment.getReturnPhotoStoredPath() == null || assignment.getReturnPhotoStoredPath().isBlank()) {
+            throw new ResourceNotFoundException("Bu zimmet için iade fotoğrafı bulunamadı.");
+        }
+        Path path = getUploadBasePath().resolve(assignment.getReturnPhotoStoredPath());
+        if (!Files.exists(path)) {
+            throw new ResourceNotFoundException("İade fotoğrafı dosyası bulunamadı.");
+        }
+        Resource resource = new FileSystemResource(path.toFile());
+        return new AttachmentDownloadResult(
+                resource,
+                assignment.getReturnPhotoFileName() != null ? assignment.getReturnPhotoFileName() : "iade-foto",
+                assignment.getReturnPhotoContentType()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public AttachmentDownloadResult downloadReturnDocument(Long assignmentId) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Zimmet bulunamadı: " + assignmentId));
+        if (assignment.getReturnDocumentStoredPath() == null || assignment.getReturnDocumentStoredPath().isBlank()) {
+            throw new ResourceNotFoundException("Bu zimmet için iade belgesi bulunamadı.");
+        }
+        Path path = getUploadBasePath().resolve(assignment.getReturnDocumentStoredPath());
+        if (!Files.exists(path)) {
+            throw new ResourceNotFoundException("İade belgesi dosyası bulunamadı.");
+        }
+        Resource resource = new FileSystemResource(path.toFile());
+        return new AttachmentDownloadResult(
+                resource,
+                assignment.getReturnDocumentFileName() != null ? assignment.getReturnDocumentFileName() : "iade-belge",
+                assignment.getReturnDocumentContentType()
+        );
+    }
+
+    private String storeMultipart(MultipartFile file, Long assignmentId, String subDir, String fallbackName) {
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank()) {
+            originalFilename = fallbackName;
+        }
+        String ext = "";
+        int dot = originalFilename.lastIndexOf('.');
+        if (dot > 0) {
+            ext = originalFilename.substring(dot);
+        }
+        String storedName = UUID.randomUUID() + ext;
+        Path dir = getUploadBasePath().resolve("assignments").resolve(assignmentId.toString()).resolve(subDir);
+        try {
+            Files.createDirectories(dir);
+            Path target = dir.resolve(storedName);
+            file.transferTo(target.toFile());
+        } catch (IOException e) {
+            throw new ValidationException("Dosya kaydedilemedi: " + e.getMessage());
+        }
+        return "assignments/" + assignmentId + "/" + subDir + "/" + storedName;
     }
 
     @Transactional

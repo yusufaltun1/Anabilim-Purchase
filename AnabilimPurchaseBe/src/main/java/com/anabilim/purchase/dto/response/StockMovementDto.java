@@ -20,6 +20,10 @@ public class StockMovementDto {
     private String notes;
     private Long stockItemId;
     private String stockItemSerialNumber;
+    private Long parentLocationId;
+    private String parentLocationName;
+    private Long childLocationId;
+    private String childLocationName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 } 

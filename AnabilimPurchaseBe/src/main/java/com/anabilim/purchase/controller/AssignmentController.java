@@ -207,10 +207,36 @@ public class AssignmentController {
 
     // ========== Zimmet İşlemleri ==========
     
-    @PostMapping("/{id}/return")
-    public ResponseEntity<ApiResponse<AssignmentDto>> returnAssignment(@PathVariable Long id) {
-        AssignmentDto returnedAssignment = assignmentService.returnAssignment(id);
+    @PostMapping(value = "/{id}/return", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<AssignmentDto>> returnAssignment(
+            @PathVariable Long id,
+            @RequestParam("photo") MultipartFile photo,
+            @RequestParam("document") MultipartFile document,
+            @RequestParam(value = "notes", required = false) String notes) {
+        AssignmentDto returnedAssignment = assignmentService.returnAssignment(id, photo, document, notes);
         return ResponseEntity.ok(ApiResponse.success("Zimmet başarıyla iade edildi", returnedAssignment));
+    }
+
+    @GetMapping("/{id}/return/photo")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadReturnPhoto(@PathVariable Long id) {
+        AttachmentDownloadResult result = assignmentFormService.downloadReturnPhoto(id);
+        MediaType mediaType = MediaType.parseMediaType(
+                result.getContentType() != null ? result.getContentType() : "application/octet-stream");
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + result.getFileName() + "\"")
+                .body(result.getResource());
+    }
+
+    @GetMapping("/{id}/return/document")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadReturnDocument(@PathVariable Long id) {
+        AttachmentDownloadResult result = assignmentFormService.downloadReturnDocument(id);
+        MediaType mediaType = MediaType.parseMediaType(
+                result.getContentType() != null ? result.getContentType() : "application/octet-stream");
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.getFileName() + "\"")
+                .body(result.getResource());
     }
     
     @PostMapping("/{id}/lost")

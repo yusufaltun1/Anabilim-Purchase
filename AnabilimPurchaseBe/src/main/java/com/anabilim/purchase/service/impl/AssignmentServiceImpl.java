@@ -16,6 +16,7 @@ import com.anabilim.purchase.entity.enums.MovementType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -224,11 +225,38 @@ public class AssignmentServiceImpl implements AssignmentService {
     
     @Override
     public AssignmentDto returnAssignment(Long assignmentId) {
+        return returnAssignment(assignmentId, null, null, null);
+    }
+
+    @Override
+    public AssignmentDto returnAssignment(
+            Long assignmentId,
+            MultipartFile photo,
+            MultipartFile document,
+            String notes
+    ) {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Zimmet bulunamadı: " + assignmentId));
         
         if (!assignment.canBeReturned()) {
             throw new IllegalArgumentException("Bu zimmet geri kazandırılamaz");
+        }
+
+        if (photo != null || document != null) {
+            assignmentFormService.storeReturnAttachments(assignment, photo, document);
+        } else {
+            throw new ValidationException("İade için ürün fotoğrafı ve belge yüklenmelidir.");
+        }
+
+        if (notes != null && !notes.isBlank()) {
+            assignment.setReturnNotes(notes.trim());
+            String existingNotes = assignment.getNotes();
+            String returnNoteLine = "İade notu: " + notes.trim();
+            assignment.setNotes(
+                    existingNotes == null || existingNotes.isBlank()
+                            ? returnNoteLine
+                            : existingNotes + "\n" + returnNoteLine
+            );
         }
         
         assignment.markAsReturned();

@@ -3,6 +3,7 @@ package com.anabilim.purchase.service;
 import com.anabilim.purchase.dto.request.CreateAssignmentDto;
 import com.anabilim.purchase.dto.response.AssignmentDto;
 import com.anabilim.purchase.entity.enums.AssignmentStatus;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -48,6 +49,13 @@ public interface AssignmentService {
     
     // Zimmet İşlemleri
     AssignmentDto returnAssignment(Long assignmentId);
+
+    AssignmentDto returnAssignment(
+            Long assignmentId,
+            MultipartFile photo,
+            MultipartFile document,
+            String notes
+    );
     
     AssignmentDto markAssignmentAsLost(Long assignmentId);
     

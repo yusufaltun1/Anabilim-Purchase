@@ -406,6 +406,14 @@ public class StockItemServiceImpl implements StockItemService {
             dto.setStockItemId(movement.getStockItem().getId());
             dto.setStockItemSerialNumber(movement.getStockItem().getSerialNumber());
         }
+        if (movement.getParentLocation() != null) {
+            dto.setParentLocationId(movement.getParentLocation().getId());
+            dto.setParentLocationName(movement.getParentLocation().getName());
+        }
+        if (movement.getChildLocation() != null) {
+            dto.setChildLocationId(movement.getChildLocation().getId());
+            dto.setChildLocationName(movement.getChildLocation().getName());
+        }
         WarehouseStock warehouseStock = movement.getWarehouseStock();
         if (warehouseStock != null) {
             WarehouseStockDto stockDto = new WarehouseStockDto();

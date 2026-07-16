@@ -101,6 +101,27 @@ public class Assignment {
 
     @Column(name = "form_photo_stored_path")
     private String formPhotoStoredPath;
+
+    @Column(name = "return_photo_file_name")
+    private String returnPhotoFileName;
+
+    @Column(name = "return_photo_content_type")
+    private String returnPhotoContentType;
+
+    @Column(name = "return_photo_stored_path")
+    private String returnPhotoStoredPath;
+
+    @Column(name = "return_document_file_name")
+    private String returnDocumentFileName;
+
+    @Column(name = "return_document_content_type")
+    private String returnDocumentContentType;
+
+    @Column(name = "return_document_stored_path")
+    private String returnDocumentStoredPath;
+
+    @Column(name = "return_notes", columnDefinition = "TEXT")
+    private String returnNotes;
     
     // Yardımcı metodlar
     public boolean isActive() {
