@@ -1,5 +1,7 @@
 import { Category, CATEGORY_PRODUCT_TYPE_OPTIONS } from '../types/category';
+import { Location } from '../types/location';
 import { Product, PRODUCT_TYPE_LABELS, ProductType } from '../types/product';
+import { LOCATION_LEVEL_LABELS, resolveProductLocationLevels } from './locationHierarchy';
 import { normalizeProductType } from './productType';
 
 export interface ProductListFilters {
@@ -16,7 +18,11 @@ export interface ProductListFilters {
   supplierId: number | null;
   deviceModelId: number | null;
   assetConditionId: number | null;
+  /** 1. seviye (üst konum) */
   parentLocationId: number | null;
+  /** 2. seviye (alt konum) */
+  middleLocationId: number | null;
+  /** 3. seviye (detay konum) */
   childLocationId: number | null;
   orderNumber: string;
   byod: 'ALL' | 'YES' | 'NO';
@@ -42,6 +48,7 @@ export const defaultProductListFilters = (): ProductListFilters => ({
   deviceModelId: null,
   assetConditionId: null,
   parentLocationId: null,
+  middleLocationId: null,
   childLocationId: null,
   orderNumber: '',
   byod: 'ALL',
@@ -59,6 +66,7 @@ export interface FilterLookup {
   models: { id: number; name: string; brand?: string }[];
   conditions: { id: number; name: string }[];
   parentLocs: { id: number; name: string }[];
+  middleLocs: { id: number; name: string }[];
   childLocs: { id: number; name: string }[];
 }
 
@@ -111,7 +119,8 @@ function matchesSearch(p: Product, q: string): boolean {
 export function applyProductListFilters(
   products: Product[],
   filters: ProductListFilters,
-  chipSearch: string
+  chipSearch: string,
+  locations: Location[] = []
 ): Product[] {
   let filtered = [...products];
 
@@ -160,12 +169,37 @@ export function applyProductListFilters(
     filtered = filtered.filter((p) => p.assetConditionId === filters.assetConditionId);
   }
 
-  if (filters.parentLocationId) {
-    filtered = filtered.filter((p) => p.defaultParentLocationId === filters.parentLocationId);
-  }
+  if (filters.parentLocationId || filters.middleLocationId || filters.childLocationId) {
+    filtered = filtered.filter((p) => {
+      if (locations.length === 0) {
+        if (filters.parentLocationId && p.defaultParentLocationId !== filters.parentLocationId) {
+          return false;
+        }
+        if (filters.middleLocationId && p.defaultChildLocationId !== filters.middleLocationId) {
+          return false;
+        }
+        if (filters.childLocationId && p.defaultChildLocationId !== filters.childLocationId) {
+          return false;
+        }
+        return true;
+      }
 
-  if (filters.childLocationId) {
-    filtered = filtered.filter((p) => p.defaultChildLocationId === filters.childLocationId);
+      const levels = resolveProductLocationLevels(
+        locations,
+        p.defaultParentLocationId ?? null,
+        p.defaultChildLocationId ?? null
+      );
+      if (filters.parentLocationId && levels.rootId !== filters.parentLocationId) {
+        return false;
+      }
+      if (filters.middleLocationId && levels.middleId !== filters.middleLocationId) {
+        return false;
+      }
+      if (filters.childLocationId && levels.leafId !== filters.childLocationId) {
+        return false;
+      }
+      return true;
+    });
   }
 
   if (filters.orderNumber.trim()) {
@@ -269,6 +303,7 @@ export function countActiveProductFilters(filters: ProductListFilters): number {
   if (filters.deviceModelId) n++;
   if (filters.assetConditionId) n++;
   if (filters.parentLocationId) n++;
+  if (filters.middleLocationId) n++;
   if (filters.childLocationId) n++;
   if (filters.orderNumber.trim()) n++;
   if (filters.byod !== 'ALL') n++;
@@ -323,11 +358,24 @@ export function buildProductFilterChips(filters: ProductListFilters, lookup: Fil
   }
   if (filters.parentLocationId) {
     const l = lookup.parentLocs.find((x) => x.id === filters.parentLocationId);
-    chips.push({ key: 'parentLocationId', label: `Konum: ${l?.name || filters.parentLocationId}` });
+    chips.push({
+      key: 'parentLocationId',
+      label: `${LOCATION_LEVEL_LABELS[1]}: ${l?.name || filters.parentLocationId}`,
+    });
+  }
+  if (filters.middleLocationId) {
+    const l = lookup.middleLocs.find((x) => x.id === filters.middleLocationId);
+    chips.push({
+      key: 'middleLocationId',
+      label: `${LOCATION_LEVEL_LABELS[2]}: ${l?.name || filters.middleLocationId}`,
+    });
   }
   if (filters.childLocationId) {
     const l = lookup.childLocs.find((x) => x.id === filters.childLocationId);
-    chips.push({ key: 'childLocationId', label: `Alt konum: ${l?.name || filters.childLocationId}` });
+    chips.push({
+      key: 'childLocationId',
+      label: `${LOCATION_LEVEL_LABELS[3]}: ${l?.name || filters.childLocationId}`,
+    });
   }
   if (filters.orderNumber.trim()) {
     chips.push({ key: 'orderNumber', label: `Sipariş no: ${filters.orderNumber}` });
@@ -391,6 +439,11 @@ export function clearProductFilterKey(
       break;
     case 'parentLocationId':
       next.parentLocationId = null;
+      next.middleLocationId = null;
+      next.childLocationId = null;
+      break;
+    case 'middleLocationId':
+      next.middleLocationId = null;
       next.childLocationId = null;
       break;
     case 'childLocationId':

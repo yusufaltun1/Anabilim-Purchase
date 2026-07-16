@@ -20,6 +20,7 @@ import { ProductProcurementSummary } from '../types/product';
 import { ProductStockMovementSection } from '../components/product/ProductStockMovementSection';
 import { SerialStockItemSection } from '../components/product/SerialStockItemSection';
 import { AssignmentFormPhotoThumb } from '../components/product/AssignmentFormPhotoThumb';
+import { AssignmentReturnModal } from '../components/product/AssignmentReturnModal';
 import {
   isConsumableProductType,
   shouldSendStockItemIdForAssignment,
@@ -68,6 +69,8 @@ export const ProductDetail = () => {
   const [pendingSignedUploadAssignmentId, setPendingSignedUploadAssignmentId] = useState<number | null>(null);
   const [pendingFormPhotoUploadAssignmentId, setPendingFormPhotoUploadAssignmentId] = useState<number | null>(null);
   const [formPhotoUploadingId, setFormPhotoUploadingId] = useState<number | null>(null);
+  const [returnTargetAssignment, setReturnTargetAssignment] = useState<Assignment | null>(null);
+  const [returningAssignment, setReturningAssignment] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -366,6 +369,28 @@ export const ProductDetail = () => {
       );
     } finally {
       setAssignmentCancellingId(null);
+    }
+  };
+
+  const handleReturnAssignment = async (payload: {
+    photo: File;
+    document: File;
+    notes?: string;
+  }) => {
+    if (!returnTargetAssignment) return;
+    try {
+      setReturningAssignment(true);
+      await assignmentService.returnAssignment(returnTargetAssignment.id, payload);
+      showNotification('Zimmet iade edildi', 'success');
+      setReturnTargetAssignment(null);
+      await Promise.all([loadAssignments(), loadStockItems(), loadProductData()]);
+    } catch (err: unknown) {
+      showNotification(
+        err instanceof Error ? err.message : 'Zimmet iade edilirken bir hata oluştu',
+        'error'
+      );
+    } finally {
+      setReturningAssignment(false);
     }
   };
 
@@ -1098,6 +1123,16 @@ export const ProductDetail = () => {
                               İmzalı indir
                             </button>
                           )}
+                          {assignment.canBeReturned && (
+                            <button
+                              type="button"
+                              onClick={() => setReturnTargetAssignment(assignment)}
+                              disabled={returningAssignment}
+                              className="text-emerald-700 hover:text-emerald-900 disabled:opacity-50 text-left"
+                            >
+                              İade et
+                            </button>
+                          )}
                           {canCancelAssignment(assignment) && (
                             <button
                               type="button"
@@ -1524,6 +1559,16 @@ export const ProductDetail = () => {
           </div>
         </div>
       )}
+
+      <AssignmentReturnModal
+        isOpen={Boolean(returnTargetAssignment)}
+        assignment={returnTargetAssignment}
+        submitting={returningAssignment}
+        onClose={() => {
+          if (!returningAssignment) setReturnTargetAssignment(null);
+        }}
+        onSubmit={handleReturnAssignment}
+      />
     </div>
   );
 }; 

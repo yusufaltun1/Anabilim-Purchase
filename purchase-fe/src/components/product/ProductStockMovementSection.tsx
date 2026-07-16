@@ -11,6 +11,8 @@ import {
 import { useNotification } from '../../contexts/NotificationContext';
 import { formatDate } from '../../utils/date';
 import { getManualStockMovementConfig } from '../../utils/manualStockMovement';
+import { LocationHierarchyPickers } from '../common/LocationHierarchyPickers';
+import { resolveProductLocationPayload } from '../../utils/locationHierarchy';
 
 const movementTypeLabel: Record<string, string> = {
   IN: 'Giriş',
@@ -60,6 +62,9 @@ export const ProductStockMovementSection = ({
   const [selectedStockItemId, setSelectedStockItemId] = useState<number | ''>('');
   const [referenceType, setReferenceType] = useState<CreateStockMovementRequest['referenceType']>('MANUAL');
   const [notes, setNotes] = useState('');
+  const [locationRootId, setLocationRootId] = useState<number | null>(null);
+  const [locationMiddleId, setLocationMiddleId] = useState<number | null>(null);
+  const [locationLeafId, setLocationLeafId] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -125,6 +130,9 @@ export const ProductStockMovementSection = ({
     setSerialNumbers(['']);
     setSelectedStockItemId('');
     setMovementType('IN');
+    setLocationRootId(null);
+    setLocationMiddleId(null);
+    setLocationLeafId(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,6 +149,23 @@ export const ProductStockMovementSection = ({
       notes: notes.trim() || 'Manuel stok hareketi',
       quantity: 1,
     };
+
+    if (movementConfig.showLocationPickers) {
+      if (!locationRootId) {
+        showNotification(
+          movementType === 'IN' ? 'Giriş lokasyonu seçin' : 'Çıkış lokasyonu seçin',
+          'error'
+        );
+        return;
+      }
+      const locationFields = resolveProductLocationPayload(
+        locationRootId,
+        locationMiddleId,
+        locationLeafId
+      );
+      payload.parentLocationId = locationFields.defaultParentLocationId ?? undefined;
+      payload.childLocationId = locationFields.defaultChildLocationId ?? undefined;
+    }
 
     if (movementConfig.mode === 'serial') {
       if (movementType === 'IN') {
@@ -332,6 +357,30 @@ export const ProductStockMovementSection = ({
               </div>
             )}
 
+            {movementConfig.showLocationPickers && (movementType === 'IN' || movementType === 'OUT') && (
+              <div className="md:col-span-2 lg:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {movementType === 'IN' ? 'Giriş lokasyonu *' : 'Çıkış lokasyonu *'}
+                </label>
+                <LocationHierarchyPickers
+                  rootId={locationRootId}
+                  middleId={locationMiddleId}
+                  leafId={locationLeafId}
+                  onRootChange={(id) => {
+                    setLocationRootId(id);
+                    setLocationMiddleId(null);
+                    setLocationLeafId(null);
+                  }}
+                  onMiddleChange={(id) => {
+                    setLocationMiddleId(id);
+                    setLocationLeafId(null);
+                  }}
+                  onLeafChange={setLocationLeafId}
+                  showLeaf
+                />
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Referans</label>
               <select
@@ -423,6 +472,7 @@ export const ProductStockMovementSection = ({
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tip</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Miktar</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Referans</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lokasyon</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Not</th>
                 </tr>
               </thead>
@@ -449,6 +499,9 @@ export const ProductStockMovementSection = ({
                     <td className="px-4 py-3 text-sm text-right font-medium">{m.quantity}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {referenceTypeLabel[m.referenceType] ?? m.referenceType}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {[m.parentLocationName, m.childLocationName].filter(Boolean).join(' / ') || '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{m.notes || '—'}</td>
                   </tr>

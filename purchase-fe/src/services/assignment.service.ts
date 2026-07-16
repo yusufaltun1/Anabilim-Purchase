@@ -7,6 +7,7 @@ import {
   AssignmentCountResponse,
   CreateAssignmentRequest,
   TransferRequest,
+  ReturnAssignmentRequest,
   AssignmentStatus 
 } from '../types/assignment';
 
@@ -208,13 +209,35 @@ class AssignmentService {
   }
 
   // Zimmet İşlemleri
-  async returnAssignment(id: number): Promise<AssignmentResponse> {
-    const response = await axiosInstance.post<Assignment>(`${this.baseUrl}/${id}/return`);
+  async returnAssignment(id: number, request: ReturnAssignmentRequest): Promise<AssignmentResponse> {
+    const formData = new FormData();
+    formData.append('photo', request.photo);
+    formData.append('document', request.document);
+    if (request.notes?.trim()) {
+      formData.append('notes', request.notes.trim());
+    }
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/${id}/return`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: formData,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        (payload as { message?: string }).message || 'Zimmet iade edilemedi'
+      );
+    }
+
+    const returned =
+      (payload as { data?: Assignment }).data ?? (payload as Assignment);
+
     return {
       success: true,
-      message: 'Zimmet başarıyla iade edildi',
-      data: response.data,
-      timestamp: new Date().toISOString()
+      message: (payload as { message?: string }).message || 'Zimmet başarıyla iade edildi',
+      data: returned,
+      timestamp: new Date().toISOString(),
     };
   }
 

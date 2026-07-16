@@ -9,8 +9,14 @@ interface ProductLabelPrintProps {
 
 export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCode, productName, onClose }) => {
   const barcodeRef = useRef<SVGSVGElement>(null);
+  const onCloseRef = useRef(onClose);
+  const printTriggeredRef = useRef(false);
   const [barcodeReady, setBarcodeReady] = React.useState(false);
   const barcodeValue = productCode.trim().toUpperCase();
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (barcodeRef.current && barcodeValue) {
@@ -26,29 +32,30 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
         setBarcodeReady(true);
       } catch (error) {
         console.error('Barcode oluşturma hatası:', error);
+        onCloseRef.current();
       }
     }
   }, [barcodeValue]);
 
   useEffect(() => {
-    // Barcode oluşturulduktan sonra yazdır
-    if (!barcodeReady || !barcodeRef.current) return;
+    // Barcode oluşturulduktan sonra yazdır (yalnızca bir kez)
+    if (!barcodeReady || !barcodeRef.current || printTriggeredRef.current) return;
 
     const timer = setTimeout(() => {
-      // Barcode SVG'yi al - SVG içeriğini kontrol et
+      if (printTriggeredRef.current) return;
+      printTriggeredRef.current = true;
+
       let barcodeSvg = '';
       if (barcodeRef.current) {
         barcodeSvg = barcodeRef.current.outerHTML;
-        console.log('Barcode SVG:', barcodeSvg);
       }
-      
+
       if (!barcodeSvg) {
         console.error('Barcode SVG boş!');
-        onClose();
+        onCloseRef.current();
         return;
       }
-      
-      // Print için yeni bir pencere aç
+
       const printWindow = window.open('', '_blank', 'width=800,height=600');
       if (printWindow) {
         printWindow.document.write(`
@@ -82,6 +89,7 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   background: white;
                   display: flex;
                   flex-direction: column;
+                  box-sizing: border-box;
                 }
                 .label-top-section {
                   display: flex;
@@ -97,7 +105,6 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   flex-direction: column;
                   align-items: center;
                   text-align: center;
-                  margin-top: 20px
                 }
                 .label-title {
                   font-size: 7pt;
@@ -124,7 +131,6 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   align-items: center;
                   justify-content: center;
                   margin-bottom: 0.5mm;
-                  margin-right: 17px;
                 }
                 .logo-image {
                   width: 100%;
@@ -138,10 +144,6 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   font-size: 5.5pt;
                   line-height: 1.2;
                   margin-bottom: 0.5mm;
-                  margin-right: 12px;
-                }
-                .label-phone {
-                  margin-bottom: 0.1mm;
                 }
                 .qr-container {
                   width: 20mm;
@@ -160,12 +162,12 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   flex-direction: column;
                   align-items: flex-start;
                   margin-top: -57px;
-                  padding-left: 65px;
+                  padding-left: 67px;
                 }
                 .barcode-container {
                   width: 100%;
                   display: flex;
-                  justify-content: flex-start;
+                  justify-content: center;
                   align-items: flex-start;
                   max-height: 15mm;
                 }
@@ -182,10 +184,6 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   text-align: center;
                   font-family: 'Courier New', monospace;
                   margin-top: 1mm;
-                  margin-left: 10px
-                }
-                img {
-                  image-resolution: 203dpi;
                 }
               </style>
             </head>
@@ -223,10 +221,6 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                 window.onload = function() {
                   setTimeout(function() {
                     window.print();
-                    // Print window kapanınca ana window açık kalacak
-                    window.addEventListener('beforeunload', function() {
-                      // Ana window'u kapatma
-                    });
                   }, 200);
                 };
               </script>
@@ -234,17 +228,21 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
           </html>
         `);
         printWindow.document.close();
+        // State'i temizle; aksi halde parent re-render'da yazdırma tekrar tetiklenir
+        onCloseRef.current();
       } else {
-        // Popup blocker varsa normal print kullan
         window.print();
         setTimeout(() => {
-          onClose();
+          onCloseRef.current();
         }, 500);
       }
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [onClose, barcodeValue, barcodeReady]);
+  }, [barcodeValue, barcodeReady]);
+
+  // productName şu an etikette kullanılmıyor; prop imzası korunuyor
+  void productName;
 
   return (
     <>
@@ -320,10 +318,6 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
           
           .print-container * {
             visibility: visible !important;
-          }
-          
-          img {
-            image-resolution: 203dpi;
           }
         }
 
@@ -462,4 +456,3 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
     </>
   );
 };
-

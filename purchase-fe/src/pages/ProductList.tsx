@@ -11,12 +11,15 @@ import { authService } from '../services/auth.service';
 import { productService } from '../services/product.service';
 import { categoryService } from '../services/category.service';
 import { DeviceModel, inventoryService } from '../services/inventory.service';
+import { locationService } from '../services/location.service';
 import { schoolService } from '../services/school.service';
 import { supplierService } from '../services/supplier.service';
 import { Product } from '../types/product';
 import { Category, CATEGORY_PRODUCT_TYPE_OPTIONS } from '../types/category';
 import { Supplier } from '../types/supplier';
 import { School } from '../types/school';
+import { Location } from '../types/location';
+import { LOCATION_LEVEL_LABELS } from '../utils/locationHierarchy';
 import {
   ProductListFilters,
   applyProductListFilters,
@@ -103,7 +106,9 @@ export const ProductList = () => {
   const [deviceModels, setDeviceModels] = useState<DeviceModel[]>([]);
   const [conditions, setConditions] = useState<{ id: number; name: string }[]>([]);
   const [parentLocs, setParentLocs] = useState<{ id: number; name: string }[]>([]);
+  const [filterMiddleLocs, setFilterMiddleLocs] = useState<{ id: number; name: string }[]>([]);
   const [filterChildLocs, setFilterChildLocs] = useState<{ id: number; name: string }[]>([]);
+  const [allLocations, setAllLocations] = useState<Location[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
   const [filters, setFilters] = useState<ProductListFilters>(defaultProductListFilters());
@@ -119,11 +124,25 @@ export const ProductList = () => {
 
   useEffect(() => {
     if (filters.parentLocationId) {
-      inventoryService.getChildLocations(filters.parentLocationId).then(setFilterChildLocs).catch(() => setFilterChildLocs([]));
+      inventoryService
+        .getChildLocations(filters.parentLocationId)
+        .then(setFilterMiddleLocs)
+        .catch(() => setFilterMiddleLocs([]));
+    } else {
+      setFilterMiddleLocs([]);
+    }
+  }, [filters.parentLocationId]);
+
+  useEffect(() => {
+    if (filters.middleLocationId) {
+      inventoryService
+        .getChildLocations(filters.middleLocationId)
+        .then(setFilterChildLocs)
+        .catch(() => setFilterChildLocs([]));
     } else {
       setFilterChildLocs([]);
     }
-  }, [filters.parentLocationId]);
+  }, [filters.middleLocationId]);
 
   const loadCategories = async () => {
     try {
@@ -139,18 +158,20 @@ export const ProductList = () => {
   };
 
   const loadFilterMasters = async () => {
-    const [schoolList, supplierList, models, conds, parents] = await Promise.all([
+    const [schoolList, supplierList, models, conds, parents, locationsRes] = await Promise.all([
       schoolService.getActiveSchools().catch(() => []),
       supplierService.getActiveSuppliers().catch(() => []),
       inventoryService.getDeviceModels().catch(() => []),
       inventoryService.getAssetConditions().catch(() => []),
       inventoryService.getParentLocations().catch(() => []),
+      locationService.getAllLocations().catch(() => ({ success: false, data: [] as Location[] })),
     ]);
     setSchools(schoolList);
     setSuppliers(supplierList);
     setDeviceModels(models);
     setConditions(conds);
     setParentLocs(parents);
+    setAllLocations(Array.isArray(locationsRes.data) ? locationsRes.data : []);
   };
 
   const loadProducts = async () => {
@@ -187,6 +208,10 @@ export const ProductList = () => {
     () => parentLocs.map((l) => ({ value: l.id, label: l.name })),
     [parentLocs]
   );
+  const middleLocationOptions = useMemo(
+    () => filterMiddleLocs.map((l) => ({ value: l.id, label: l.name })),
+    [filterMiddleLocs]
+  );
   const childLocationOptions = useMemo(
     () => filterChildLocs.map((l) => ({ value: l.id, label: l.name })),
     [filterChildLocs]
@@ -200,14 +225,15 @@ export const ProductList = () => {
       models: deviceModels,
       conditions,
       parentLocs,
+      middleLocs: filterMiddleLocs,
       childLocs: filterChildLocs,
     }),
-    [categories, schools, suppliers, deviceModels, conditions, parentLocs, filterChildLocs]
+    [categories, schools, suppliers, deviceModels, conditions, parentLocs, filterMiddleLocs, filterChildLocs]
   );
 
   const filteredAndSortedProducts = useMemo(
-    () => applyProductListFilters(allProducts, filters, ''),
-    [allProducts, filters]
+    () => applyProductListFilters(allProducts, filters, '', allLocations),
+    [allProducts, filters, allLocations]
   );
 
   // Pagination hesaplamaları
@@ -241,6 +267,10 @@ export const ProductList = () => {
     setFilters((prev) => {
       const next = { ...prev, [key]: value };
       if (key === 'parentLocationId') {
+        next.middleLocationId = null;
+        next.childLocationId = null;
+      }
+      if (key === 'middleLocationId') {
         next.childLocationId = null;
       }
       return next;
@@ -444,24 +474,35 @@ export const ProductList = () => {
                       />
                     </div>
                     <div>
-                      <label className={filterLabelClass}>Üst konum</label>
+                      <label className={filterLabelClass}>{LOCATION_LEVEL_LABELS[1]}</label>
                       <SearchableOptionSelect
                         options={parentLocationOptions}
                         value={filters.parentLocationId}
                         onChange={(v) => handleFilterChange('parentLocationId', v)}
-                        placeholder="Üst konum ara…"
+                        placeholder={`${LOCATION_LEVEL_LABELS[1]} ara…`}
                         allowClear
                       />
                     </div>
                     <div>
-                      <label className={filterLabelClass}>Alt konum</label>
+                      <label className={filterLabelClass}>{LOCATION_LEVEL_LABELS[2]}</label>
+                      <SearchableOptionSelect
+                        options={middleLocationOptions}
+                        value={filters.middleLocationId}
+                        onChange={(v) => handleFilterChange('middleLocationId', v)}
+                        placeholder={`${LOCATION_LEVEL_LABELS[2]} ara…`}
+                        allowClear
+                        disabled={!filters.parentLocationId}
+                      />
+                    </div>
+                    <div>
+                      <label className={filterLabelClass}>{LOCATION_LEVEL_LABELS[3]}</label>
                       <SearchableOptionSelect
                         options={childLocationOptions}
                         value={filters.childLocationId}
                         onChange={(v) => handleFilterChange('childLocationId', v)}
-                        placeholder="Alt konum ara…"
+                        placeholder={`${LOCATION_LEVEL_LABELS[3]} ara…`}
                         allowClear
-                        disabled={!filters.parentLocationId}
+                        disabled={!filters.middleLocationId}
                       />
                     </div>
                     <div>

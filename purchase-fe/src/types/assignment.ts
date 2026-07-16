@@ -41,6 +41,18 @@ export interface Assignment {
   hasFormPhoto?: boolean;
   formPhotoUrl?: string;
   formPhotoFileName?: string;
+  hasReturnPhoto?: boolean;
+  returnPhotoUrl?: string;
+  returnPhotoFileName?: string;
+  hasReturnDocument?: boolean;
+  returnDocumentFileName?: string;
+  returnNotes?: string;
+}
+
+export interface ReturnAssignmentRequest {
+  photo: File;
+  document: File;
+  notes?: string;
 }
 
 export interface CreateAssignmentRequest {

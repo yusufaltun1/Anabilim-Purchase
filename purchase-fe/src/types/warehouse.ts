@@ -121,6 +121,10 @@ export interface StockMovementDetail {
   notes: string;
   stockItemId?: number;
   stockItemSerialNumber?: string;
+  parentLocationId?: number;
+  parentLocationName?: string;
+  childLocationId?: number;
+  childLocationName?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -179,6 +183,8 @@ export interface CreateStockMovementRequest {
   serialNumber?: string;
   serialNumbers?: string[];
   stockItemId?: number;
+  parentLocationId?: number;
+  childLocationId?: number;
   imageUrl?: string;
   currentStock?: number;
 }

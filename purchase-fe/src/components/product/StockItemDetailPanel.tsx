@@ -8,6 +8,9 @@ import { formatDate } from '../../utils/date';
 import { isAssignableStockRow } from '../../utils/inventoryProduct';
 import { StockItemAssignmentForm } from './StockItemAssignmentForm';
 import { AssignmentFormPhotoThumb } from './AssignmentFormPhotoThumb';
+import { AssignmentReturnModal } from './AssignmentReturnModal';
+import { LocationHierarchyPickers } from '../common/LocationHierarchyPickers';
+import { resolveProductLocationPayload } from '../../utils/locationHierarchy';
 
 const movementTypeLabel: Record<string, string> = {
   IN: 'Giriş',
@@ -59,6 +62,11 @@ export const StockItemDetailPanel = ({
   const [formDownloading, setFormDownloading] = useState(false);
   const [signedUploading, setSignedUploading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [returning, setReturning] = useState(false);
+  const [locationRootId, setLocationRootId] = useState<number | null>(null);
+  const [locationMiddleId, setLocationMiddleId] = useState<number | null>(null);
+  const [locationLeafId, setLocationLeafId] = useState<number | null>(null);
 
   const stockItemId = Number(stockItem.id);
   const canAssign = isAssignableStockRow(stockItem);
@@ -110,7 +118,19 @@ export const StockItemDetailPanel = ({
       showNotification('Depo seçin', 'error');
       return;
     }
+    if (!locationRootId) {
+      showNotification(
+        inWarehouse ? 'Çıkış lokasyonu seçin' : 'Giriş lokasyonu seçin',
+        'error'
+      );
+      return;
+    }
 
+    const locationFields = resolveProductLocationPayload(
+      locationRootId,
+      locationMiddleId,
+      locationLeafId
+    );
     const effectiveType = inWarehouse ? 'OUT' : 'IN';
     const payload: CreateStockMovementRequest = {
       movementType: effectiveType,
@@ -118,13 +138,10 @@ export const StockItemDetailPanel = ({
       referenceId: 0,
       quantity: 1,
       notes: movementNotes.trim() || `Manuel ${effectiveType === 'IN' ? 'giriş' : 'çıkış'}`,
+      stockItemId: stockItemId,
+      parentLocationId: locationFields.defaultParentLocationId ?? undefined,
+      childLocationId: locationFields.defaultChildLocationId ?? undefined,
     };
-
-    if (effectiveType === 'OUT') {
-      payload.stockItemId = stockItemId;
-    } else {
-      payload.serialNumbers = stockItem.serialNumber ? [stockItem.serialNumber] : undefined;
-    }
 
     try {
       setMovementSubmitting(true);
@@ -132,6 +149,9 @@ export const StockItemDetailPanel = ({
       showNotification('Stok hareketi kaydedildi', 'success');
       setShowMovementForm(false);
       setMovementNotes('');
+      setLocationRootId(null);
+      setLocationMiddleId(null);
+      setLocationLeafId(null);
       await handleRefreshAll();
     } catch (err: unknown) {
       showNotification(err instanceof Error ? err.message : 'Stok hareketi kaydedilemedi', 'error');
@@ -176,6 +196,25 @@ export const StockItemDetailPanel = ({
       showNotification(err instanceof Error ? err.message : 'Zimmet iptal edilemedi', 'error');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleReturnAssignment = async (payload: {
+    photo: File;
+    document: File;
+    notes?: string;
+  }) => {
+    if (!activeAssignment) return;
+    try {
+      setReturning(true);
+      await assignmentService.returnAssignment(activeAssignment.id, payload);
+      showNotification('Zimmet iade edildi', 'success');
+      setReturnModalOpen(false);
+      await handleRefreshAll();
+    } catch (err: unknown) {
+      showNotification(err instanceof Error ? err.message : 'Zimmet iade edilemedi', 'error');
+    } finally {
+      setReturning(false);
     }
   };
 
@@ -241,6 +280,16 @@ export const StockItemDetailPanel = ({
                   >
                     {signedUploading ? 'Yükleniyor…' : 'İmzalı yükle'}
                   </button>
+                  {activeAssignment.canBeReturned && (
+                    <button
+                      type="button"
+                      onClick={() => setReturnModalOpen(true)}
+                      disabled={returning}
+                      className="px-3 py-1.5 text-sm rounded-md border border-emerald-300 text-emerald-800 bg-white hover:bg-emerald-50 disabled:opacity-50"
+                    >
+                      Zimmeti iade et
+                    </button>
+                  )}
                   {canCancelAssignment(activeAssignment) && (
                     <button
                       type="button"
@@ -306,6 +355,27 @@ export const StockItemDetailPanel = ({
                 )}
                 <div className="sm:col-span-2 text-sm text-gray-600">
                   {inWarehouse ? 'Depodan çıkış yapılacak.' : 'Seçilen depoya giriş yapılacak.'}
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {inWarehouse ? 'Çıkış lokasyonu *' : 'Giriş lokasyonu *'}
+                  </label>
+                  <LocationHierarchyPickers
+                    rootId={locationRootId}
+                    middleId={locationMiddleId}
+                    leafId={locationLeafId}
+                    onRootChange={(id) => {
+                      setLocationRootId(id);
+                      setLocationMiddleId(null);
+                      setLocationLeafId(null);
+                    }}
+                    onMiddleChange={(id) => {
+                      setLocationMiddleId(id);
+                      setLocationLeafId(null);
+                    }}
+                    onLeafChange={setLocationLeafId}
+                    showLeaf
+                  />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-gray-600 mb-1">Açıklama</label>
@@ -387,6 +457,7 @@ export const StockItemDetailPanel = ({
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Tarih</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Tip</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Lokasyon</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Referans</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Not</th>
                     </tr>
@@ -409,6 +480,11 @@ export const StockItemDetailPanel = ({
                           </span>
                         </td>
                         <td className="px-3 py-2 text-gray-600">
+                          {[movement.parentLocationName, movement.childLocationName]
+                            .filter(Boolean)
+                            .join(' / ') || '—'}
+                        </td>
+                        <td className="px-3 py-2 text-gray-600">
                           {referenceTypeLabel[movement.referenceType] ?? movement.referenceType}
                         </td>
                         <td className="px-3 py-2 text-gray-500">{movement.notes || '—'}</td>
@@ -421,6 +497,16 @@ export const StockItemDetailPanel = ({
           </div>
         </>
       )}
+
+      <AssignmentReturnModal
+        isOpen={returnModalOpen}
+        assignment={activeAssignment}
+        submitting={returning}
+        onClose={() => {
+          if (!returning) setReturnModalOpen(false);
+        }}
+        onSubmit={handleReturnAssignment}
+      />
     </div>
   );
 };

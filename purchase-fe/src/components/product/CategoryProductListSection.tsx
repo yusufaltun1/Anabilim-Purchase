@@ -4,11 +4,14 @@ import { SearchableSupplierSelect } from '../common/SearchableSupplierSelect';
 import { ProductListPanel } from './ProductListPanel';
 import { ProductListPagination } from './ProductListPagination';
 import { DeviceModel, inventoryService } from '../../services/inventory.service';
+import { locationService } from '../../services/location.service';
 import { formatDeviceModelLabel } from '../../utils/deviceModel';
 import { schoolService } from '../../services/school.service';
 import { supplierService } from '../../services/supplier.service';
 import { Product } from '../../types/product';
 import { Supplier } from '../../types/supplier';
+import { Location } from '../../types/location';
+import { LOCATION_LEVEL_LABELS } from '../../utils/locationHierarchy';
 import {
   ProductListFilters,
   applyProductListFilters,
@@ -51,22 +54,26 @@ export const CategoryProductListSection = ({
   const [deviceModels, setDeviceModels] = useState<DeviceModel[]>([]);
   const [conditions, setConditions] = useState<{ id: number; name: string }[]>([]);
   const [parentLocs, setParentLocs] = useState<{ id: number; name: string }[]>([]);
+  const [filterMiddleLocs, setFilterMiddleLocs] = useState<{ id: number; name: string }[]>([]);
   const [filterChildLocs, setFilterChildLocs] = useState<{ id: number; name: string }[]>([]);
+  const [allLocations, setAllLocations] = useState<Location[]>([]);
 
   useEffect(() => {
     (async () => {
-      const [schoolList, supplierList, models, conds, parents] = await Promise.all([
+      const [schoolList, supplierList, models, conds, parents, locationsRes] = await Promise.all([
         schoolService.getActiveSchools().catch(() => []),
         supplierService.getActiveSuppliers().catch(() => []),
         inventoryService.getDeviceModels().catch(() => []),
         inventoryService.getAssetConditions().catch(() => []),
         inventoryService.getParentLocations().catch(() => []),
+        locationService.getAllLocations().catch(() => ({ success: false, data: [] as Location[] })),
       ]);
       setSchools(schoolList.map((s) => ({ id: s.id, name: s.name })));
       setSuppliers(supplierList);
       setDeviceModels(models);
       setConditions(conds);
       setParentLocs(parents);
+      setAllLocations(Array.isArray(locationsRes.data) ? locationsRes.data : []);
     })();
   }, []);
 
@@ -74,12 +81,23 @@ export const CategoryProductListSection = ({
     if (filters.parentLocationId) {
       inventoryService
         .getChildLocations(filters.parentLocationId)
+        .then(setFilterMiddleLocs)
+        .catch(() => setFilterMiddleLocs([]));
+    } else {
+      setFilterMiddleLocs([]);
+    }
+  }, [filters.parentLocationId]);
+
+  useEffect(() => {
+    if (filters.middleLocationId) {
+      inventoryService
+        .getChildLocations(filters.middleLocationId)
         .then(setFilterChildLocs)
         .catch(() => setFilterChildLocs([]));
     } else {
       setFilterChildLocs([]);
     }
-  }, [filters.parentLocationId]);
+  }, [filters.middleLocationId]);
 
   const filterLookup = useMemo(
     () => ({
@@ -89,14 +107,15 @@ export const CategoryProductListSection = ({
       models: deviceModels,
       conditions,
       parentLocs,
+      middleLocs: filterMiddleLocs,
       childLocs: filterChildLocs,
     }),
-    [schools, suppliers, deviceModels, conditions, parentLocs, filterChildLocs]
+    [schools, suppliers, deviceModels, conditions, parentLocs, filterMiddleLocs, filterChildLocs]
   );
 
   const filteredProducts = useMemo(
-    () => applyProductListFilters(products, filters, chipSearch),
-    [products, filters, chipSearch]
+    () => applyProductListFilters(products, filters, chipSearch, allLocations),
+    [products, filters, chipSearch, allLocations]
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
@@ -118,6 +137,10 @@ export const CategoryProductListSection = ({
     setFilters((prev) => {
       const next = { ...prev, [key]: value };
       if (key === 'parentLocationId') {
+        next.middleLocationId = null;
+        next.childLocationId = null;
+      }
+      if (key === 'middleLocationId') {
         next.childLocationId = null;
       }
       return next;
@@ -352,7 +375,7 @@ export const CategoryProductListSection = ({
                     </select>
                   </div>
                   <div>
-                    <label className={filterLabelClass}>Üst konum</label>
+                    <label className={filterLabelClass}>{LOCATION_LEVEL_LABELS[1]}</label>
                     <select
                       value={filters.parentLocationId ?? ''}
                       onChange={(e) =>
@@ -369,14 +392,32 @@ export const CategoryProductListSection = ({
                     </select>
                   </div>
                   <div>
-                    <label className={filterLabelClass}>Alt konum</label>
+                    <label className={filterLabelClass}>{LOCATION_LEVEL_LABELS[2]}</label>
+                    <select
+                      value={filters.middleLocationId ?? ''}
+                      onChange={(e) =>
+                        handleFilterChange('middleLocationId', e.target.value ? Number(e.target.value) : null)
+                      }
+                      className={filterInputClass}
+                      disabled={!filters.parentLocationId}
+                    >
+                      <option value="">Tümü</option>
+                      {filterMiddleLocs.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={filterLabelClass}>{LOCATION_LEVEL_LABELS[3]}</label>
                     <select
                       value={filters.childLocationId ?? ''}
                       onChange={(e) =>
                         handleFilterChange('childLocationId', e.target.value ? Number(e.target.value) : null)
                       }
                       className={filterInputClass}
-                      disabled={!filters.parentLocationId}
+                      disabled={!filters.middleLocationId}
                     >
                       <option value="">Tümü</option>
                       {filterChildLocs.map((l) => (

@@ -17,6 +17,8 @@ export interface ManualStockMovementConfig {
   serialRequired: boolean;
   /** Çıkışta depodaki cihaz seçimi */
   showStockItemPickerOnOut: boolean;
+  /** Giriş/çıkış lokasyon seçimi (demirbaş) */
+  showLocationPickers: boolean;
   /** Düzeltme hareketi */
   allowAdjustment: boolean;
 }
@@ -32,12 +34,13 @@ export function getManualStockMovementConfig(productType?: string | null): Manua
       mode: 'serial',
       label: labelFor(resolved),
       description:
-        'Demirbaş girişinde her adet için seri numarası zorunludur. Çıkışta depodaki hazır cihaz seçilir.',
+        'Demirbaş girişinde her adet için seri numarası zorunludur. Giriş ve çıkışta lokasyon seçilir. Çıkışta depodaki hazır cihaz seçilir.',
       showQuantity: false,
       showInboundUnitCount: true,
       showSerialListOnIn: true,
       serialRequired: true,
       showStockItemPickerOnOut: true,
+      showLocationPickers: true,
       allowAdjustment: false,
     };
   }
@@ -53,6 +56,7 @@ export function getManualStockMovementConfig(productType?: string | null): Manua
       showSerialListOnIn: true,
       serialRequired: false,
       showStockItemPickerOnOut: false,
+      showLocationPickers: false,
       allowAdjustment: true,
     };
   }
@@ -66,6 +70,7 @@ export function getManualStockMovementConfig(productType?: string | null): Manua
     showSerialListOnIn: false,
     serialRequired: false,
     showStockItemPickerOnOut: false,
+    showLocationPickers: false,
     allowAdjustment: true,
   };
 }
