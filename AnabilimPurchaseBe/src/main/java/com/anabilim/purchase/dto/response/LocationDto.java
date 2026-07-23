@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,6 +24,9 @@ public class LocationDto {
     @JsonProperty("isDefault")
     private Boolean defaultLocation;
 
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
     public LocationDto(Location location) {
         this.id = location.getId();
         this.name = location.getName();
@@ -31,5 +36,7 @@ public class LocationDto {
             this.parentId = location.getParent().getId();
             this.parentName = location.getParent().getName();
         }
+        this.createdAt = location.getCreatedAt();
+        this.updatedAt = location.getUpdatedAt();
     }
 }

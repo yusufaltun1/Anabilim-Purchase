@@ -39,12 +39,15 @@ interface ProductCreateAssignmentSectionProps {
   value: ProductCreateAssignmentState;
   onChange: (next: ProductCreateAssignmentState) => void;
   fieldErrors?: Record<string, string>;
+  /** Konum zimmetinde üstteki paylaşılan Konum alanı kullanılır */
+  useSharedLocationPickers?: boolean;
 }
 
 export const ProductCreateAssignmentSection = ({
   value,
   onChange,
   fieldErrors = {},
+  useSharedLocationPickers = false,
 }: ProductCreateAssignmentSectionProps) => {
   const [users, setUsers] = useState<User[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
@@ -198,29 +201,39 @@ export const ProductCreateAssignmentSection = ({
         </>
       ) : (
         <>
-          <FormField
-            label="Konum"
-            required
-            error={fieldErrors.assignedLocationId || fieldErrors.defaultParentLocationId}
-          >
-            <LocationHierarchyPickers
-              rootId={value.assignedLocationRootId}
-              middleId={value.assignedLocationMiddleId}
-              leafId={value.assignedLocationLeafId}
-              onRootChange={(id) =>
-                patch({
-                  assignedLocationRootId: id,
-                  assignedLocationMiddleId: null,
-                  assignedLocationLeafId: null,
-                })
-              }
-              onMiddleChange={(id) =>
-                patch({ assignedLocationMiddleId: id, assignedLocationLeafId: null })
-              }
-              onLeafChange={(id) => patch({ assignedLocationLeafId: id })}
-              showLeaf
-            />
-          </FormField>
+          {useSharedLocationPickers ? (
+            <p className="text-sm text-gray-600 rounded-md border border-gray-200 bg-white px-3 py-2">
+              Konum zimmeti için yukarıdaki <span className="font-medium">Konum</span> alanını
+              doldurun. Varsayılan konum otomatik gelir; gerekirse değiştirebilirsiniz.
+            </p>
+          ) : (
+            <>
+              <FormField
+                label="Konum"
+                required
+                error={fieldErrors.assignedLocationId || fieldErrors.defaultParentLocationId}
+              >
+                <LocationHierarchyPickers
+                  rootId={value.assignedLocationRootId}
+                  middleId={value.assignedLocationMiddleId}
+                  leafId={value.assignedLocationLeafId}
+                  onRootChange={(id) =>
+                    patch({
+                      assignedLocationRootId: id,
+                      assignedLocationMiddleId: null,
+                      assignedLocationLeafId: null,
+                    })
+                  }
+                  onMiddleChange={(id) =>
+                    patch({ assignedLocationMiddleId: id, assignedLocationLeafId: null })
+                  }
+                  onLeafChange={(id) => patch({ assignedLocationLeafId: id })}
+                  showLeaf
+                  autoSelectDefaults
+                />
+              </FormField>
+            </>
+          )}
           <FormField label="Konum detayı" error={fieldErrors.locationDetails}>
             <input
               type="text"

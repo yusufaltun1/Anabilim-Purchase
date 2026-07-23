@@ -3,6 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { locationService } from '../services/location.service';
 import { Location } from '../types/location';
+import { assignmentService } from '../services/assignment.service';
+import { Assignment, AssignmentStatus } from '../types/assignment';
+import { AssignmentManageSection } from '../components/product/AssignmentManageSection';
+import { formatDate } from '../utils/date';
 
 export const LocationDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -10,6 +14,8 @@ export const LocationDetail = () => {
   const [location, setLocation] = useState<Location | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -26,11 +32,30 @@ export const LocationDetail = () => {
     }
   }, [id]);
 
+  const loadAssignments = async (locationId: number) => {
+    try {
+      setAssignmentsLoading(true);
+      const list = await assignmentService.getAssignmentsByLocationId(locationId);
+      setAssignments(
+        list.filter(
+          (assignment) =>
+            assignment.status === AssignmentStatus.ACTIVE || assignment.canBeReturned
+        )
+      );
+    } catch (err) {
+      console.error('Error loading location assignments:', err);
+      setAssignments([]);
+    } finally {
+      setAssignmentsLoading(false);
+    }
+  };
+
   const loadLocation = async (locationId: number) => {
     try {
       setLoading(true);
       const locationData = await locationService.getLocationById(locationId);
       setLocation(locationData);
+      await loadAssignments(locationId);
     } catch (err: any) {
       setError(err.message || 'Konum yüklenirken hata oluştu');
       console.error('Error loading location:', err);
@@ -206,18 +231,26 @@ export const LocationDetail = () => {
                 <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">Oluşturulma Tarihi</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {new Date(location.createdAt || '').toLocaleDateString('tr-TR')}
+                    {formatDate(location.createdAt)}
                   </dd>
                 </div>
                 <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">Son Güncelleme</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {new Date(location.updatedAt || '').toLocaleDateString('tr-TR')}
+                    {formatDate(location.updatedAt)}
                   </dd>
                 </div>
               </dl>
             </div>
           </div>
+
+          <AssignmentManageSection
+            title="Konum Zimmetleri"
+            assignments={assignments}
+            loading={assignmentsLoading}
+            showProductColumn
+            onRefresh={() => location && loadAssignments(location.id)}
+          />
         </div>
       </div>
     </div>

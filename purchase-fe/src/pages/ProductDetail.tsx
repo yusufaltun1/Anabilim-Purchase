@@ -21,6 +21,7 @@ import { ProductStockMovementSection } from '../components/product/ProductStockM
 import { SerialStockItemSection } from '../components/product/SerialStockItemSection';
 import { AssignmentFormPhotoThumb } from '../components/product/AssignmentFormPhotoThumb';
 import { AssignmentReturnModal } from '../components/product/AssignmentReturnModal';
+import { AssignmentFormPhotoPicker } from '../components/product/AssignmentFormPhotoPicker';
 import {
   isConsumableProductType,
   shouldSendStockItemIdForAssignment,
@@ -1448,31 +1449,16 @@ export const ProductDetail = () => {
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Ürün fotoğrafı (form F8 hücresi)
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png"
-                          className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] ?? null;
-                            setAssignmentFormPhotoFile(file);
-                            if (assignmentFormPhotoPreview) {
-                              URL.revokeObjectURL(assignmentFormPhotoPreview);
-                            }
-                            setAssignmentFormPhotoPreview(file ? URL.createObjectURL(file) : null);
-                          }}
-                        />
-                        {assignmentFormPhotoPreview && (
-                          <img
-                            src={assignmentFormPhotoPreview}
-                            alt="Seçilen ürün fotoğrafı"
-                            className="mt-2 h-20 w-20 rounded object-cover border border-gray-200"
-                          />
-                        )}
-                      </div>
+                      <AssignmentFormPhotoPicker
+                        file={assignmentFormPhotoFile}
+                        preview={assignmentFormPhotoPreview}
+                        onChange={(nextFile, nextPreview) => {
+                          setAssignmentFormPhotoFile(nextFile);
+                          setAssignmentFormPhotoPreview(nextPreview);
+                        }}
+                        disabled={assignmentLoading}
+                        label="Ürün fotoğrafı (form F8 hücresi)"
+                      />
 
                       {/* Bilgilendirici Kutu */}
                       <div className="bg-blue-50 border border-blue-200 rounded-md p-4">

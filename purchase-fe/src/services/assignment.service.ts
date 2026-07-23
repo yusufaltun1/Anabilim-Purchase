@@ -167,6 +167,25 @@ class AssignmentService {
     };
   }
 
+  async getAssignmentsByLocationId(locationId: number): Promise<Assignment[]> {
+    const response = await axiosInstance.get(`${this.baseUrl}/location/${locationId}`);
+    return this.parseAssignmentList(response.data);
+  }
+
+  async getActiveAssignmentsByUserId(userId: number): Promise<Assignment[]> {
+    const response = await axiosInstance.get(`${this.baseUrl}/user/${userId}/active`);
+    return this.parseAssignmentList(response.data);
+  }
+
+  private parseAssignmentList(payload: unknown): Assignment[] {
+    if (Array.isArray(payload)) return payload;
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+      const nested = (payload as { data?: unknown }).data;
+      if (Array.isArray(nested)) return nested;
+    }
+    return [];
+  }
+
   async getActiveAssignmentsByLocation(locationName: string): Promise<AssignmentResponse> {
     const response = await axiosInstance.get<Assignment[]>(`${this.baseUrl}/location/active?locationName=${encodeURIComponent(locationName)}`);
     return {
@@ -410,6 +429,24 @@ class AssignmentService {
     const blob = await response.blob();
     const contentDisposition = response.headers.get('Content-Disposition');
     let fileName = `Zimmet_Formu_${assignmentId}.xlsx`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) fileName = match[1].trim();
+    }
+    this.triggerBlobDownload(blob, fileName);
+  }
+
+  async downloadReturnAssignmentForm(assignmentId: number): Promise<void> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/${assignmentId}/return/form/download`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message || 'İade formu indirilemedi');
+    }
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let fileName = `Zimmet_Iade_Formu_${assignmentId}.xlsx`;
     if (contentDisposition) {
       const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
       if (match) fileName = match[1].trim();

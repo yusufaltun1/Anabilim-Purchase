@@ -74,6 +74,27 @@ public class AssignmentFormService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public AttachmentDownloadResult downloadReturnFilledForm(Long assignmentId) {
+        Assignment assignment = loadAssignmentWithDetails(assignmentId);
+        if (!assignment.canBeReturned()) {
+            throw new ValidationException("Bu zimmet için iade formu oluşturulamaz.");
+        }
+        byte[] content = generateReturnFilledForm(assignment);
+        String fileName = buildReturnFormFileName(assignment);
+        Resource resource = new org.springframework.core.io.ByteArrayResource(content) {
+            @Override
+            public String getFilename() {
+                return fileName;
+            }
+        };
+        return new AttachmentDownloadResult(
+                resource,
+                fileName,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+    }
+
     @Transactional
     public AssignmentFormPhotoDto uploadFormPhoto(Long assignmentId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -343,6 +364,20 @@ public class AssignmentFormService {
         }
     }
 
+    private byte[] generateReturnFilledForm(Assignment assignment) {
+        try (InputStream template = new ClassPathResource(TEMPLATE_PATH).getInputStream();
+             XSSFWorkbook workbook = new XSSFWorkbook(template);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.getSheetAt(0);
+            fillReturnForm(sheet, assignment);
+            insertProductPhoto((XSSFSheet) sheet, assignment);
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new ValidationException("İade formu oluşturulamadı: " + e.getMessage());
+        }
+    }
+
     private void fillForm(Sheet sheet, Assignment assignment) {
         User assignedUser = assignment.getAssignedUser();
         Product product = assignment.getProduct();
@@ -366,6 +401,31 @@ public class AssignmentFormService {
 
         setCellValue(sheet, "A17", formatDeliveryParty(deliveringUser, formDate));
         setCellValue(sheet, "D17", formatDeliveryPartyName(resolveRecipientName(assignment), formDate));
+    }
+
+    private void fillReturnForm(Sheet sheet, Assignment assignment) {
+        User assignedUser = assignment.getAssignedUser();
+        Product product = assignment.getProduct();
+        StockItem stockItem = assignment.getStockItem();
+        String returnDate = formatFormDate(LocalDateTime.now());
+        User receivingUser = resolveCurrentUser();
+
+        setCellValue(sheet, "C3", resolveFirstLevelLocation(assignedUser));
+        setCellValue(sheet, "C4", resolveRecipientName(assignment));
+        setCellValue(sheet, "C5", returnDate);
+        setCellValue(sheet, "F3", assignedUser != null ? sanitizePlaceholder(assignedUser.getDepartment()) : "");
+        setCellValue(sheet, "F4", assignedUser != null ? sanitizePlaceholder(assignedUser.getPosition()) : "");
+        setCellValue(sheet, "F5", resolveSecondLevelLocation(assignedUser));
+
+        if (product != null) {
+            setCellValue(sheet, "B8", nullToEmpty(product.getName()));
+        }
+        setCellValue(sheet, "C8", resolveModelName(stockItem, product));
+        setCellValue(sheet, "D8", resolveSerialNumber(stockItem));
+        setCellValue(sheet, "E8", "İADE — " + resolveDescription(assignment, stockItem, product));
+
+        setCellValue(sheet, "A17", formatDeliveryPartyName(resolveRecipientName(assignment), returnDate));
+        setCellValue(sheet, "D17", formatDeliveryParty(receivingUser, returnDate));
     }
 
     private void insertProductPhoto(XSSFSheet sheet, Assignment assignment) {
@@ -592,6 +652,15 @@ public class AssignmentFormService {
                     .replaceAll("[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ._-]", "_");
         }
         return "Zimmet_Formu_" + assignment.getId() + "_" + userPart + ".xlsx";
+    }
+
+    private String buildReturnFormFileName(Assignment assignment) {
+        String partyPart = "iade";
+        String name = resolveRecipientName(assignment);
+        if (name != null && !name.isBlank()) {
+            partyPart = name.replaceAll("[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ._-]", "_");
+        }
+        return "Zimmet_Iade_Formu_" + assignment.getId() + "_" + partyPart + ".xlsx";
     }
 
     private AssignmentSignedFormDto toSignedFormDto(Assignment assignment) {

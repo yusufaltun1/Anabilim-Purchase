@@ -22,7 +22,6 @@ import {
   emptyProductAssignmentState,
   ProductCreateAssignmentSection,
   ProductCreateAssignmentState,
-  resolveAssignmentLocationId,
 } from './ProductCreateAssignmentSection';
 import { assignmentService } from '../../services/assignment.service';
 import { userService } from '../../services/user.service';
@@ -129,7 +128,11 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
 
   const isDepotSelected = form.warehouseId != null;
   const showCreateAssignment = mode === 'create' && assetFieldsRequired && !isDepotSelected;
-  const showDefaultLocationPickers = mode === 'edit';
+  const showDefaultLocationPickers =
+    mode === 'edit' || (mode === 'create' && assetFieldsRequired && !isDepotSelected);
+
+  const resolveCreateLocationId = () =>
+    locationLeafId ?? locationMiddleId ?? locationRootId;
 
   useEffect(() => {
     (async () => {
@@ -330,7 +333,13 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
     if (mode === 'edit') {
       locationFields = resolveProductLocationPayload(locationRootId, locationMiddleId, locationLeafId);
     } else if (!isDepotSelected) {
-      if (assignmentState.assignmentType === 'location') {
+      if (locationRootId) {
+        locationFields = resolveProductLocationPayload(
+          locationRootId,
+          locationMiddleId,
+          locationLeafId
+        );
+      } else if (assignmentState.assignmentType === 'location') {
         locationFields = resolveProductLocationPayload(
           assignmentState.assignedLocationRootId,
           assignmentState.assignedLocationMiddleId,
@@ -369,7 +378,7 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
       if (!assignmentState.assignedUserId) {
         errors.assignedUserId = 'Zimmet için kullanıcı seçin';
       }
-    } else if (!resolveAssignmentLocationId(assignmentState)) {
+    } else if (assignmentState.assignmentType === 'location' && !resolveCreateLocationId()) {
       errors.assignedLocationId = 'Zimmet için konum seçin';
     }
     return errors;
@@ -393,7 +402,8 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
   };
 
   const createAssignmentAfterProduct = async (productId: number, stockItemId: number) => {
-    const assignedLocationId = resolveAssignmentLocationId(assignmentState);
+    const assignedLocationId =
+      assignmentState.assignmentType === 'location' ? resolveCreateLocationId() : null;
     const result = await assignmentService.createAssignment({
       productId,
       stockItemId,
@@ -718,6 +728,9 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
                       setForm({ ...form, warehouseId: nextId });
                       if (nextId != null) {
                         setAssignmentState(emptyProductAssignmentState());
+                        setLocationRootId(null);
+                        setLocationMiddleId(null);
+                        setLocationLeafId(null);
                       }
                     }}
                   >
@@ -851,6 +864,11 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
                 label="Konum"
                 required={assetFieldsRequired}
                 className="sm:col-span-2"
+                hint={
+                  mode === 'create' && !isDepotSelected
+                    ? 'Varsayılan konum otomatik seçilir; konum zimmetinde bu alan kullanılır'
+                    : undefined
+                }
                 error={fieldError(fieldErrors, 'defaultParentLocationId', 'defaultChildLocationId')}
               >
                 <InputWithButton
@@ -869,6 +887,7 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
                       onMiddleChange={setLocationMiddleId}
                       onLeafChange={setLocationLeafId}
                       showLeaf
+                      autoSelectDefaults
                       reloadToken={locationReloadToken}
                     />
                   </div>
@@ -882,6 +901,7 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
                     value={assignmentState}
                     onChange={setAssignmentState}
                     fieldErrors={fieldErrors}
+                    useSharedLocationPickers
                   />
                 </div>
               )}

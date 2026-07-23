@@ -7,6 +7,7 @@ import { User } from '../../types/user';
 import { School } from '../../types/school';
 import { Location } from '../../types/location';
 import { useNotification } from '../../contexts/NotificationContext';
+import { AssignmentFormPhotoPicker } from './AssignmentFormPhotoPicker';
 
 interface StockItemAssignmentFormProps {
   productId: number;
@@ -254,31 +255,15 @@ export const StockItemAssignmentForm = ({
         />
       </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          Ürün fotoğrafı (form F8 hücresi)
-        </label>
-        <input
-          type="file"
-          accept="image/jpeg,image/png"
-          className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-          onChange={(e) => {
-            const file = e.target.files?.[0] ?? null;
-            setFormPhotoFile(file);
-            if (formPhotoPreview) {
-              URL.revokeObjectURL(formPhotoPreview);
-            }
-            setFormPhotoPreview(file ? URL.createObjectURL(file) : null);
-          }}
-        />
-        {formPhotoPreview && (
-          <img
-            src={formPhotoPreview}
-            alt="Seçilen ürün fotoğrafı"
-            className="mt-2 h-16 w-16 rounded object-cover border border-gray-200"
-          />
-        )}
-      </div>
+      <AssignmentFormPhotoPicker
+        file={formPhotoFile}
+        preview={formPhotoPreview}
+        onChange={(nextFile, nextPreview) => {
+          setFormPhotoFile(nextFile);
+          setFormPhotoPreview(nextPreview);
+        }}
+        disabled={submitting}
+      />
 
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Not</label>

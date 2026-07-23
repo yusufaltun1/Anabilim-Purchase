@@ -217,6 +217,16 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.success("Zimmet başarıyla iade edildi", returnedAssignment));
     }
 
+    @GetMapping("/{id}/return/form/download")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadReturnForm(@PathVariable Long id) {
+        AttachmentDownloadResult result = assignmentFormService.downloadReturnFilledForm(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        result.getContentType() != null ? result.getContentType() : "application/octet-stream"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.getFileName() + "\"")
+                .body(result.getResource());
+    }
+
     @GetMapping("/{id}/return/photo")
     public ResponseEntity<org.springframework.core.io.Resource> downloadReturnPhoto(@PathVariable Long id) {
         AttachmentDownloadResult result = assignmentFormService.downloadReturnPhoto(id);

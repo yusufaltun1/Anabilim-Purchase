@@ -34,6 +34,8 @@ public class LocationMapper {
         locationDto.setLevel(LocationSupport.depth(location));
         locationDto.setPath(LocationSupport.path(location));
         locationDto.setDefaultLocation(location.isDefaultLocation() ? Boolean.TRUE : null);
+        locationDto.setCreatedAt(location.getCreatedAt());
+        locationDto.setUpdatedAt(location.getUpdatedAt());
         return locationDto;
     }
 

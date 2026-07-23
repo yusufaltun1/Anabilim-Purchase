@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CameraCaptureModal } from '../common/CameraCaptureModal';
 import { Assignment } from '../../types/assignment';
+import { assignmentService } from '../../services/assignment.service';
 
 interface AssignmentReturnModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export const AssignmentReturnModal = ({
   const [notes, setNotes] = useState('');
   const [cameraOpen, setCameraOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [formDownloading, setFormDownloading] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -47,6 +49,7 @@ export const AssignmentReturnModal = ({
     setNotes('');
     setError(null);
     setCameraOpen(false);
+    setFormDownloading(false);
   }, [isOpen, assignment?.id]);
 
   useEffect(() => {
@@ -90,6 +93,19 @@ export const AssignmentReturnModal = ({
     setCameraOpen(false);
   };
 
+  const handleDownloadReturnForm = async () => {
+    if (!assignment) return;
+    try {
+      setFormDownloading(true);
+      setError(null);
+      await assignmentService.downloadReturnAssignmentForm(assignment.id);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'İade formu indirilemedi');
+    } finally {
+      setFormDownloading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!photo) {
@@ -97,7 +113,7 @@ export const AssignmentReturnModal = ({
       return;
     }
     if (!documentFile) {
-      setError('İade için belge yükleme zorunludur.');
+      setError('İade için imzalı iade formu yüklemeniz gerekir.');
       return;
     }
     await onSubmit({
@@ -127,8 +143,21 @@ export const AssignmentReturnModal = ({
           <form onSubmit={handleSubmit} className="px-4 py-4 space-y-4">
             <p className="text-sm text-gray-600">
               <span className="font-medium text-gray-800">{assigneeLabel}</span> üzerindeki zimmet
-              geri alınacak. Ürün fotoğrafı ve belge zorunludur.
+              geri alınacak. Önce iade formunu indirip imzalatın, ardından ürün fotoğrafı ve imzalı
+              formu yükleyin.
             </p>
+
+            <div className="rounded-md border border-indigo-100 bg-indigo-50 px-3 py-3 space-y-2">
+              <p className="text-xs font-medium text-indigo-900">1. İade formu</p>
+              <button
+                type="button"
+                onClick={handleDownloadReturnForm}
+                disabled={submitting || formDownloading}
+                className="px-3 py-1.5 text-sm rounded-md border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+              >
+                {formDownloading ? 'İndiriliyor…' : 'İade formunu indir'}
+              </button>
+            </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -165,14 +194,16 @@ export const AssignmentReturnModal = ({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">İade belgesi *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                İmzalı iade formu *
+              </label>
               <button
                 type="button"
                 onClick={() => documentInputRef.current?.click()}
                 disabled={submitting}
                 className="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50"
               >
-                {documentFile ? 'Belgeyi değiştir' : 'Belge yükle'}
+                {documentFile ? 'İmzalı formu değiştir' : 'İmzalı iade formu yükle'}
               </button>
               {documentFile && (
                 <p className="mt-1 text-xs text-gray-600 truncate">{documentFile.name}</p>
