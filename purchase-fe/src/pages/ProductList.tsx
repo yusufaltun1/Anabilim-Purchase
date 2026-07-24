@@ -217,6 +217,15 @@ export const ProductList = () => {
     [filterChildLocs]
   );
 
+  const brandOptions = useMemo(() => {
+    const brands = [
+      ...new Set(
+        deviceModels.map((m) => m.brand?.trim()).filter((b): b is string => !!b && b.length > 0)
+      ),
+    ].sort((a, b) => a.localeCompare(b, 'tr'));
+    return brands.map((brand) => ({ value: brand, label: brand }));
+  }, [deviceModels]);
+
   const filterLookup = useMemo(
     () => ({
       categories,
@@ -232,8 +241,8 @@ export const ProductList = () => {
   );
 
   const filteredAndSortedProducts = useMemo(
-    () => applyProductListFilters(allProducts, filters, '', allLocations),
-    [allProducts, filters, allLocations]
+    () => applyProductListFilters(allProducts, filters, '', allLocations, deviceModels),
+    [allProducts, filters, allLocations, deviceModels]
   );
 
   // Pagination hesaplamaları
@@ -272,6 +281,9 @@ export const ProductList = () => {
       }
       if (key === 'middleLocationId') {
         next.childLocationId = null;
+      }
+      if (key === 'deviceBrand') {
+        next.deviceModelId = null;
       }
       return next;
     });
@@ -445,12 +457,24 @@ export const ProductList = () => {
                       />
                     </div>
                     <div>
+                      <label className={filterLabelClass}>Marka</label>
+                      <SearchableOptionSelect
+                        options={brandOptions}
+                        value={filters.deviceBrand}
+                        onChange={(v) => handleFilterChange('deviceBrand', v)}
+                        placeholder="Marka ara…"
+                        allowClear
+                      />
+                    </div>
+                    <div>
                       <label className={filterLabelClass}>Model</label>
                       <SearchableDeviceModelSelect
                         models={deviceModels}
                         value={filters.deviceModelId}
                         onChange={(m) => handleFilterChange('deviceModelId', m?.id ?? null)}
-                        placeholder="Marka veya model ara…"
+                        placeholder="Model ara…"
+                        brandFilter={filters.deviceBrand}
+                        nameOnly={!!filters.deviceBrand}
                         allowClear
                       />
                     </div>

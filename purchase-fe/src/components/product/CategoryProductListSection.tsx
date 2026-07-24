@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActiveFiltersBar } from '../ActiveFiltersBar';
 import { SearchableSupplierSelect } from '../common/SearchableSupplierSelect';
+import { SearchableDeviceModelSelect } from '../common/SearchableDeviceModelSelect';
+import { SearchableOptionSelect } from '../common/SearchableOptionSelect';
 import { ProductListPanel } from './ProductListPanel';
 import { ProductListPagination } from './ProductListPagination';
 import { DeviceModel, inventoryService } from '../../services/inventory.service';
 import { locationService } from '../../services/location.service';
-import { formatDeviceModelLabel } from '../../utils/deviceModel';
 import { schoolService } from '../../services/school.service';
 import { supplierService } from '../../services/supplier.service';
 import { Product } from '../../types/product';
@@ -99,6 +100,15 @@ export const CategoryProductListSection = ({
     }
   }, [filters.middleLocationId]);
 
+  const brandOptions = useMemo(() => {
+    const brands = [
+      ...new Set(
+        deviceModels.map((m) => m.brand?.trim()).filter((b): b is string => !!b && b.length > 0)
+      ),
+    ].sort((a, b) => a.localeCompare(b, 'tr'));
+    return brands.map((brand) => ({ value: brand, label: brand }));
+  }, [deviceModels]);
+
   const filterLookup = useMemo(
     () => ({
       categories: [],
@@ -114,8 +124,8 @@ export const CategoryProductListSection = ({
   );
 
   const filteredProducts = useMemo(
-    () => applyProductListFilters(products, filters, chipSearch, allLocations),
-    [products, filters, chipSearch, allLocations]
+    () => applyProductListFilters(products, filters, chipSearch, allLocations, deviceModels),
+    [products, filters, chipSearch, allLocations, deviceModels]
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
@@ -142,6 +152,9 @@ export const CategoryProductListSection = ({
       }
       if (key === 'middleLocationId') {
         next.childLocationId = null;
+      }
+      if (key === 'deviceBrand') {
+        next.deviceModelId = null;
       }
       return next;
     });
@@ -297,21 +310,26 @@ export const CategoryProductListSection = ({
                     </select>
                   </div>
                   <div>
+                    <label className={filterLabelClass}>Marka</label>
+                    <SearchableOptionSelect
+                      options={brandOptions}
+                      value={filters.deviceBrand}
+                      onChange={(v) => handleFilterChange('deviceBrand', v)}
+                      placeholder="Marka ara…"
+                      allowClear
+                    />
+                  </div>
+                  <div>
                     <label className={filterLabelClass}>Model</label>
-                    <select
-                      value={filters.deviceModelId ?? ''}
-                      onChange={(e) =>
-                        handleFilterChange('deviceModelId', e.target.value ? Number(e.target.value) : null)
-                      }
-                      className={filterInputClass}
-                    >
-                      <option value="">Tümü</option>
-                      {deviceModels.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {formatDeviceModelLabel(m)}
-                        </option>
-                      ))}
-                    </select>
+                    <SearchableDeviceModelSelect
+                      models={deviceModels}
+                      value={filters.deviceModelId}
+                      onChange={(m) => handleFilterChange('deviceModelId', m?.id ?? null)}
+                      placeholder="Model ara…"
+                      brandFilter={filters.deviceBrand}
+                      nameOnly={!!filters.deviceBrand}
+                      allowClear
+                    />
                   </div>
                   <div>
                     <label className={filterLabelClass}>Cihaz durumu</label>

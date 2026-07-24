@@ -16,6 +16,7 @@ export interface ProductListFilters {
   unitOfMeasure: string;
   schoolId: number | null;
   supplierId: number | null;
+  deviceBrand: string | null;
   deviceModelId: number | null;
   assetConditionId: number | null;
   /** 1. seviye (üst konum) */
@@ -45,6 +46,7 @@ export const defaultProductListFilters = (): ProductListFilters => ({
   unitOfMeasure: '',
   schoolId: null,
   supplierId: null,
+  deviceBrand: null,
   deviceModelId: null,
   assetConditionId: null,
   parentLocationId: null,
@@ -120,7 +122,8 @@ export function applyProductListFilters(
   products: Product[],
   filters: ProductListFilters,
   chipSearch: string,
-  locations: Location[] = []
+  locations: Location[] = [],
+  deviceModels: { id: number; brand?: string }[] = []
 ): Product[] {
   let filtered = [...products];
 
@@ -159,6 +162,13 @@ export function applyProductListFilters(
         p.primarySupplierId === filters.supplierId ||
         p.suppliers?.some((s) => s.id === filters.supplierId)
     );
+  }
+
+  if (filters.deviceBrand) {
+    const brandModelIds = new Set(
+      deviceModels.filter((m) => m.brand?.trim() === filters.deviceBrand?.trim()).map((m) => m.id)
+    );
+    filtered = filtered.filter((p) => p.deviceModelId != null && brandModelIds.has(p.deviceModelId));
   }
 
   if (filters.deviceModelId) {
@@ -300,6 +310,7 @@ export function countActiveProductFilters(filters: ProductListFilters): number {
   if (filters.unitOfMeasure) n++;
   if (filters.schoolId) n++;
   if (filters.supplierId) n++;
+  if (filters.deviceBrand) n++;
   if (filters.deviceModelId) n++;
   if (filters.assetConditionId) n++;
   if (filters.parentLocationId) n++;
@@ -347,9 +358,12 @@ export function buildProductFilterChips(filters: ProductListFilters, lookup: Fil
     const s = lookup.suppliers.find((x) => x.id === filters.supplierId);
     chips.push({ key: 'supplierId', label: `Tedarikçi: ${s?.name || filters.supplierId}` });
   }
+  if (filters.deviceBrand) {
+    chips.push({ key: 'deviceBrand', label: `Marka: ${filters.deviceBrand}` });
+  }
   if (filters.deviceModelId) {
     const m = lookup.models.find((x) => x.id === filters.deviceModelId);
-    const modelLabel = m?.brand ? `${m.brand} — ${m.name}` : m?.name;
+    const modelLabel = m?.name ?? m?.brand;
     chips.push({ key: 'deviceModelId', label: `Model: ${modelLabel || filters.deviceModelId}` });
   }
   if (filters.assetConditionId) {
@@ -430,6 +444,10 @@ export function clearProductFilterKey(
       break;
     case 'supplierId':
       next.supplierId = null;
+      break;
+    case 'deviceBrand':
+      next.deviceBrand = null;
+      next.deviceModelId = null;
       break;
     case 'deviceModelId':
       next.deviceModelId = null;
