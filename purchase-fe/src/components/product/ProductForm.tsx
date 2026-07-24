@@ -500,7 +500,7 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
         const res = await productService.updateProduct(productId, {
           ...payload,
           active,
-          ...(serial ? { serialnumber: serial } : {}),
+          ...(serial ? { serialNumber: serial } : {}),
         } as UpdateProductRequest);
         if (!res.success) {
           handleFailure(res);

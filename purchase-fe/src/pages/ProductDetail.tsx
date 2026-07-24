@@ -659,6 +659,20 @@ export const ProductDetail = () => {
                   <dt className="text-sm font-medium text-gray-500">Birim</dt>
                   <dd className="mt-1 text-sm text-gray-900">{product.unitOfMeasure}</dd>
                 </div>
+                {product.serialNumber && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Seri No</dt>
+                    <dd className="mt-1 text-sm text-gray-900 font-mono">{product.serialNumber}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Oluşturan</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{product.createdByUserName || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Oluşturulma</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{formatDate(product.createdAt)}</dd>
+                </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Minimum Miktar</dt>
                   <dd className="mt-1 text-sm text-gray-900">{product.minQuantity}</dd>
@@ -1013,6 +1027,9 @@ export const ProductDetail = () => {
                       Notlar
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Oluşturan
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Fotoğraf
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1075,6 +1092,9 @@ export const ProductDetail = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {assignment.notes || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {assignment.createdByUserName || '—'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <AssignmentFormPhotoThumb

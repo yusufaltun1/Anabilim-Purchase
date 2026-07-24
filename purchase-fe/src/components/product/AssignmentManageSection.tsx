@@ -206,6 +206,9 @@ export const AssignmentManageSection = ({
                     Tarih
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Oluşturan
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Durum
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -253,6 +256,9 @@ export const AssignmentManageSection = ({
                     )}
                     <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                       {formatDate(assignment.assignmentDate)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                      {assignment.createdByUserName || '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
                       {STATUS_LABELS[assignment.status] ?? assignment.status}

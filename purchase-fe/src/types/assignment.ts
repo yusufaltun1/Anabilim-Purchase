@@ -30,6 +30,8 @@ export interface Assignment {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  createdByUserId?: number;
+  createdByUserName?: string;
   expired: boolean;
   userAssignment: boolean;
   locationAssignment: boolean;

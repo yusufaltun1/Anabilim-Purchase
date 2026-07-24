@@ -26,6 +26,9 @@ public class ProductMapper {
         product.setImageUrl(createDto.getImageUrl());
         product.setEstimatedUnitPrice(createDto.getEstimatedUnitPrice());
         product.setCurrency(createDto.getCurrency());
+        if (createDto.getSerialNumber() != null && !createDto.getSerialNumber().isBlank()) {
+            product.setSerialNumber(createDto.getSerialNumber().trim());
+        }
         return product;
     }
 
@@ -37,7 +40,10 @@ public class ProductMapper {
         product.setMinQuantity(updateDto.getMinQuantity());
         product.setMaxQuantity(updateDto.getMaxQuantity());
         product.setEstimatedUnitPrice(updateDto.getEstimatedUnitPrice());
-        product.setSerialNumber(updateDto.getSerialnumber());
+        if (updateDto.getSerialNumber() != null) {
+            String serial = updateDto.getSerialNumber().trim();
+            product.setSerialNumber(serial.isEmpty() ? null : serial);
+        }
         product.setImageUrl(updateDto.getImageUrl());
         product.setCurrency(updateDto.getCurrency());
         product.setActive(updateDto.isActive());
@@ -81,6 +87,10 @@ public class ProductMapper {
         dto.setActive(product.isActive());
         dto.setCreatedAt(product.getCreatedAt());
         dto.setUpdatedAt(product.getUpdatedAt());
+        if (product.getCreatedByUser() != null) {
+            dto.setCreatedByUserId(product.getCreatedByUser().getId());
+            dto.setCreatedByUserName(product.getCreatedByUser().getFullName());
+        }
 
         return dto;
     }

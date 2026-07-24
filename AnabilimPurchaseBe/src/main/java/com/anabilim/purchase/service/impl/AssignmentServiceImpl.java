@@ -12,6 +12,7 @@ import com.anabilim.purchase.repository.*;
 import com.anabilim.purchase.service.AssetConditionSupport;
 import com.anabilim.purchase.service.AssignmentFormService;
 import com.anabilim.purchase.service.AssignmentService;
+import com.anabilim.purchase.service.CurrentUserService;
 import com.anabilim.purchase.entity.enums.MovementType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class AssignmentServiceImpl implements AssignmentService {
     private final WarehouseRepository warehouseRepository;
     private final AssetConditionSupport assetConditionSupport;
     private final AssignmentFormService assignmentFormService;
+    private final CurrentUserService currentUserService;
     
     @Override
     public AssignmentDto createAssignment(CreateAssignmentDto dto) {
@@ -98,6 +100,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
         // Geçerlilik tarihi belirtilmezse null kalır (manuel iade gerekir)
         
+        currentUserService.findCurrentUser().ifPresent(assignment::setCreatedByUser);
+
         // Assignment'ı kaydet
         Assignment savedAssignment = assignmentRepository.save(assignment);
         

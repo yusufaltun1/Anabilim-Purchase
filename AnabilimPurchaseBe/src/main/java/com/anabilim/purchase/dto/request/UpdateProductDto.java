@@ -2,6 +2,7 @@ package com.anabilim.purchase.dto.request;
 
 import com.anabilim.purchase.entity.enums.ProductType;
 import com.anabilim.purchase.entity.enums.UnitOfMeasure;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -21,8 +22,9 @@ public class UpdateProductDto {
     @Size(min = 2, max = 100, message = "Ürün adı 2-100 karakter arasında olmalıdır")
     private String name;
 
+    @JsonAlias("serialnumber")
     @Size(max = 100, message = "Seri numarası en fazla 100 karakter olabilir")
-    private String serialnumber;
+    private String serialNumber;
 
 
     private String imageUrl;

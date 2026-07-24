@@ -58,6 +58,10 @@ public class AssignmentDto {
     private LocalDateTime createdAt;
     
     private LocalDateTime updatedAt;
+
+    private Long createdByUserId;
+
+    private String createdByUserName;
     
     // Hesaplanmış alanlar
     private boolean isExpired;

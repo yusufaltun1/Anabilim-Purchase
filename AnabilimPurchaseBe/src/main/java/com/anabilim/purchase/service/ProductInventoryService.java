@@ -155,6 +155,9 @@ public class ProductInventoryService {
         dto.setDomainName(item.getDomainName());
         dto.setIpAddress(item.getIpAddress());
         dto.setMacAddress(item.getMacAddress());
+        if (item.getSerialNumber() != null && !item.getSerialNumber().isBlank()) {
+            dto.setSerialNumber(item.getSerialNumber());
+        }
         if (item.getDefaultParentLocation() != null) {
             dto.setDefaultParentLocationId(item.getDefaultParentLocation().getId());
             dto.setDefaultParentLocationName(item.getDefaultParentLocation().getName());

@@ -29,6 +29,8 @@ public class ProductDto {
     private boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long createdByUserId;
+    private String createdByUserName;
 
     private List<String> imageUrls;
     private String assetLabel;

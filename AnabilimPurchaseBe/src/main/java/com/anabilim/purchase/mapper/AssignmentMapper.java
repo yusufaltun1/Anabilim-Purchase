@@ -45,6 +45,10 @@ public class AssignmentMapper {
         dto.setActive(entity.isActive());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
+        if (entity.getCreatedByUser() != null) {
+            dto.setCreatedByUserId(entity.getCreatedByUser().getId());
+            dto.setCreatedByUserName(entity.getCreatedByUser().getFullName());
+        }
         
         // StockItem bilgileri
         if (entity.getStockItem() != null) {

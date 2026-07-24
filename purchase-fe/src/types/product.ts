@@ -34,6 +34,8 @@ export interface Product {
   active?: boolean; // Backend'den gelen alan
   createdAt?: string;
   updatedAt?: string;
+  createdByUserId?: number;
+  createdByUserName?: string;
   estimatedUnitPrice?: number;
   minQuantity?: number;
   maxQuantity?: number;
@@ -143,7 +145,6 @@ export interface UpdateProductRequest {
   supplierIds?: number[];
   ipAddress?: string;
   macAddress?: string;
-  serialnumber?: string;
 }
 
 export interface ProductProcurementSummary {

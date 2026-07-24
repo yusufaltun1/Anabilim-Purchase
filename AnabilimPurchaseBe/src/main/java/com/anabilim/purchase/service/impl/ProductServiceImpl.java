@@ -11,6 +11,7 @@ import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.mapper.ProductMapper;
 import com.anabilim.purchase.repository.*;
 import com.anabilim.purchase.service.AssetConditionSupport;
+import com.anabilim.purchase.service.CurrentUserService;
 import com.anabilim.purchase.service.ProductInventoryService;
 import com.anabilim.purchase.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductInventoryService productInventoryService;
     private final AssignmentRepository assignmentRepository;
     private final AssetConditionSupport assetConditionSupport;
+    private final CurrentUserService currentUserService;
 
     @Override
     public ProductDto createProduct(CreateProductDto createDto) {
@@ -67,6 +69,7 @@ public class ProductServiceImpl implements ProductService {
 
         applyProductRelations(product, createDto.getDeviceModelId(), createDto.getPurchaseRequestId());
         applySuppliers(product, createDto.getSupplierIds());
+        currentUserService.findCurrentUser().ifPresent(product::setCreatedByUser);
 
         product = productRepository.save(product);
         saveProductImages(product, createDto.getImageUrls(), createDto.getImageUrl());
@@ -253,6 +256,9 @@ public class ProductServiceImpl implements ProductService {
         StockItem item = new StockItem();
         item.setProduct(product);
         item.setSerialNumber(dto.getSerialNumber() != null ? dto.getSerialNumber() : product.getSerialNumber());
+        if (item.getSerialNumber() != null && !item.getSerialNumber().isBlank()) {
+            product.setSerialNumber(item.getSerialNumber().trim());
+        }
         item.setAssetLabel(product.getCode());
         item.setDomainName(dto.getDomainName());
         item.setIpAddress(dto.getIpAddress());
@@ -271,8 +277,12 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private void updateStockItemFromUpdateDto(StockItem item, UpdateProductDto dto) {
-        if (dto.getSerialnumber() != null) {
-            item.setSerialNumber(dto.getSerialnumber());
+        if (dto.getSerialNumber() != null) {
+            String serial = dto.getSerialNumber().trim();
+            item.setSerialNumber(serial.isEmpty() ? null : serial);
+            if (item.getProduct() != null) {
+                item.getProduct().setSerialNumber(item.getSerialNumber());
+            }
         }
         if (item.getProduct() != null && item.getProduct().getCode() != null) {
             item.setAssetLabel(item.getProduct().getCode());
