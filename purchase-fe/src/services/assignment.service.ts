@@ -486,6 +486,42 @@ class AssignmentService {
     this.triggerBlobDownload(blob, fileName);
   }
 
+  async downloadReturnDocument(assignmentId: number): Promise<void> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/${assignmentId}/return/document`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message || 'İade belgesi indirilemedi');
+    }
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let fileName = `iade-belgesi-${assignmentId}`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) fileName = match[1].trim();
+    }
+    this.triggerBlobDownload(blob, fileName);
+  }
+
+  async downloadReturnPhoto(assignmentId: number): Promise<void> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/${assignmentId}/return/photo`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message || 'İade fotoğrafı indirilemedi');
+    }
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let fileName = `iade-foto-${assignmentId}.jpg`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) fileName = match[1].trim();
+    }
+    this.triggerBlobDownload(blob, fileName);
+  }
+
   async uploadFormPhoto(assignmentId: number, file: File): Promise<void> {
     const formData = new FormData();
     formData.append('file', file);

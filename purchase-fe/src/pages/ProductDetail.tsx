@@ -21,6 +21,7 @@ import { ProductStockMovementSection } from '../components/product/ProductStockM
 import { SerialStockItemSection } from '../components/product/SerialStockItemSection';
 import { AssignmentFormPhotoThumb } from '../components/product/AssignmentFormPhotoThumb';
 import { AssignmentReturnModal } from '../components/product/AssignmentReturnModal';
+import { AssignmentDocumentLinks } from '../components/product/AssignmentDocumentLinks';
 import { AssignmentFormPhotoPicker } from '../components/product/AssignmentFormPhotoPicker';
 import {
   isConsumableProductType,
@@ -307,17 +308,6 @@ export const ProductDetail = () => {
       showNotification(err instanceof Error ? err.message : 'İmzalı form yüklenemedi', 'error');
     } finally {
       setSignedFormUploadingId(null);
-    }
-  };
-
-  const handleDownloadSignedForm = async (assignmentId: number) => {
-    try {
-      setFormDownloadingId(assignmentId);
-      await assignmentService.downloadSignedAssignmentForm(assignmentId);
-    } catch (err: unknown) {
-      showNotification(err instanceof Error ? err.message : 'İmzalı form indirilemedi', 'error');
-    } finally {
-      setFormDownloadingId(null);
     }
   };
 
@@ -1033,6 +1023,9 @@ export const ProductDetail = () => {
                       Fotoğraf
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Belgeler
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Zimmet Formu
                     </th>
                   </tr>
@@ -1105,44 +1098,46 @@ export const ProductDetail = () => {
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <AssignmentDocumentLinks
+                          assignment={assignment}
+                          downloadingId={formDownloadingId}
+                          onDownloadingChange={setFormDownloadingId}
+                          onError={(message) => showNotification(message, 'error')}
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadAssignmentForm(assignment.id)}
-                            disabled={formDownloadingId === assignment.id}
-                            className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 text-left"
-                          >
-                            {formDownloadingId === assignment.id ? 'İndiriliyor…' : 'Formu indir'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUploadFormPhotoClick(assignment.id)}
-                            disabled={formPhotoUploadingId === assignment.id}
-                            className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 text-left"
-                          >
-                            {formPhotoUploadingId === assignment.id
-                              ? 'Fotoğraf yükleniyor…'
-                              : assignment.hasFormPhoto
-                                ? 'Fotoğrafı değiştir'
-                                : 'Fotoğraf yükle'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUploadSignedFormClick(assignment.id)}
-                            disabled={signedFormUploadingId === assignment.id}
-                            className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 text-left"
-                          >
-                            {signedFormUploadingId === assignment.id ? 'Yükleniyor…' : 'İmzalı yükle'}
-                          </button>
-                          {assignment.hasSignedForm && (
-                            <button
-                              type="button"
-                              onClick={() => handleDownloadSignedForm(assignment.id)}
-                              disabled={formDownloadingId === assignment.id}
-                              className="text-green-700 hover:text-green-900 disabled:opacity-50 text-left"
-                            >
-                              İmzalı indir
-                            </button>
+                          {assignment.status === AssignmentStatus.ACTIVE && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadAssignmentForm(assignment.id)}
+                                disabled={formDownloadingId === assignment.id}
+                                className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 text-left"
+                              >
+                                {formDownloadingId === assignment.id ? 'İndiriliyor…' : 'Formu indir'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUploadFormPhotoClick(assignment.id)}
+                                disabled={formPhotoUploadingId === assignment.id}
+                                className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 text-left"
+                              >
+                                {formPhotoUploadingId === assignment.id
+                                  ? 'Fotoğraf yükleniyor…'
+                                  : assignment.hasFormPhoto
+                                    ? 'Fotoğrafı değiştir'
+                                    : 'Fotoğraf yükle'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUploadSignedFormClick(assignment.id)}
+                                disabled={signedFormUploadingId === assignment.id}
+                                className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 text-left"
+                              >
+                                {signedFormUploadingId === assignment.id ? 'Yükleniyor…' : 'İmzalı yükle'}
+                              </button>
+                            </>
                           )}
                           {assignment.canBeReturned && (
                             <button

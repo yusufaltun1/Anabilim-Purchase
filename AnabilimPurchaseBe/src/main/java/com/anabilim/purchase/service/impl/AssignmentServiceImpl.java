@@ -105,6 +105,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         // Assignment'ı kaydet
         Assignment savedAssignment = assignmentRepository.save(assignment);
         
+        // Konum zimmeti: cihazın konum bilgisini zimmetlenen konuma yaz
+        applyAssignedLocationToStockItem(savedAssignment);
+
         // Depodan çıkış kaydı oluştur
         createStockMovementForAssignment(savedAssignment, dto.getWarehouseId());
         
@@ -139,6 +142,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
 
         revertStockForCancelledAssignment(assignment);
+        clearStockItemLocationIfLocationAssignment(assignment);
         assignmentFormService.deleteFormPhotoFiles(assignment);
         assignmentRepository.delete(assignment);
     }
@@ -264,6 +268,9 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
         
         assignment.markAsReturned();
+
+        // Konum zimmeti iade edilince cihaz üzerindeki konum bilgisi temizlenir
+        clearStockItemLocationIfLocationAssignment(assignment);
         
         Assignment savedAssignment = assignmentRepository.save(assignment);
         
@@ -594,6 +601,43 @@ public class AssignmentServiceImpl implements AssignmentService {
             return "Konum: " + assignment.getAssignedLocation().getName();
         }
         return "Konum: " + assignment.getLocationName();
+    }
+
+    /** Konum zimmetinde cihazın varsayılan konumunu zimmetlenen konuma bağlar. */
+    private void applyAssignedLocationToStockItem(Assignment assignment) {
+        if (!assignment.isLocationAssignment() || assignment.getStockItem() == null) {
+            return;
+        }
+        Location assignedLocation = assignment.getAssignedLocation();
+        if (assignedLocation == null) {
+            return;
+        }
+
+        StockItem stockItem = assignment.getStockItem();
+        Location root = assignedLocation;
+        while (root.getParent() != null) {
+            root = root.getParent();
+        }
+
+        if (assignedLocation.getParent() == null) {
+            stockItem.setDefaultParentLocation(assignedLocation);
+            stockItem.setDefaultChildLocation(null);
+        } else {
+            stockItem.setDefaultParentLocation(root);
+            stockItem.setDefaultChildLocation(assignedLocation);
+        }
+        stockItemRepository.save(stockItem);
+    }
+
+    /** Konum zimmeti iade/iptalinde cihaz konum bilgisini temizler. */
+    private void clearStockItemLocationIfLocationAssignment(Assignment assignment) {
+        if (!assignment.isLocationAssignment() || assignment.getStockItem() == null) {
+            return;
+        }
+        StockItem stockItem = assignment.getStockItem();
+        stockItem.setDefaultParentLocation(null);
+        stockItem.setDefaultChildLocation(null);
+        stockItemRepository.save(stockItem);
     }
     
     @Override

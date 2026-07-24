@@ -6,6 +6,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { formatDate } from '../../utils/date';
 import { AssignmentFormPhotoThumb } from './AssignmentFormPhotoThumb';
 import { AssignmentReturnModal } from './AssignmentReturnModal';
+import { AssignmentDocumentLinks } from './AssignmentDocumentLinks';
 
 const STATUS_LABELS: Record<AssignmentStatus, string> = {
   [AssignmentStatus.ACTIVE]: 'Aktif',
@@ -93,17 +94,6 @@ export const AssignmentManageSection = ({
     } finally {
       setSignedFormUploadingId(null);
       setSignedFormTargetId(null);
-    }
-  };
-
-  const handleDownloadSignedForm = async (assignmentId: number) => {
-    try {
-      setFormDownloadingId(assignmentId);
-      await assignmentService.downloadSignedAssignmentForm(assignmentId);
-    } catch (err: unknown) {
-      showNotification(err instanceof Error ? err.message : 'İmzalı form indirilemedi', 'error');
-    } finally {
-      setFormDownloadingId(null);
     }
   };
 
@@ -215,6 +205,9 @@ export const AssignmentManageSection = ({
                     Fotoğraf
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Belgeler
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     İşlemler
                   </th>
                 </tr>
@@ -272,6 +265,14 @@ export const AssignmentManageSection = ({
                       />
                     </td>
                     <td className="px-4 py-3 text-sm">
+                      <AssignmentDocumentLinks
+                        assignment={assignment}
+                        downloadingId={formDownloadingId}
+                        onDownloadingChange={setFormDownloadingId}
+                        onError={(message) => showNotification(message, 'error')}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-sm">
                       <div className="flex flex-col gap-1 min-w-[9rem]">
                         {assignment.status === AssignmentStatus.ACTIVE && (
                           <>
@@ -303,16 +304,6 @@ export const AssignmentManageSection = ({
                             >
                               {signedFormUploadingId === assignment.id ? 'Yükleniyor…' : 'İmzalı zimmet yükle'}
                             </button>
-                            {assignment.hasSignedForm && (
-                              <button
-                                type="button"
-                                onClick={() => handleDownloadSignedForm(assignment.id)}
-                                disabled={formDownloadingId === assignment.id}
-                                className="text-green-700 hover:text-green-900 disabled:opacity-50 text-left"
-                              >
-                                İmzalı zimmet indir
-                              </button>
-                            )}
                           </>
                         )}
                         {assignment.canBeReturned && (
