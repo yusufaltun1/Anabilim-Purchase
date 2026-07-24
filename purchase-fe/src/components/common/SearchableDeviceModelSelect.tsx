@@ -11,6 +11,10 @@ interface SearchableDeviceModelSelectProps {
   placeholder?: string;
   hasError?: boolean;
   allowClear?: boolean;
+  /** Seçili markaya göre model listesini daraltır */
+  brandFilter?: string | null;
+  /** Marka ayrı seçildiyse yalnızca model adını göster */
+  nameOnly?: boolean;
 }
 
 export const SearchableDeviceModelSelect = ({
@@ -21,24 +25,34 @@ export const SearchableDeviceModelSelect = ({
   placeholder = 'Marka veya model ara...',
   hasError,
   allowClear = false,
+  brandFilter = null,
+  nameOnly = false,
 }: SearchableDeviceModelSelectProps) => {
   const [query, setQuery] = useState('');
 
+  const scopedModels = useMemo(() => {
+    const brand = brandFilter?.trim();
+    if (!brand) return models;
+    return models.filter((m) => m.brand?.trim() === brand);
+  }, [models, brandFilter]);
+
   const selected = useMemo(
-    () => models.find((m) => m.id === value) ?? null,
-    [models, value]
+    () => scopedModels.find((m) => m.id === value) ?? models.find((m) => m.id === value) ?? null,
+    [scopedModels, models, value]
   );
+
+  const formatDisplay = (m: DeviceModel) => (nameOnly ? m.name : formatDeviceModelLabel(m));
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return models;
-    return models.filter((m) => {
-      const label = formatDeviceModelLabel(m).toLowerCase();
+    if (!q) return scopedModels;
+    return scopedModels.filter((m) => {
+      const label = formatDisplay(m).toLowerCase();
       const brand = m.brand?.toLowerCase() ?? '';
       const name = m.name.toLowerCase();
       return label.includes(q) || brand.includes(q) || name.includes(q);
     });
-  }, [models, query]);
+  }, [scopedModels, query, nameOnly]);
 
   const borderClass = hasError
     ? 'border-red-500 focus-within:border-red-500 focus-within:ring-red-500'
@@ -61,7 +75,7 @@ export const SearchableDeviceModelSelect = ({
         >
           <Combobox.Input
             className="w-full border-none py-2 pl-3 pr-10 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-0"
-            displayValue={(m: DeviceModel | null) => (m ? formatDeviceModelLabel(m) : '')}
+            displayValue={(m: DeviceModel | null) => (m ? formatDisplay(m) : '')}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}
           />
@@ -95,9 +109,9 @@ export const SearchableDeviceModelSelect = ({
                   {({ selected: isSelected, active }) => (
                     <>
                       <span className={`block truncate ${isSelected ? 'font-semibold' : 'font-normal'}`}>
-                        {formatDeviceModelLabel(m)}
+                        {formatDisplay(m)}
                       </span>
-                      {m.brand && m.name && (
+                      {!nameOnly && m.brand && m.name && (
                         <span className={`block truncate text-xs ${active ? 'text-indigo-100' : 'text-gray-500'}`}>
                           {m.brand} · {m.name}
                         </span>

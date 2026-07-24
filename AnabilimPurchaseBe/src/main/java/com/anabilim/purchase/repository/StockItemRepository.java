@@ -60,4 +60,11 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
     @Query("SELECT si.product.category.id, COUNT(si) FROM StockItem si WHERE si.status = 'IN_STOCK' AND si.isActive = true GROUP BY si.product.category.id")
     List<Object[]> countInStockGroupByCategoryId();
 
+    @Query("""
+            SELECT DISTINCT si.product FROM StockItem si
+            WHERE si.isActive = true
+            AND (si.defaultParentLocation.id = :locationId OR si.defaultChildLocation.id = :locationId)
+            """)
+    List<com.anabilim.purchase.entity.Product> findDistinctProductsByDefaultLocationId(@Param("locationId") Long locationId);
+
 }

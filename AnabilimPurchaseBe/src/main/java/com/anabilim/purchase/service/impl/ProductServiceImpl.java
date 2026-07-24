@@ -43,6 +43,7 @@ public class ProductServiceImpl implements ProductService {
     private final WarehouseRepository warehouseRepository;
     private final WarehouseStockRepository warehouseStockRepository;
     private final ProductInventoryService productInventoryService;
+    private final AssignmentRepository assignmentRepository;
     private final AssetConditionSupport assetConditionSupport;
 
     @Override
@@ -181,6 +182,33 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public List<ProductDto> getProductsBySupplier(Long supplierId) {
         return productMapper.toDtoList(productRepository.findBySuppliersIdAndIsActiveTrue(supplierId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductDto> getProductsByLocation(Long locationId) {
+        if (!locationRepository.existsById(locationId)) {
+            throw new ResourceNotFoundException("Konum bulunamadı: " + locationId);
+        }
+
+        List<Product> products = new ArrayList<>();
+        Set<Long> seenIds = new HashSet<>();
+
+        for (Product product : stockItemRepository.findDistinctProductsByDefaultLocationId(locationId)) {
+            if (product != null && seenIds.add(product.getId())) {
+                products.add(product);
+            }
+        }
+        for (Product product : assignmentRepository.findDistinctActiveProductsByAssignedLocationId(locationId)) {
+            if (product != null && seenIds.add(product.getId())) {
+                products.add(product);
+            }
+        }
+
+        products.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        List<ProductDto> dtos = productMapper.toDtoList(products);
+        productInventoryService.enrichProductDtoList(dtos, products);
+        return dtos;
     }
 
     @Override

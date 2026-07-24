@@ -5,6 +5,7 @@ import com.anabilim.purchase.dto.response.AttachmentDownloadResult;
 import com.anabilim.purchase.dto.response.AssignmentSignedFormDto;
 import com.anabilim.purchase.entity.Assignment;
 import com.anabilim.purchase.entity.DeviceModel;
+import com.anabilim.purchase.entity.Location;
 import com.anabilim.purchase.entity.Product;
 import com.anabilim.purchase.entity.StockItem;
 import com.anabilim.purchase.entity.User;
@@ -12,6 +13,7 @@ import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.repository.AssignmentRepository;
 import com.anabilim.purchase.repository.UserRepository;
+import com.anabilim.purchase.util.LocationSupport;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.ClientAnchor;
@@ -385,12 +387,13 @@ public class AssignmentFormService {
         String formDate = formatFormDate(assignment.getAssignmentDate());
         User deliveringUser = resolveCurrentUser();
 
-        setCellValue(sheet, "C3", resolveFirstLevelLocation(assignedUser));
-        setCellValue(sheet, "C4", resolveRecipientName(assignment));
+        // Şablon: C3=Şirket/Okul, C4=Personel Ad Soyad, F5=Çalışma Lokasyonu
+        setCellValue(sheet, "C3", resolveCompanyOrSchool(assignment));
+        setCellValue(sheet, "C4", resolvePersonnelName(assignment));
         setCellValue(sheet, "C5", formDate);
         setCellValue(sheet, "F3", assignedUser != null ? sanitizePlaceholder(assignedUser.getDepartment()) : "");
         setCellValue(sheet, "F4", assignedUser != null ? sanitizePlaceholder(assignedUser.getPosition()) : "");
-        setCellValue(sheet, "F5", resolveSecondLevelLocation(assignedUser));
+        setCellValue(sheet, "F5", resolveWorkLocationLabel(assignment));
 
         if (product != null) {
             setCellValue(sheet, "B8", nullToEmpty(product.getName()));
@@ -400,7 +403,7 @@ public class AssignmentFormService {
         setCellValue(sheet, "E8", resolveDescription(assignment, stockItem, product));
 
         setCellValue(sheet, "A17", formatDeliveryParty(deliveringUser, formDate));
-        setCellValue(sheet, "D17", formatDeliveryPartyName(resolveRecipientName(assignment), formDate));
+        setCellValue(sheet, "D17", formatDeliveryPartyName(resolveSignaturePartyName(assignment), formDate));
     }
 
     private void fillReturnForm(Sheet sheet, Assignment assignment) {
@@ -410,12 +413,14 @@ public class AssignmentFormService {
         String returnDate = formatFormDate(LocalDateTime.now());
         User receivingUser = resolveCurrentUser();
 
-        setCellValue(sheet, "C3", resolveFirstLevelLocation(assignedUser));
-        setCellValue(sheet, "C4", resolveRecipientName(assignment));
+        setCellValue(sheet, "A1", "ZİMMET İADE FORMU");
+        // Şablon: C3=Şirket/Okul, C4=Personel Ad Soyad (asla lokasyon yazılmaz), F5=Çalışma Lokasyonu
+        setCellValue(sheet, "C3", resolveCompanyOrSchool(assignment));
+        setCellValue(sheet, "C4", resolvePersonnelName(assignment));
         setCellValue(sheet, "C5", returnDate);
         setCellValue(sheet, "F3", assignedUser != null ? sanitizePlaceholder(assignedUser.getDepartment()) : "");
         setCellValue(sheet, "F4", assignedUser != null ? sanitizePlaceholder(assignedUser.getPosition()) : "");
-        setCellValue(sheet, "F5", resolveSecondLevelLocation(assignedUser));
+        setCellValue(sheet, "F5", resolveWorkLocationLabel(assignment));
 
         if (product != null) {
             setCellValue(sheet, "B8", nullToEmpty(product.getName()));
@@ -424,7 +429,8 @@ public class AssignmentFormService {
         setCellValue(sheet, "D8", resolveSerialNumber(stockItem));
         setCellValue(sheet, "E8", "İADE — " + resolveDescription(assignment, stockItem, product));
 
-        setCellValue(sheet, "A17", formatDeliveryPartyName(resolveRecipientName(assignment), returnDate));
+        // İade: teslim eden = zimmet sahibi personel (veya konum etiketi), teslim alan = depoyu alan kullanıcı
+        setCellValue(sheet, "A17", formatDeliveryPartyName(resolveSignaturePartyName(assignment), returnDate));
         setCellValue(sheet, "D17", formatDeliveryParty(receivingUser, returnDate));
     }
 
@@ -532,15 +538,75 @@ public class AssignmentFormService {
         return "";
     }
 
-    private String resolveRecipientName(Assignment assignment) {
+    /** Excel C3 — Şirket/Okul Adı (lokasyon zimmetinde üst konum). */
+    private String resolveCompanyOrSchool(Assignment assignment) {
         User user = assignment.getAssignedUser();
         if (user != null) {
-            return resolveUserDisplayName(user);
+            String fromUser = resolveFirstLevelLocation(user);
+            if (!fromUser.isBlank()) {
+                return fromUser;
+            }
         }
-        if (assignment.getAssignedLocation() != null && assignment.getAssignedLocation().getName() != null) {
-            return assignment.getAssignedLocation().getName().trim();
+        Location assignedLocation = assignment.getAssignedLocation();
+        if (assignedLocation != null) {
+            Location root = assignedLocation;
+            while (root.getParent() != null) {
+                root = root.getParent();
+            }
+            if (root.getName() != null && !root.getName().isBlank()) {
+                return root.getName().trim();
+            }
+        }
+        return "";
+    }
+
+    /** Excel C4 — yalnızca personel adı; konum zimmetinde boş bırakılır. */
+    private String resolvePersonnelName(Assignment assignment) {
+        User user = assignment.getAssignedUser();
+        if (user == null) {
+            return "";
+        }
+        return resolveUserDisplayName(user);
+    }
+
+    /** Excel F5 — Çalışma Lokasyonu (kişi veya zimmetlenen konum). */
+    private String resolveWorkLocationLabel(Assignment assignment) {
+        User user = assignment.getAssignedUser();
+        if (user != null) {
+            String userLocation = resolveSecondLevelLocation(user);
+            if (!userLocation.isBlank()) {
+                return userLocation;
+            }
+            return sanitizePlaceholder(user.getWorkLocation());
+        }
+        Location assignedLocation = assignment.getAssignedLocation();
+        if (assignedLocation != null) {
+            String path = LocationSupport.path(assignedLocation);
+            if (path != null && !path.isBlank()) {
+                return path;
+            }
+            if (assignedLocation.getName() != null) {
+                return assignedLocation.getName().trim();
+            }
+        }
+        if (assignment.getLocationDetails() != null && !assignment.getLocationDetails().isBlank()) {
+            return assignment.getLocationDetails().trim();
         }
         return nullToEmpty(assignment.getLocationName());
+    }
+
+    /** İmza satırı için taraf adı: personel veya konum etiketi. */
+    private String resolveSignaturePartyName(Assignment assignment) {
+        String personnel = resolvePersonnelName(assignment);
+        if (!personnel.isBlank()) {
+            return personnel;
+        }
+        Location assignedLocation = assignment.getAssignedLocation();
+        if (assignedLocation != null && assignedLocation.getName() != null) {
+            return "Konum: " + assignedLocation.getName().trim();
+        }
+        String locationName = nullToEmpty(assignment.getLocationName());
+        return locationName.isBlank() ? "" : "Konum: " + locationName;
     }
 
     private User resolveCurrentUser() {
@@ -656,7 +722,7 @@ public class AssignmentFormService {
 
     private String buildReturnFormFileName(Assignment assignment) {
         String partyPart = "iade";
-        String name = resolveRecipientName(assignment);
+        String name = resolveSignaturePartyName(assignment);
         if (name != null && !name.isBlank()) {
             partyPart = name.replaceAll("[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ._-]", "_");
         }

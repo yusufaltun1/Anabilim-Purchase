@@ -2,12 +2,11 @@ package com.anabilim.purchase.controller;
 
 
 import com.anabilim.purchase.dto.request.CreateLocationDto;
-import com.anabilim.purchase.dto.request.CreateProductDto;
 import com.anabilim.purchase.dto.request.UpdateLocationDto;
-import com.anabilim.purchase.dto.request.UpdateProductDto;
 import com.anabilim.purchase.dto.response.LocationDto;
 import com.anabilim.purchase.dto.response.ProductDto;
 import com.anabilim.purchase.service.LocationService;
+import com.anabilim.purchase.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LocationController {
     private final LocationService locationService;
+    private final ProductService productService;
 
     @GetMapping
     public ResponseEntity<List<LocationDto>> getAllLocations() {
@@ -49,6 +49,11 @@ public class LocationController {
     @GetMapping("/{id}")
     public ResponseEntity<LocationDto> getLocation(@PathVariable Long id) {
         return ResponseEntity.ok(locationService.getLocationById(id));
+    }
+
+    @GetMapping("/{id}/products")
+    public ResponseEntity<List<ProductDto>> getProductsByLocation(@PathVariable Long id) {
+        return ResponseEntity.ok(productService.getProductsByLocation(id));
     }
 
 

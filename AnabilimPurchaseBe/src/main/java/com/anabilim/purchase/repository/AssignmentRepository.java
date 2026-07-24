@@ -109,4 +109,12 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
             "LEFT JOIN FETCH a.assignedLocation " +
             "WHERE a.id = :id")
     Optional<Assignment> findByIdWithDetails(@Param("id") Long id);
+
+    @Query("""
+            SELECT DISTINCT a.product FROM Assignment a
+            WHERE a.assignedLocation.id = :locationId
+            AND a.status = com.anabilim.purchase.entity.enums.AssignmentStatus.ACTIVE
+            """)
+    List<com.anabilim.purchase.entity.Product> findDistinctActiveProductsByAssignedLocationId(
+            @Param("locationId") Long locationId);
 }

@@ -6,7 +6,9 @@ import { Location } from '../types/location';
 import { assignmentService } from '../services/assignment.service';
 import { Assignment, AssignmentStatus } from '../types/assignment';
 import { AssignmentManageSection } from '../components/product/AssignmentManageSection';
+import { ProductListPanel } from '../components/product/ProductListPanel';
 import { formatDate } from '../utils/date';
+import { Product } from '../types/product';
 
 export const LocationDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +18,8 @@ export const LocationDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [locationProducts, setLocationProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -50,12 +54,25 @@ export const LocationDetail = () => {
     }
   };
 
+  const loadProducts = async (locationId: number) => {
+    try {
+      setProductsLoading(true);
+      const list = await locationService.getProductsByLocationId(locationId);
+      setLocationProducts(list);
+    } catch (err) {
+      console.error('Error loading location products:', err);
+      setLocationProducts([]);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
   const loadLocation = async (locationId: number) => {
     try {
       setLoading(true);
       const locationData = await locationService.getLocationById(locationId);
       setLocation(locationData);
-      await loadAssignments(locationId);
+      await Promise.all([loadAssignments(locationId), loadProducts(locationId)]);
     } catch (err: any) {
       setError(err.message || 'Konum yüklenirken hata oluştu');
       console.error('Error loading location:', err);
@@ -242,6 +259,16 @@ export const LocationDetail = () => {
                 </div>
               </dl>
             </div>
+          </div>
+
+          <div className="mt-8">
+            <ProductListPanel
+              title="Konumdaki Ürünler"
+              products={locationProducts}
+              loading={productsLoading}
+              emptyMessage="Bu konuma bağlı ürün bulunamadı."
+              onRefresh={() => location && loadProducts(location.id)}
+            />
           </div>
 
           <AssignmentManageSection

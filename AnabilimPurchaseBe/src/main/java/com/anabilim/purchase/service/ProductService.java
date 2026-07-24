@@ -16,6 +16,7 @@ public interface ProductService {
     List<ProductDto> getActiveProducts();
     List<ProductDto> getProductsByCategory(Long categoryId);
     List<ProductDto> getProductsBySupplier(Long supplierId);
+    List<ProductDto> getProductsByLocation(Long locationId);
     List<ProductDto> searchProducts(String name);
     void addSupplier(Long productId, Long supplierId);
     void removeSupplier(Long productId, Long supplierId);

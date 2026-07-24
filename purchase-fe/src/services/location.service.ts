@@ -1,6 +1,7 @@
 import { API_CONFIG } from '../config/api.config';
 import { authService } from './auth.service';
 import { Location, CreateLocationRequest, UpdateLocationRequest, LocationResponse } from '../types/location';
+import { Product } from '../types/product';
 
 function mapLocation(raw: Record<string, unknown>): Location {
   return {
@@ -71,6 +72,21 @@ class LocationService {
       throw new Error(errorData.message || 'Konum bulunamadı');
     }
     return mapLocation((await response.json()) as Record<string, unknown>);
+  }
+
+  async getProductsByLocationId(locationId: number): Promise<Product[]> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/locations/${locationId}/products`, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error((errorData as { message?: string }).message || 'Konum ürünleri yüklenemedi');
+    }
+
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
   }
 
   async createLocation(location: CreateLocationRequest): Promise<LocationResponse> {
