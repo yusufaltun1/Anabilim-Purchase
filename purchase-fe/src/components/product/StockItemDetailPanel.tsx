@@ -9,6 +9,7 @@ import { isAssignableStockRow } from '../../utils/inventoryProduct';
 import { StockItemAssignmentForm } from './StockItemAssignmentForm';
 import { AssignmentFormPhotoThumb } from './AssignmentFormPhotoThumb';
 import { AssignmentReturnModal } from './AssignmentReturnModal';
+import { AssignmentDocumentLinks } from './AssignmentDocumentLinks';
 import { LocationHierarchyPickers } from '../common/LocationHierarchyPickers';
 import { resolveProductLocationPayload } from '../../utils/locationHierarchy';
 
@@ -413,6 +414,7 @@ export const StockItemDetailPanel = ({
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Durum</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Atanan</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Fotoğraf</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Belgeler</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Not</th>
                     </tr>
                   </thead>
@@ -435,6 +437,12 @@ export const StockItemDetailPanel = ({
                             hasFormPhoto={assignment.hasFormPhoto}
                             formPhotoUrl={assignment.formPhotoUrl}
                             className="h-8 w-8 rounded object-cover border border-gray-200"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <AssignmentDocumentLinks
+                            assignment={assignment}
+                            onError={(message) => showNotification(message, 'error')}
                           />
                         </td>
                         <td className="px-3 py-2 text-gray-500">{assignment.notes || '—'}</td>
