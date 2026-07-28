@@ -240,7 +240,7 @@ export const StockItemDetailPanel = ({
       <input
         ref={signedFormInputRef}
         type="file"
-        accept=".xlsx,.pdf,image/*"
+        accept=".xlsx"
         className="hidden"
         onChange={handleSignedFormSelected}
       />

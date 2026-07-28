@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
-import { formSelect } from './formStyles';
+import { useEffect, useMemo, useState } from 'react';
 import { inventoryService } from '../../services/inventory.service';
 import {
   LOCATION_LEVEL_LABELS,
   findDefaultLocationId,
   formatLocationOptionLabel,
 } from '../../utils/locationHierarchy';
+import { SearchableOptionSelect, type SelectOption } from './SearchableOptionSelect';
 
 interface LocationOption {
   id: number;
@@ -87,67 +87,82 @@ export const LocationHierarchyPickers = ({
   const filterExcluded = (items: LocationOption[]) =>
     excludeIds.length ? items.filter((item) => !excludeIds.includes(item.id)) : items;
 
+  const rootOptions = useMemo<SelectOption<number>[]>(
+    () =>
+      filterExcluded(roots).map((loc) => ({
+        value: loc.id,
+        label: formatLocationOptionLabel(loc.name, loc.isDefault),
+        searchText: loc.name,
+      })),
+    [roots, excludeIds]
+  );
+
+  const middleOptions = useMemo<SelectOption<number>[]>(
+    () =>
+      filterExcluded(middles).map((loc) => ({
+        value: loc.id,
+        label: formatLocationOptionLabel(loc.name, loc.isDefault),
+        searchText: loc.name,
+      })),
+    [middles, excludeIds]
+  );
+
+  const leafOptions = useMemo<SelectOption<number>[]>(
+    () =>
+      filterExcluded(leaves).map((loc) => ({
+        value: loc.id,
+        label: formatLocationOptionLabel(loc.name, loc.isDefault),
+        searchText: loc.name,
+      })),
+    [leaves, excludeIds]
+  );
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{LOCATION_LEVEL_LABELS[1]}</label>
-        <select
-          className={formSelect}
-          value={rootId ?? ''}
+        <SearchableOptionSelect
+          options={rootOptions}
+          value={rootId}
           disabled={disabled}
-          onChange={(e) => {
-            const id = e.target.value ? Number(e.target.value) : null;
+          onChange={(value) => {
+            const id = typeof value === 'number' ? value : null;
             onRootChange(id);
             onMiddleChange(null);
             onLeafChange?.(null);
           }}
-        >
-          <option value="">{showLeaf ? 'Seçin' : 'Yok (1. seviye oluştur)'}</option>
-          {filterExcluded(roots).map((loc) => (
-            <option key={loc.id} value={loc.id}>
-              {formatLocationOptionLabel(loc.name, loc.isDefault)}
-            </option>
-          ))}
-        </select>
+          placeholder={showLeaf ? 'Üst konum ara…' : 'Yok (1. seviye oluştur)'}
+          allowClear
+        />
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{LOCATION_LEVEL_LABELS[2]}</label>
-        <select
-          className={formSelect}
-          value={middleId ?? ''}
+        <SearchableOptionSelect
+          options={middleOptions}
+          value={middleId}
           disabled={disabled || !rootId}
-          onChange={(e) => {
-            const id = e.target.value ? Number(e.target.value) : null;
+          onChange={(value) => {
+            const id = typeof value === 'number' ? value : null;
             onMiddleChange(id);
             onLeafChange?.(null);
           }}
-        >
-          <option value="">{showLeaf ? 'Seçin' : 'Yok (2. seviye oluştur)'}</option>
-          {filterExcluded(middles).map((loc) => (
-            <option key={loc.id} value={loc.id}>
-              {formatLocationOptionLabel(loc.name, loc.isDefault)}
-            </option>
-          ))}
-        </select>
+          placeholder={showLeaf ? 'Alt konum ara…' : 'Yok (2. seviye oluştur)'}
+          allowClear
+        />
       </div>
 
       {showLeaf && (
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">{LOCATION_LEVEL_LABELS[3]}</label>
-          <select
-            className={formSelect}
-            value={leafId ?? ''}
+          <SearchableOptionSelect
+            options={leafOptions}
+            value={leafId}
             disabled={disabled || !middleId}
-            onChange={(e) => onLeafChange?.(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">Seçin</option>
-            {filterExcluded(leaves).map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {formatLocationOptionLabel(loc.name, loc.isDefault)}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => onLeafChange?.(typeof value === 'number' ? value : null)}
+            placeholder="Detay konum ara…"
+            allowClear
+          />
         </div>
       )}
     </div>

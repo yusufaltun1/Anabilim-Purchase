@@ -229,6 +229,7 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
         macAddress: p.macAddress,
         notes: p.notes,
         schoolId: p.schoolId,
+        warehouseId: p.warehouseId ?? null,
         orderNumber: p.orderNumber,
         byod: p.byod ?? false,
         purchaseDate: toDateInput(p.purchaseDate),

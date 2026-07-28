@@ -74,6 +74,8 @@ export interface Product {
   ipAddress?: string;
   macAddress?: string;
   warrantyExpiryDate?: string;
+  warehouseId?: number;
+  warehouseName?: string;
 }
 
 export interface CreateProductRequest {

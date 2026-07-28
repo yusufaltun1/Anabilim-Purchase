@@ -208,7 +208,7 @@ export const AssignmentReturnModal = ({
               {documentFile && (
                 <p className="mt-1 text-xs text-gray-600 truncate">{documentFile.name}</p>
               )}
-              <p className="mt-1 text-xs text-gray-400">Excel, PDF veya resim (max 20 MB)</p>
+              <p className="mt-1 text-xs text-gray-400">Sadece Excel `.xlsx` dosyası (max 20 MB)</p>
             </div>
 
             <div>
@@ -256,7 +256,7 @@ export const AssignmentReturnModal = ({
       <input
         ref={documentInputRef}
         type="file"
-        accept=".xlsx,.pdf,image/*"
+        accept=".xlsx"
         className="hidden"
         onChange={handleDocumentSelected}
       />
