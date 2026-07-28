@@ -158,6 +158,10 @@ public class ProductInventoryService {
         if (item.getSerialNumber() != null && !item.getSerialNumber().isBlank()) {
             dto.setSerialNumber(item.getSerialNumber());
         }
+        if (item.getCurrentWarehouse() != null) {
+            dto.setWarehouseId(item.getCurrentWarehouse().getId());
+            dto.setWarehouseName(item.getCurrentWarehouse().getName());
+        }
         if (item.getDefaultParentLocation() != null) {
             dto.setDefaultParentLocationId(item.getDefaultParentLocation().getId());
             dto.setDefaultParentLocationName(item.getDefaultParentLocation().getName());

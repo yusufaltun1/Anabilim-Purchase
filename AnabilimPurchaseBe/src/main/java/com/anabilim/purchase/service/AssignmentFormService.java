@@ -741,21 +741,13 @@ public class AssignmentFormService {
     private boolean isAllowedSignedFormType(String contentType, String filename) {
         if (contentType != null) {
             String lower = contentType.toLowerCase();
-            if (lower.startsWith("image/")) {
-                return true;
-            }
-            if ("application/pdf".equals(lower)) {
-                return true;
-            }
             if ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".equals(lower)) {
                 return true;
             }
         }
         if (filename != null) {
             String lower = filename.toLowerCase();
-            return lower.endsWith(".pdf") || lower.endsWith(".xlsx")
-                    || lower.endsWith(".jpg") || lower.endsWith(".jpeg")
-                    || lower.endsWith(".png") || lower.endsWith(".gif") || lower.endsWith(".webp");
+            return lower.endsWith(".xlsx");
         }
         return false;
     }

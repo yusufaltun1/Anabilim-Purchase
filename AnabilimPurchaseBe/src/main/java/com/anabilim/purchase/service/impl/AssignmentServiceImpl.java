@@ -554,19 +554,11 @@ public class AssignmentServiceImpl implements AssignmentService {
             return;
         }
 
-        if (assignment.getStockItem() != null) {
-            StockItem stockItem = assignment.getStockItem();
-            List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(product);
-            if (!warehouseStocks.isEmpty()) {
-                restoreStockAfterAssignment(assignment, warehouseStocks.get(0), referenceType, notePrefix);
-            }
+        WarehouseStock targetWarehouseStock = resolveWarehouseStockForReturn(assignment);
+        if (targetWarehouseStock == null) {
             return;
         }
-
-        List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(product);
-        if (!warehouseStocks.isEmpty()) {
-            restoreStockAfterAssignment(assignment, warehouseStocks.get(0), referenceType, notePrefix);
-        }
+        restoreStockAfterAssignment(assignment, targetWarehouseStock, referenceType, notePrefix);
     }
 
     private void restoreStockAfterAssignment(
@@ -583,7 +575,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         movement.setReferenceType(referenceType);
         movement.setReferenceId(assignment.getId());
         movement.setNotes(notePrefix + assignmentTargetNote(assignment));
-        stockMovementRepository.save(movement);
+        warehouseStock.addMovement(movement);
+        warehouseStockRepository.save(warehouseStock);
 
         if (assignment.getStockItem() != null) {
             StockItem stockItem = assignment.getStockItem();
@@ -591,6 +584,27 @@ public class AssignmentServiceImpl implements AssignmentService {
             stockItem.setStatus(StockItemStatus.IN_STOCK);
             stockItemRepository.save(stockItem);
         }
+    }
+
+    private WarehouseStock resolveWarehouseStockForReturn(Assignment assignment) {
+        List<StockMovement> assignmentMovements = stockMovementRepository
+                .findByReferenceTypeAndReferenceIdOrderByCreatedAtDesc("ASSIGNMENT", assignment.getId());
+
+        for (StockMovement movement : assignmentMovements) {
+            WarehouseStock warehouseStock = movement.getWarehouseStock();
+            if (warehouseStock != null) {
+                return warehouseStockRepository.findByWarehouseAndProduct(
+                        warehouseStock.getWarehouse(),
+                        assignment.getProduct()
+                ).orElse(warehouseStock);
+            }
+        }
+
+        List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(assignment.getProduct());
+        if (!warehouseStocks.isEmpty()) {
+            return warehouseStocks.get(0);
+        }
+        return null;
     }
 
     private String assignmentTargetNote(Assignment assignment) {

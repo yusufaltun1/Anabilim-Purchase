@@ -60,6 +60,8 @@ public class ProductDto {
     private String primarySupplierName;
     private String ipAddress;
     private String macAddress;
+    private Long warehouseId;
+    private String warehouseName;
 
     /** Liste: stok kalemi durumu */
     private String stockItemStatus;

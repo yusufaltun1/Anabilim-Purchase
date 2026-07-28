@@ -45,6 +45,7 @@ public class ProductServiceImpl implements ProductService {
     private final WarehouseStockRepository warehouseStockRepository;
     private final ProductInventoryService productInventoryService;
     private final AssignmentRepository assignmentRepository;
+    private final AssetTransferItemRepository assetTransferItemRepository;
     private final AssetConditionSupport assetConditionSupport;
     private final CurrentUserService currentUserService;
 
@@ -134,6 +135,18 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Ürün bulunamadı: " + id));
         if (product.getPurchaseRequestItems() != null && !product.getPurchaseRequestItems().isEmpty()) {
             throw new ValidationException("Bu ürün satın alma taleplerinde kullanıldığı için silinemez");
+        }
+        if (assignmentRepository.countByProductId(id) > 0) {
+            throw new ValidationException("Bu ürün için zimmet kaydı bulunduğu için silinemez");
+        }
+        if (!warehouseStockRepository.findByProduct(product).isEmpty()) {
+            throw new ValidationException("Bu ürün depolarda stok kaydına sahip olduğu için silinemez");
+        }
+        if (!stockItemRepository.findByProductId(product.getId()).isEmpty()) {
+            throw new ValidationException("Bu ürüne bağlı cihaz/stok kalemi bulunduğu için silinemez");
+        }
+        if (!assetTransferItemRepository.findByProduct(product).isEmpty()) {
+            throw new ValidationException("Bu ürün transfer kayıtlarında kullanıldığı için silinemez");
         }
         productRepository.delete(product);
     }
