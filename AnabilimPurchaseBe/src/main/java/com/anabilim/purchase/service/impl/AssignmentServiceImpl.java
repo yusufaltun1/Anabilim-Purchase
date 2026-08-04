@@ -233,7 +233,7 @@ public class AssignmentServiceImpl implements AssignmentService {
     
     @Override
     public AssignmentDto returnAssignment(Long assignmentId) {
-        return returnAssignment(assignmentId, null, null, null);
+        return returnAssignment(assignmentId, null, null, null, null);
     }
 
     @Override
@@ -241,7 +241,8 @@ public class AssignmentServiceImpl implements AssignmentService {
             Long assignmentId,
             MultipartFile photo,
             MultipartFile document,
-            String notes
+            String notes,
+            Long warehouseId
     ) {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Zimmet bulunamadı: " + assignmentId));
@@ -254,6 +255,10 @@ public class AssignmentServiceImpl implements AssignmentService {
             assignmentFormService.storeReturnAttachments(assignment, photo, document);
         } else {
             throw new ValidationException("İade için ürün fotoğrafı ve belge yüklenmelidir.");
+        }
+
+        if (warehouseId == null) {
+            throw new ValidationException("İade için hedef depo seçilmelidir.");
         }
 
         if (notes != null && !notes.isBlank()) {
@@ -274,8 +279,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         
         Assignment savedAssignment = assignmentRepository.save(assignment);
         
-        // Depoya giriş kaydı oluştur
-        createStockMovementForReturn(savedAssignment);
+        // Seçilen depoya giriş kaydı oluştur
+        createStockMovementForReturn(savedAssignment, warehouseId);
         
         return assignmentMapper.toDto(savedAssignment);
     }
@@ -498,10 +503,14 @@ public class AssignmentServiceImpl implements AssignmentService {
     }
 
     /**
-     * Zimmet geri alındığında depoya giriş kaydı oluşturur
+     * Zimmet geri alındığında depoya giriş kaydı oluşturur (otomatik depo çözümleme)
      */
     private void createStockMovementForReturn(Assignment assignment) {
-        createStockMovementForReturn(assignment, "ASSIGNMENT_RETURN", "Zimmet geri alındı - ");
+        createStockMovementForReturn(assignment, null, "ASSIGNMENT_RETURN", "Zimmet geri alındı - ");
+    }
+
+    private void createStockMovementForReturn(Assignment assignment, Long warehouseId) {
+        createStockMovementForReturn(assignment, warehouseId, "ASSIGNMENT_RETURN", "Zimmet geri alındı - ");
     }
 
     private void revertStockForCancelledAssignment(Assignment assignment) {
@@ -545,6 +554,7 @@ public class AssignmentServiceImpl implements AssignmentService {
 
     private void createStockMovementForReturn(
             Assignment assignment,
+            Long warehouseId,
             String referenceType,
             String notePrefix
     ) {
@@ -554,7 +564,7 @@ public class AssignmentServiceImpl implements AssignmentService {
             return;
         }
 
-        WarehouseStock targetWarehouseStock = resolveWarehouseStockForReturn(assignment);
+        WarehouseStock targetWarehouseStock = resolveWarehouseStockForReturn(assignment, warehouseId);
         if (targetWarehouseStock == null) {
             return;
         }
@@ -586,7 +596,15 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
     }
 
-    private WarehouseStock resolveWarehouseStockForReturn(Assignment assignment) {
+    private WarehouseStock resolveWarehouseStockForReturn(Assignment assignment, Long warehouseId) {
+        Product product = assignment.getProduct();
+
+        if (warehouseId != null) {
+            Warehouse warehouse = warehouseRepository.findById(warehouseId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Depo bulunamadı: " + warehouseId));
+            return findOrCreateWarehouseStock(warehouse, product);
+        }
+
         List<StockMovement> assignmentMovements = stockMovementRepository
                 .findByReferenceTypeAndReferenceIdOrderByCreatedAtDesc("ASSIGNMENT", assignment.getId());
 
@@ -595,16 +613,26 @@ public class AssignmentServiceImpl implements AssignmentService {
             if (warehouseStock != null) {
                 return warehouseStockRepository.findByWarehouseAndProduct(
                         warehouseStock.getWarehouse(),
-                        assignment.getProduct()
+                        product
                 ).orElse(warehouseStock);
             }
         }
 
-        List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(assignment.getProduct());
+        List<WarehouseStock> warehouseStocks = warehouseStockRepository.findByProduct(product);
         if (!warehouseStocks.isEmpty()) {
             return warehouseStocks.get(0);
         }
         return null;
+    }
+
+    private WarehouseStock findOrCreateWarehouseStock(Warehouse warehouse, Product product) {
+        return warehouseStockRepository.findByWarehouseAndProduct(warehouse, product)
+                .orElseGet(() -> {
+                    WarehouseStock created = new WarehouseStock();
+                    created.setWarehouse(warehouse);
+                    created.setProduct(product);
+                    return warehouseStockRepository.save(created);
+                });
     }
 
     private String assignmentTargetNote(Assignment assignment) {

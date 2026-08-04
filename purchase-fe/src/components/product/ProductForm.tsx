@@ -112,6 +112,7 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
     emptyProductAssignmentState()
   );
   const [users, setUsers] = useState<User[]>([]);
+  const [assetConditionLocked, setAssetConditionLocked] = useState(false);
 
   const applyDeviceModelSelection = (model: DeviceModel | null) => {
     setSelectedModel(model);
@@ -237,6 +238,11 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
         warrantyExpiryDate: toDateInput(p.warrantyExpiryDate ?? p.lifespanEndDate),
       });
       setActive(options?.clone ? true : (p.active ?? p.isActive ?? true));
+      const isAssigned =
+        p.mustReturnFirst ||
+        p.stockItemStatus === 'ASSIGNED' ||
+        p.stockItemStatus === 'IN_USE';
+      setAssetConditionLocked(!options?.clone && isAssigned);
       if (p.primarySupplierId) setSupplierId(p.primarySupplierId);
       else if (p.suppliers?.[0]?.id) setSupplierId(p.suppliers[0].id);
       if (p.deviceModelId) {
@@ -804,20 +810,30 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
                 </div>
               </FormField>
 
-              <FormField label="Durum" hint="Zimmet için 'Hazır' ve dağıtılabilir durum seçin">
+              <FormField
+                label="Durum"
+                hint={
+                  assetConditionLocked
+                    ? 'Cihaz bir kullanıcıya veya konuma zimmetli; durum değiştirmek için önce iade alın.'
+                    : "Zimmet için 'Hazır' ve dağıtılabilir durum seçin"
+                }
+              >
                 <InputWithButton
                   button={
-                    <button type="button" className={btnInlinePrimary} onClick={createCondition}>
-                      Yeni
-                    </button>
+                    !assetConditionLocked ? (
+                      <button type="button" className={btnInlinePrimary} onClick={createCondition}>
+                        Yeni
+                      </button>
+                    ) : undefined
                   }
                 >
                   <select
-                    className={formSelect}
+                    className={`${formSelect}${assetConditionLocked ? ' bg-gray-50 text-gray-600 cursor-not-allowed' : ''}`}
                     value={form.assetConditionId ?? ''}
                     onChange={(e) =>
                       setForm({ ...form, assetConditionId: e.target.value ? Number(e.target.value) : null })
                     }
+                    disabled={assetConditionLocked || loading}
                   >
                     <option value="">Durum seç</option>
                     {conditions.map((c) => (

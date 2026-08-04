@@ -232,6 +232,7 @@ class AssignmentService {
     const formData = new FormData();
     formData.append('photo', request.photo);
     formData.append('document', request.document);
+    formData.append('warehouseId', String(request.warehouseId));
     if (request.notes?.trim()) {
       formData.append('notes', request.notes.trim());
     }

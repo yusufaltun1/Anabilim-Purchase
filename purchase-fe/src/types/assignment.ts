@@ -54,6 +54,7 @@ export interface Assignment {
 export interface ReturnAssignmentRequest {
   photo: File;
   document: File;
+  warehouseId: number;
   notes?: string;
 }
 

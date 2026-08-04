@@ -366,6 +366,7 @@ export const ProductDetail = () => {
   const handleReturnAssignment = async (payload: {
     photo: File;
     document: File;
+    warehouseId: number;
     notes?: string;
   }) => {
     if (!returnTargetAssignment) return;

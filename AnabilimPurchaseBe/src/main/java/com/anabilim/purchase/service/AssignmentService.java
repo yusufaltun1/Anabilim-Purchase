@@ -54,7 +54,8 @@ public interface AssignmentService {
             Long assignmentId,
             MultipartFile photo,
             MultipartFile document,
-            String notes
+            String notes,
+            Long warehouseId
     );
     
     AssignmentDto markAssignmentAsLost(Long assignmentId);

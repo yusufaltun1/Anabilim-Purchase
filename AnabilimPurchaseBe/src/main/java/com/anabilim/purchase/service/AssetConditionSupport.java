@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -35,12 +36,24 @@ public class AssetConditionSupport {
 
     public void applyConditionIfMissing(StockItem stockItem, Long conditionId) {
         if (conditionId != null) {
+            validateConditionChangeAllowed(stockItem, conditionId);
             assetConditionRepository.findById(conditionId).ifPresent(stockItem::setAssetCondition);
             return;
         }
         if (stockItem.getAssetCondition() == null) {
             findReadyCondition().ifPresent(stockItem::setAssetCondition);
         }
+    }
+
+    public void validateConditionChangeAllowed(StockItem stockItem, Long newConditionId) {
+        if (stockItem == null || !stockItem.isAssigned()) {
+            return;
+        }
+        Long currentId = stockItem.getAssetCondition() != null ? stockItem.getAssetCondition().getId() : null;
+        if (Objects.equals(currentId, newConditionId)) {
+            return;
+        }
+        throw new ValidationException("Zimmetli cihazın durumu değiştirilemez. Önce zimmet iadesi alın.");
     }
 
     public boolean isAssignable(StockItem stockItem) {

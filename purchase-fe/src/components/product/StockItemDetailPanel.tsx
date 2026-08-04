@@ -203,6 +203,7 @@ export const StockItemDetailPanel = ({
   const handleReturnAssignment = async (payload: {
     photo: File;
     document: File;
+    warehouseId: number;
     notes?: string;
   }) => {
     if (!activeAssignment) return;

@@ -147,6 +147,7 @@ export const AssignmentManageSection = ({
   const handleReturnAssignment = async (payload: {
     photo: File;
     document: File;
+    warehouseId: number;
     notes?: string;
   }) => {
     if (!returnTargetAssignment) return;

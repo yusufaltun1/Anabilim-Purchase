@@ -212,8 +212,9 @@ public class AssignmentController {
             @PathVariable Long id,
             @RequestParam("photo") MultipartFile photo,
             @RequestParam("document") MultipartFile document,
-            @RequestParam(value = "notes", required = false) String notes) {
-        AssignmentDto returnedAssignment = assignmentService.returnAssignment(id, photo, document, notes);
+            @RequestParam(value = "notes", required = false) String notes,
+            @RequestParam("warehouseId") Long warehouseId) {
+        AssignmentDto returnedAssignment = assignmentService.returnAssignment(id, photo, document, notes, warehouseId);
         return ResponseEntity.ok(ApiResponse.success("Zimmet başarıyla iade edildi", returnedAssignment));
     }
 

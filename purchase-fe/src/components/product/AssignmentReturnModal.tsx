@@ -3,13 +3,20 @@ import { createPortal } from 'react-dom';
 import { CameraCaptureModal } from '../common/CameraCaptureModal';
 import { Assignment } from '../../types/assignment';
 import { assignmentService } from '../../services/assignment.service';
+import { warehouseService } from '../../services/warehouse.service';
+import { Warehouse } from '../../types/warehouse';
 
 interface AssignmentReturnModalProps {
   isOpen: boolean;
   assignment: Assignment | null;
   submitting?: boolean;
   onClose: () => void;
-  onSubmit: (payload: { photo: File; document: File; notes?: string }) => void | Promise<void>;
+  onSubmit: (payload: {
+    photo: File;
+    document: File;
+    warehouseId: number;
+    notes?: string;
+  }) => void | Promise<void>;
 }
 
 const dataUrlToFile = (dataUrl: string, fileName: string): File => {
@@ -37,6 +44,9 @@ export const AssignmentReturnModal = ({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [notes, setNotes] = useState('');
+  const [warehouseId, setWarehouseId] = useState('');
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [warehousesLoading, setWarehousesLoading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formDownloading, setFormDownloading] = useState(false);
@@ -47,9 +57,36 @@ export const AssignmentReturnModal = ({
     setPhotoPreview(null);
     setDocumentFile(null);
     setNotes('');
+    setWarehouseId('');
     setError(null);
     setCameraOpen(false);
     setFormDownloading(false);
+
+    let cancelled = false;
+    const loadWarehouses = async () => {
+      try {
+        setWarehousesLoading(true);
+        const list = await warehouseService.getActiveWarehouses();
+        if (cancelled) return;
+        setWarehouses(list);
+        if (list.length === 1) {
+          setWarehouseId(String(list[0].id));
+        }
+      } catch {
+        if (!cancelled) {
+          setError('Depolar yüklenemedi');
+        }
+      } finally {
+        if (!cancelled) {
+          setWarehousesLoading(false);
+        }
+      }
+    };
+    void loadWarehouses();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, assignment?.id]);
 
   useEffect(() => {
@@ -108,6 +145,10 @@ export const AssignmentReturnModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!warehouseId) {
+      setError('İade için hedef depo seçilmelidir.');
+      return;
+    }
     if (!photo) {
       setError('İade için ürün fotoğrafı zorunludur.');
       return;
@@ -119,6 +160,7 @@ export const AssignmentReturnModal = ({
     await onSubmit({
       photo,
       document: documentFile,
+      warehouseId: Number(warehouseId),
       notes: notes.trim() || undefined,
     });
   };
@@ -146,6 +188,34 @@ export const AssignmentReturnModal = ({
               geri alınacak. Önce iade formunu indirip imzalatın, ardından ürün fotoğrafı ve imzalı
               formu yükleyin.
             </p>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                İade deposu *
+              </label>
+              <select
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                value={warehouseId}
+                onChange={(e) => {
+                  setWarehouseId(e.target.value);
+                  setError(null);
+                }}
+                disabled={submitting || warehousesLoading}
+                required
+              >
+                <option value="">
+                  {warehousesLoading ? 'Depolar yükleniyor…' : 'Depo seçin'}
+                </option>
+                {warehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">
+                Ürün stoka bu depoya giriş olarak kaydedilir.
+              </p>
+            </div>
 
             <div className="rounded-md border border-indigo-100 bg-indigo-50 px-3 py-3 space-y-2">
               <p className="text-xs font-medium text-indigo-900">1. İade formu</p>
