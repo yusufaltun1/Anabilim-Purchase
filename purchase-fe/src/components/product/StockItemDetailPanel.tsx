@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  ArrowPathIcon,
+  ClockIcon,
+  UserPlusIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 import { Assignment, AssignmentStatus } from '../../types/assignment';
 import { CreateStockMovementRequest, StockItem, StockMovementDetail, Warehouse } from '../../types/warehouse';
 import { warehouseService } from '../../services/warehouse.service';
@@ -274,70 +280,113 @@ export const StockItemDetailPanel = ({
 
   if (!isOpen) return null;
 
-  const tabs: { id: ManageTab; label: string }[] = [
-    { id: 'zimmet', label: 'Zimmet' },
-    { id: 'hareket', label: 'Stok hareketi' },
-    { id: 'gecmis', label: 'Geçmiş' },
+  const tabs: {
+    id: ManageTab;
+    label: string;
+    description: string;
+    icon: typeof UserPlusIcon;
+  }[] = [
+    {
+      id: 'zimmet',
+      label: 'Zimmet',
+      description: 'Atama ve iade işlemleri',
+      icon: UserPlusIcon,
+    },
+    {
+      id: 'hareket',
+      label: 'Stok hareketi',
+      description: 'Depo giriş / çıkış',
+      icon: ArrowPathIcon,
+    },
+    {
+      id: 'gecmis',
+      label: 'Geçmiş',
+      description: 'Kayıtlar ve belgeler',
+      icon: ClockIcon,
+    },
   ];
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-        <div className="flex w-full max-w-3xl max-h-[90vh] flex-col overflow-hidden rounded-xl bg-white shadow-xl">
-          <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-lg font-semibold text-gray-900 truncate">{serialLabel}</h3>
-                <span
-                  className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(stockItem)}`}
-                >
-                  {statusLabel(stockItem)}
-                </span>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[1px]">
+        <div className="flex w-full max-w-3xl max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+          <div className="relative bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 px-5 pt-5 pb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Cihaz yönetimi
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-semibold text-slate-900 truncate">{serialLabel}</h3>
+                  <span
+                    className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(stockItem)}`}
+                  >
+                    {statusLabel(stockItem)}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-sm text-slate-500">
+                  {stockItem.warehouseName || 'Depo dışında'}
+                  {stockItem.assignedUserName
+                    ? ` · Zimmet: ${stockItem.assignedUserName}`
+                    : activeAssignment
+                      ? ` · Zimmet: ${
+                          activeAssignment.assignedUserName ||
+                          activeAssignment.assignedLocationName ||
+                          activeAssignment.locationName ||
+                          '—'
+                        }`
+                      : ' · Zimmet yok'}
+                </p>
               </div>
-              <p className="mt-1 text-sm text-gray-500">
-                {stockItem.warehouseName || 'Depo dışında'}
-                {stockItem.assignedUserName
-                  ? ` · Zimmet: ${stockItem.assignedUserName}`
-                  : activeAssignment
-                    ? ` · Zimmet: ${
-                        activeAssignment.assignedUserName ||
-                        activeAssignment.assignedLocationName ||
-                        activeAssignment.locationName ||
-                        '—'
-                      }`
-                    : ' · Zimmet yok'}
-              </p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="shrink-0 rounded-full p-2 text-slate-400 hover:bg-white/80 hover:text-slate-700 transition-colors"
+                aria-label="Kapat"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600"
-              aria-label="Kapat"
+
+            <div
+              className="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-slate-100/90 p-1"
+              role="tablist"
+              aria-label="Cihaz yönetimi sekmeleri"
             >
-              ✕
-            </button>
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const selected = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`group relative flex flex-col items-center gap-0.5 rounded-lg px-2 py-2.5 text-center transition-all ${
+                      selected
+                        ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-black/5'
+                        : 'text-slate-500 hover:bg-white/60 hover:text-slate-700'
+                    }`}
+                  >
+                    <Icon
+                      className={`h-4 w-4 ${selected ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}
+                    />
+                    <span className="text-xs font-semibold sm:text-sm">{tab.label}</span>
+                    <span
+                      className={`hidden sm:block text-[10px] leading-tight ${
+                        selected ? 'text-indigo-500/80' : 'text-slate-400'
+                      }`}
+                    >
+                      {tab.description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="border-b border-gray-200 px-5">
-            <nav className="-mb-px flex gap-4 overflow-x-auto" aria-label="Cihaz yönetimi sekmeleri">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium ${
-                    activeTab === tab.id
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="flex-1 overflow-y-auto bg-slate-50/50 px-5 py-5">
             <input
               ref={signedFormInputRef}
               type="file"
@@ -355,15 +404,15 @@ export const StockItemDetailPanel = ({
                 {activeTab === 'zimmet' && (
                   <div className="space-y-4">
                     {activeAssignment ? (
-                      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
-                        <div className="text-sm text-blue-900">
-                          <span className="font-semibold">Aktif zimmet: </span>
+                      <div className="rounded-xl border border-blue-100 bg-white p-4 shadow-sm space-y-3">
+                        <div className="text-sm text-slate-800">
+                          <span className="font-semibold text-blue-800">Aktif zimmet: </span>
                           {activeAssignment.assignedUserName ||
                             activeAssignment.assignedLocationName ||
                             activeAssignment.locationName ||
                             '—'}
                           {activeAssignment.assignmentDate && (
-                            <span className="text-blue-700">
+                            <span className="text-slate-500">
                               {' '}
                               · {formatDate(activeAssignment.assignmentDate)}
                             </span>
@@ -375,7 +424,7 @@ export const StockItemDetailPanel = ({
                               type="button"
                               onClick={handleDownloadForm}
                               disabled={formDownloading}
-                              className="px-3 py-1.5 text-sm rounded-md border border-blue-300 bg-white hover:bg-blue-50 disabled:opacity-50"
+                              className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50"
                             >
                               {formDownloading ? 'İndiriliyor…' : 'Formu indir'}
                             </button>
@@ -383,7 +432,7 @@ export const StockItemDetailPanel = ({
                               type="button"
                               onClick={() => signedFormInputRef.current?.click()}
                               disabled={signedUploading}
-                              className="px-3 py-1.5 text-sm rounded-md border border-blue-300 bg-white hover:bg-blue-50 disabled:opacity-50"
+                              className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50"
                             >
                               {signedUploading ? 'Yükleniyor…' : 'İmzalı yükle'}
                             </button>
@@ -392,7 +441,7 @@ export const StockItemDetailPanel = ({
                                 type="button"
                                 onClick={() => setReturnModalOpen(true)}
                                 disabled={returning}
-                                className="px-3 py-1.5 text-sm rounded-md border border-emerald-300 text-emerald-800 bg-white hover:bg-emerald-50 disabled:opacity-50"
+                                className="px-3 py-1.5 text-sm rounded-lg border border-emerald-200 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
                               >
                                 Zimmeti iade et
                               </button>
@@ -402,7 +451,7 @@ export const StockItemDetailPanel = ({
                                 type="button"
                                 onClick={handleCancelAssignment}
                                 disabled={cancelling}
-                                className="px-3 py-1.5 text-sm rounded-md text-red-700 border border-red-200 bg-white hover:bg-red-50 disabled:opacity-50"
+                                className="px-3 py-1.5 text-sm rounded-lg text-red-700 border border-red-200 bg-white hover:bg-red-50 disabled:opacity-50"
                               >
                                 {cancelling ? 'İptal ediliyor…' : 'Zimmeti iptal et'}
                               </button>
@@ -419,7 +468,7 @@ export const StockItemDetailPanel = ({
                       />
                     ) : (
                       !canAssign && (
-                        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                           Bu cihaz şu an zimmetlenemez. Depoda ve &quot;Hazır&quot; durumunda olmalıdır.
                         </p>
                       )
@@ -430,13 +479,13 @@ export const StockItemDetailPanel = ({
                 {activeTab === 'hareket' && (
                   <div className="space-y-4">
                     {!canManage ? (
-                      <p className="text-sm text-gray-500">Stok hareketi yetkiniz yok.</p>
+                      <p className="text-sm text-slate-500">Stok hareketi yetkiniz yok.</p>
                     ) : (
                       <form
                         onSubmit={handleMovementSubmit}
-                        className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3"
+                        className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3"
                       >
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-slate-600">
                           {inWarehouse
                             ? 'Bu cihaz depoda. Çıkış kaydı oluşturabilirsiniz.'
                             : 'Bu cihaz depo dışında. Depoya giriş kaydı oluşturabilirsiniz.'}
@@ -444,11 +493,11 @@ export const StockItemDetailPanel = ({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {!inWarehouse && (
                             <div className="sm:col-span-2">
-                              <label className="block text-xs font-medium text-gray-600 mb-1">
+                              <label className="block text-xs font-medium text-slate-600 mb-1">
                                 Depo *
                               </label>
                               <select
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
                                 value={selectedWarehouseId}
                                 onChange={(e) =>
                                   setSelectedWarehouseId(e.target.value ? Number(e.target.value) : '')
@@ -465,7 +514,7 @@ export const StockItemDetailPanel = ({
                             </div>
                           )}
                           <div className="sm:col-span-2">
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                            <label className="block text-xs font-medium text-slate-600 mb-1">
                               {inWarehouse ? 'Çıkış lokasyonu *' : 'Giriş lokasyonu *'}
                             </label>
                             <LocationHierarchyPickers
@@ -486,12 +535,12 @@ export const StockItemDetailPanel = ({
                             />
                           </div>
                           <div className="sm:col-span-2">
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                            <label className="block text-xs font-medium text-slate-600 mb-1">
                               Açıklama
                             </label>
                             <input
                               type="text"
-                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
                               value={movementNotes}
                               onChange={(e) => setMovementNotes(e.target.value)}
                               placeholder="Opsiyonel açıklama"
@@ -502,7 +551,7 @@ export const StockItemDetailPanel = ({
                           <button
                             type="submit"
                             disabled={movementSubmitting}
-                            className="px-3 py-1.5 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                           >
                             {movementSubmitting ? 'Kaydediliyor…' : 'Kaydet'}
                           </button>
@@ -515,64 +564,64 @@ export const StockItemDetailPanel = ({
                 {activeTab === 'gecmis' && (
                   <div className="space-y-6">
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Zimmet geçmişi</h4>
+                      <h4 className="text-sm font-semibold text-slate-900 mb-2">Zimmet geçmişi</h4>
                       {assignments.length === 0 ? (
-                        <p className="text-sm text-gray-500">Bu cihaza ait zimmet kaydı yok.</p>
+                        <p className="text-sm text-slate-500">Bu cihaza ait zimmet kaydı yok.</p>
                       ) : (
-                        <div className="overflow-x-auto rounded-md border border-gray-200">
-                          <table className="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead className="bg-gray-50">
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                          <table className="min-w-full divide-y divide-slate-200 text-sm">
+                            <thead className="bg-slate-50">
                               <tr>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Tarih
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Durum
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Atanan
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Fotoğraf
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Belgeler
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Not
                                 </th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200 bg-white">
+                            <tbody className="divide-y divide-slate-100">
                               {assignments.map((assignment) => (
-                                <tr key={assignment.id}>
-                                  <td className="px-3 py-2 text-gray-600">
+                                <tr key={assignment.id} className="hover:bg-slate-50/80">
+                                  <td className="px-3 py-2.5 text-slate-600">
                                     {formatDate(assignment.assignmentDate)}
                                   </td>
-                                  <td className="px-3 py-2">
+                                  <td className="px-3 py-2.5">
                                     {assignmentStatusLabel[assignment.status] ?? assignment.status}
                                   </td>
-                                  <td className="px-3 py-2 text-gray-900">
+                                  <td className="px-3 py-2.5 text-slate-900">
                                     {assignment.assignedUserName ||
                                       assignment.assignedLocationName ||
                                       assignment.locationName ||
                                       '—'}
                                   </td>
-                                  <td className="px-3 py-2">
+                                  <td className="px-3 py-2.5">
                                     <AssignmentFormPhotoThumb
                                       assignmentId={assignment.id}
                                       hasFormPhoto={assignment.hasFormPhoto}
                                       formPhotoUrl={assignment.formPhotoUrl}
-                                      className="h-8 w-8 rounded object-cover border border-gray-200"
+                                      className="h-8 w-8 rounded object-cover border border-slate-200"
                                     />
                                   </td>
-                                  <td className="px-3 py-2">
+                                  <td className="px-3 py-2.5">
                                     <AssignmentDocumentLinks
                                       assignment={assignment}
                                       onError={(message) => showNotification(message, 'error')}
                                     />
                                   </td>
-                                  <td className="px-3 py-2 text-gray-500">
+                                  <td className="px-3 py-2.5 text-slate-500">
                                     {assignment.notes || '—'}
                                   </td>
                                 </tr>
@@ -584,61 +633,61 @@ export const StockItemDetailPanel = ({
                     </div>
 
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Stok hareketleri</h4>
+                      <h4 className="text-sm font-semibold text-slate-900 mb-2">Stok hareketleri</h4>
                       {movements.length === 0 ? (
-                        <p className="text-sm text-gray-500">Bu cihaza ait stok hareketi yok.</p>
+                        <p className="text-sm text-slate-500">Bu cihaza ait stok hareketi yok.</p>
                       ) : (
-                        <div className="overflow-x-auto rounded-md border border-gray-200">
-                          <table className="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead className="bg-gray-50">
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                          <table className="min-w-full divide-y divide-slate-200 text-sm">
+                            <thead className="bg-slate-50">
                               <tr>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Tarih
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Tip
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Lokasyon
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Referans
                                 </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Not
                                 </th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200 bg-white">
+                            <tbody className="divide-y divide-slate-100">
                               {movements.map((movement) => (
-                                <tr key={movement.id}>
-                                  <td className="px-3 py-2 text-gray-600">
+                                <tr key={movement.id} className="hover:bg-slate-50/80">
+                                  <td className="px-3 py-2.5 text-slate-600">
                                     {formatDate(movement.createdAt)}
                                   </td>
-                                  <td className="px-3 py-2">
+                                  <td className="px-3 py-2.5">
                                     <span
-                                      className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                                      className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                                         movement.movementType === 'IN'
                                           ? 'bg-green-100 text-green-800'
                                           : movement.movementType === 'OUT'
                                             ? 'bg-red-100 text-red-800'
-                                            : 'bg-gray-100 text-gray-800'
+                                            : 'bg-slate-100 text-slate-800'
                                       }`}
                                     >
                                       {movementTypeLabel[movement.movementType] ??
                                         movement.movementType}
                                     </span>
                                   </td>
-                                  <td className="px-3 py-2 text-gray-600">
+                                  <td className="px-3 py-2.5 text-slate-600">
                                     {[movement.parentLocationName, movement.childLocationName]
                                       .filter(Boolean)
                                       .join(' / ') || '—'}
                                   </td>
-                                  <td className="px-3 py-2 text-gray-600">
+                                  <td className="px-3 py-2.5 text-slate-600">
                                     {referenceTypeLabel[movement.referenceType] ??
                                       movement.referenceType}
                                   </td>
-                                  <td className="px-3 py-2 text-gray-500">
+                                  <td className="px-3 py-2.5 text-slate-500">
                                     {movement.notes || '—'}
                                   </td>
                                 </tr>
@@ -654,11 +703,11 @@ export const StockItemDetailPanel = ({
             )}
           </div>
 
-          <div className="border-t border-gray-100 px-5 py-3 flex justify-end">
+          <div className="border-t border-slate-100 bg-white px-5 py-3 flex justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             >
               Kapat
             </button>
