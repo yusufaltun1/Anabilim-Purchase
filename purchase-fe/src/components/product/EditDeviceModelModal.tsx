@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DeviceModel, inventoryService } from '../../services/inventory.service';
-import { formGrid, formInput, formSelect } from '../common/formStyles';
+import { SearchableOptionSelect } from '../common/SearchableOptionSelect';
+import { formGrid, formInput } from '../common/formStyles';
 
 const NEW_BRAND_VALUE = '__new__';
+const NEW_MODEL_VALUE = '__new_model__';
 
 interface EditDeviceModelModalProps {
   isOpen: boolean;
@@ -14,24 +16,31 @@ interface EditDeviceModelModalProps {
 
 export const EditDeviceModelModal = ({ isOpen, model, onClose, onUpdated }: EditDeviceModelModalProps) => {
   const [brands, setBrands] = useState<string[]>([]);
-  const [brandsLoading, setBrandsLoading] = useState(false);
-  const [brandSelection, setBrandSelection] = useState('');
+  const [deviceModels, setDeviceModels] = useState<DeviceModel[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [brandSelection, setBrandSelection] = useState<string | null>(null);
   const [newBrandName, setNewBrandName] = useState('');
-  const [modelName, setModelName] = useState('');
+  const [modelSelection, setModelSelection] = useState<string | null>(null);
+  const [newModelName, setNewModelName] = useState('');
   const [enableIp, setEnableIp] = useState(true);
   const [enableMac, setEnableMac] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadBrands = useCallback(async () => {
+  const loadOptions = useCallback(async () => {
     try {
-      setBrandsLoading(true);
-      const list = await inventoryService.getDeviceBrands();
-      setBrands(list);
+      setOptionsLoading(true);
+      const [brandList, models] = await Promise.all([
+        inventoryService.getDeviceBrands().catch(() => [] as string[]),
+        inventoryService.getDeviceModels().catch(() => [] as DeviceModel[]),
+      ]);
+      setBrands(brandList);
+      setDeviceModels(models);
     } catch {
       setBrands([]);
+      setDeviceModels([]);
     } finally {
-      setBrandsLoading(false);
+      setOptionsLoading(false);
     }
   }, []);
 
@@ -39,17 +48,88 @@ export const EditDeviceModelModal = ({ isOpen, model, onClose, onUpdated }: Edit
     if (!isOpen || !model) return;
 
     const brand = model.brand?.trim() ?? '';
-    setModelName(model.name?.trim() ?? '');
+    const name = model.name?.trim() ?? '';
     setEnableIp(model.enableIp ?? false);
     setEnableMac(model.enableMac ?? false);
     setError(null);
     setNewBrandName('');
-    loadBrands().then(() => {
-      setBrandSelection(brand);
-    });
-  }, [isOpen, model, loadBrands]);
+    setNewModelName('');
+    setBrandSelection(brand || null);
+    setModelSelection(name || null);
+    void loadOptions();
+  }, [isOpen, model, loadOptions]);
 
-  const resolvedBrand = brandSelection === NEW_BRAND_VALUE ? newBrandName.trim() : brandSelection.trim();
+  const brandOptions = useMemo(() => {
+    const opts = brands.map((brand) => ({ value: brand, label: brand }));
+    if (
+      brandSelection &&
+      brandSelection !== NEW_BRAND_VALUE &&
+      !brands.includes(brandSelection)
+    ) {
+      opts.unshift({ value: brandSelection, label: brandSelection });
+    }
+    opts.push({ value: NEW_BRAND_VALUE, label: '+ Yeni marka ekle' });
+    return opts;
+  }, [brands, brandSelection]);
+
+  const resolvedBrand =
+    brandSelection === NEW_BRAND_VALUE ? newBrandName.trim() : (brandSelection?.trim() ?? '');
+
+  const modelNameOptions = useMemo(() => {
+    const brand = resolvedBrand;
+    const names = [
+      ...new Set(
+        deviceModels
+          .filter((m) => {
+            if (!brand || brandSelection === NEW_BRAND_VALUE) return true;
+            return (m.brand?.trim() ?? '') === brand;
+          })
+          .map((m) => m.name?.trim())
+          .filter((n): n is string => !!n && n.length > 0)
+      ),
+    ].sort((a, b) => a.localeCompare(b, 'tr'));
+
+    const opts = names.map((name) => ({ value: name, label: name }));
+    if (
+      modelSelection &&
+      modelSelection !== NEW_MODEL_VALUE &&
+      !names.includes(modelSelection)
+    ) {
+      opts.unshift({ value: modelSelection, label: modelSelection });
+    }
+    opts.push({ value: NEW_MODEL_VALUE, label: '+ Yeni model adı yaz' });
+    return opts;
+  }, [deviceModels, resolvedBrand, brandSelection, modelSelection]);
+
+  const resolvedModelName =
+    modelSelection === NEW_MODEL_VALUE ? newModelName.trim() : (modelSelection?.trim() ?? '');
+
+  const handleBrandChange = (value: string | null) => {
+    setBrandSelection(value);
+    setError(null);
+    if (value !== NEW_BRAND_VALUE) {
+      setNewBrandName('');
+    }
+    // Marka değişince model seçimini sıfırla (aynı isim yeni markada da varsa koru)
+    if (modelSelection && modelSelection !== NEW_MODEL_VALUE) {
+      const stillExists = deviceModels.some(
+        (m) =>
+          m.name?.trim() === modelSelection &&
+          (value === NEW_BRAND_VALUE || !value || (m.brand?.trim() ?? '') === value)
+      );
+      if (!stillExists && model?.name?.trim() !== modelSelection) {
+        setModelSelection(null);
+      }
+    }
+  };
+
+  const handleModelChange = (value: string | null) => {
+    setModelSelection(value);
+    setError(null);
+    if (value !== NEW_MODEL_VALUE) {
+      setNewModelName('');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +143,11 @@ export const EditDeviceModelModal = ({ isOpen, model, onClose, onUpdated }: Edit
       setError('Marka adı zorunludur');
       return;
     }
-    if (!modelName.trim()) {
+    if (!modelSelection) {
+      setError('Model seçin veya yeni model adı yazın');
+      return;
+    }
+    if (!resolvedModelName) {
       setError('Model adı zorunludur');
       return;
     }
@@ -73,7 +157,7 @@ export const EditDeviceModelModal = ({ isOpen, model, onClose, onUpdated }: Edit
       setError(null);
       const updated = await inventoryService.updateDeviceModel(model.id, {
         brand: resolvedBrand,
-        name: modelName.trim(),
+        name: resolvedModelName,
         enableIp,
         enableMac,
       });
@@ -87,6 +171,8 @@ export const EditDeviceModelModal = ({ isOpen, model, onClose, onUpdated }: Edit
   };
 
   if (!isOpen || !model) return null;
+
+  const disabled = optionsLoading || submitting;
 
   return createPortal(
     <div className="fixed z-50 inset-0 overflow-y-auto" role="dialog" aria-modal="true">
@@ -104,7 +190,9 @@ export const EditDeviceModelModal = ({ isOpen, model, onClose, onUpdated }: Edit
           <form onSubmit={handleSubmit}>
             <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
               <h3 className="text-lg font-semibold text-gray-900">Marka / model düzenle</h3>
-              <p className="mt-1 text-sm text-gray-500">Seçili cihaz modelinin marka ve model bilgisini güncelleyin.</p>
+              <p className="mt-1 text-sm text-gray-500">
+                Seçili cihaz modelinin marka ve model bilgisini güncelleyin.
+              </p>
 
               {error && (
                 <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -115,31 +203,14 @@ export const EditDeviceModelModal = ({ isOpen, model, onClose, onUpdated }: Edit
               <div className={`${formGrid} mt-4`}>
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Marka *</label>
-                  <select
-                    className={formSelect}
+                  <SearchableOptionSelect
+                    options={brandOptions}
                     value={brandSelection}
-                    onChange={(e) => {
-                      setBrandSelection(e.target.value);
-                      if (e.target.value !== NEW_BRAND_VALUE) {
-                        setNewBrandName('');
-                      }
-                    }}
-                    disabled={brandsLoading || submitting}
-                    required
-                  >
-                    <option value="">Marka seçin</option>
-                    {brandSelection &&
-                      !brands.includes(brandSelection) &&
-                      brandSelection !== NEW_BRAND_VALUE && (
-                        <option value={brandSelection}>{brandSelection}</option>
-                      )}
-                    {brands.map((brand) => (
-                      <option key={brand} value={brand}>
-                        {brand}
-                      </option>
-                    ))}
-                    <option value={NEW_BRAND_VALUE}>+ Yeni marka ekle</option>
-                  </select>
+                    onChange={handleBrandChange}
+                    disabled={disabled}
+                    placeholder={optionsLoading ? 'Markalar yükleniyor…' : 'Marka ara veya seç…'}
+                    allowClear
+                  />
                 </div>
 
                 {brandSelection === NEW_BRAND_VALUE && (
@@ -158,15 +229,29 @@ export const EditDeviceModelModal = ({ isOpen, model, onClose, onUpdated }: Edit
 
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Model *</label>
-                  <input
-                    className={formInput}
-                    value={modelName}
-                    onChange={(e) => setModelName(e.target.value)}
-                    placeholder="Örn. EliteBook 840 G9"
-                    disabled={submitting}
-                    required
+                  <SearchableOptionSelect
+                    options={modelNameOptions}
+                    value={modelSelection}
+                    onChange={handleModelChange}
+                    disabled={disabled}
+                    placeholder={optionsLoading ? 'Modeller yükleniyor…' : 'Model ara veya seç…'}
+                    allowClear
                   />
                 </div>
+
+                {modelSelection === NEW_MODEL_VALUE && (
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Yeni model adı *</label>
+                    <input
+                      className={formInput}
+                      value={newModelName}
+                      onChange={(e) => setNewModelName(e.target.value)}
+                      placeholder="Örn. EliteBook 840 G9"
+                      disabled={submitting}
+                      autoFocus
+                    />
+                  </div>
+                )}
 
                 <div className="sm:col-span-2 flex flex-wrap gap-4">
                   <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -191,9 +276,12 @@ export const EditDeviceModelModal = ({ isOpen, model, onClose, onUpdated }: Edit
                   </label>
                 </div>
 
-                {resolvedBrand && modelName.trim() && (
+                {resolvedBrand && resolvedModelName && (
                   <div className="sm:col-span-2 rounded-md bg-gray-50 border border-gray-200 px-3 py-2 text-sm text-gray-700">
-                    Önizleme: <span className="font-medium">{resolvedBrand} — {modelName.trim()}</span>
+                    Önizleme:{' '}
+                    <span className="font-medium">
+                      {resolvedBrand} — {resolvedModelName}
+                    </span>
                   </div>
                 )}
               </div>

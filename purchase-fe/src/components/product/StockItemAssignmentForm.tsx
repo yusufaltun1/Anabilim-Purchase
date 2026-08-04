@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import { assignmentService } from '../../services/assignment.service';
 import { userService } from '../../services/user.service';
 import { schoolService } from '../../services/school.service';
-import { locationService } from '../../services/location.service';
 import { User } from '../../types/user';
 import { School } from '../../types/school';
-import { Location } from '../../types/location';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AssignmentFormPhotoPicker } from './AssignmentFormPhotoPicker';
+import { LocationHierarchyPickers } from '../common/LocationHierarchyPickers';
 
 interface StockItemAssignmentFormProps {
   productId: number;
@@ -26,14 +25,15 @@ export const StockItemAssignmentForm = ({
   const [submitting, setSubmitting] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
 
   const [assignmentType, setAssignmentType] = useState<'user' | 'location'>('user');
   const [assignedUserId, setAssignedUserId] = useState('');
   const [assignedSchoolId, setAssignedSchoolId] = useState('');
-  const [assignedLocationId, setAssignedLocationId] = useState('');
+  const [locationRootId, setLocationRootId] = useState<number | null>(null);
+  const [locationMiddleId, setLocationMiddleId] = useState<number | null>(null);
+  const [locationLeafId, setLocationLeafId] = useState<number | null>(null);
   const [locationDetails, setLocationDetails] = useState('');
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -44,12 +44,10 @@ export const StockItemAssignmentForm = ({
     Promise.all([
       userService.getAllUsers(),
       schoolService.getAllSchools({ size: 500 }),
-      locationService.getAllLocations(),
-    ]).then(([userList, schoolRes, locationRes]) => {
+    ]).then(([userList, schoolRes]) => {
       setUsers(userList);
       setFilteredUsers(userList);
       setSchools(schoolRes.content ?? []);
-      setLocations(Array.isArray(locationRes.data) ? locationRes.data : []);
     });
   }, []);
 
@@ -71,6 +69,7 @@ export const StockItemAssignmentForm = ({
   };
 
   const selectedUser = users.find((u) => u.id.toString() === assignedUserId);
+  const assignedLocationId = locationLeafId ?? locationMiddleId ?? locationRootId;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +96,7 @@ export const StockItemAssignmentForm = ({
               assignedSchoolId: assignedSchoolId ? parseInt(assignedSchoolId, 10) : undefined,
             }
           : {
-              assignedLocationId: parseInt(assignedLocationId, 10),
+              assignedLocationId,
               locationDetails: locationDetails.trim() || undefined,
             }),
       });
@@ -217,20 +216,25 @@ export const StockItemAssignmentForm = ({
       ) : (
         <>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Konum *</label>
-            <select
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-              value={assignedLocationId}
-              onChange={(e) => setAssignedLocationId(e.target.value)}
-              required
-            >
-              <option value="">Konum seçin</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
-                </option>
-              ))}
-            </select>
+            <label className="block text-xs font-medium text-gray-600 mb-2">Konum *</label>
+            <LocationHierarchyPickers
+              rootId={locationRootId}
+              middleId={locationMiddleId}
+              leafId={locationLeafId}
+              onRootChange={(id) => {
+                setLocationRootId(id);
+                setLocationMiddleId(null);
+                setLocationLeafId(null);
+              }}
+              onMiddleChange={(id) => {
+                setLocationMiddleId(id);
+                setLocationLeafId(null);
+              }}
+              onLeafChange={setLocationLeafId}
+              showLeaf
+              autoSelectDefaults
+              disabled={submitting}
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Konum detayı</label>

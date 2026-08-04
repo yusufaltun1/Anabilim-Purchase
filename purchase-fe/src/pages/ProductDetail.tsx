@@ -6,13 +6,11 @@ import { warehouseService } from '../services/warehouse.service';
 import { assignmentService } from '../services/assignment.service';
 import { userService } from '../services/user.service';
 import { schoolService } from '../services/school.service';
-import { locationService } from '../services/location.service';
 import { Product, PRODUCT_TYPE_LABELS } from '../types/product';
 import { StockItem } from '../types/warehouse';
 import { Assignment, AssignmentStatus } from '../types/assignment';
 import { User } from '../types/user';
 import { School } from '../types/school';
-import { Location } from '../types/location';
 import { formatDate } from '../utils/date';
 import { useNotification } from '../contexts/NotificationContext';
 import { authService } from '../services/auth.service';
@@ -23,6 +21,7 @@ import { AssignmentFormPhotoThumb } from '../components/product/AssignmentFormPh
 import { AssignmentReturnModal } from '../components/product/AssignmentReturnModal';
 import { AssignmentDocumentLinks } from '../components/product/AssignmentDocumentLinks';
 import { AssignmentFormPhotoPicker } from '../components/product/AssignmentFormPhotoPicker';
+import { LocationHierarchyPickers } from '../components/common/LocationHierarchyPickers';
 import {
   isConsumableProductType,
   shouldSendStockItemIdForAssignment,
@@ -58,7 +57,9 @@ export const ProductDetail = () => {
     notes: '',
     assignedUserId: '',
     assignedSchoolId: '',
-    assignedLocationId: '',
+    locationRootId: null as number | null,
+    locationMiddleId: null as number | null,
+    locationLeafId: null as number | null,
     locationDetails: '',
     quantity: 1
   });
@@ -75,10 +76,8 @@ export const ProductDetail = () => {
   const [returningAssignment, setReturningAssignment] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
-  const [locationsLoading, setLocationsLoading] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [assignmentFormPhotoFile, setAssignmentFormPhotoFile] = useState<File | null>(null);
@@ -248,20 +247,6 @@ export const ProductDetail = () => {
     }
   };
 
-  const loadLocations = async () => {
-    try {
-      setLocationsLoading(true);
-      const response = await locationService.getAllLocations();
-      const locationsList = Array.isArray(response.data) ? response.data : [];
-      setLocations(locationsList);
-    } catch (err: any) {
-      console.error('Error loading locations:', err);
-      setLocations([]);
-    } finally {
-      setLocationsLoading(false);
-    }
-  };
-
   const handleUserSearch = (searchTerm: string) => {
     setUserSearchTerm(searchTerm);
     if (searchTerm.trim() === '') {
@@ -396,9 +381,15 @@ export const ProductDetail = () => {
         return;
       }
       
-      if (assignmentForm.assignmentType === 'location' && !assignmentForm.assignedLocationId) {
-        showNotification('Lütfen bir konum seçin', 'error');
-        return;
+      if (assignmentForm.assignmentType === 'location') {
+        const assignedLocationId =
+          assignmentForm.locationLeafId ??
+          assignmentForm.locationMiddleId ??
+          assignmentForm.locationRootId;
+        if (!assignedLocationId) {
+          showNotification('Lütfen bir konum seçin', 'error');
+          return;
+        }
       }
 
       // Stock item seçimi kontrolü
@@ -442,7 +433,10 @@ export const ProductDetail = () => {
           assignedUserId: parseInt(assignmentForm.assignedUserId),
           assignedSchoolId: assignmentForm.assignedSchoolId ? parseInt(assignmentForm.assignedSchoolId) : undefined
         } : {
-          assignedLocationId: parseInt(assignmentForm.assignedLocationId),
+          assignedLocationId:
+            (assignmentForm.locationLeafId ??
+              assignmentForm.locationMiddleId ??
+              assignmentForm.locationRootId) as number,
           locationDetails: assignmentForm.locationDetails || undefined
         })
       };
@@ -490,7 +484,9 @@ export const ProductDetail = () => {
         notes: '',
         assignedUserId: '',
         assignedSchoolId: '',
-        assignedLocationId: '',
+        locationRootId: null,
+        locationMiddleId: null,
+        locationLeafId: null,
         locationDetails: '',
         quantity: 1
       });
@@ -960,7 +956,6 @@ export const ProductDetail = () => {
               loadStockItems();
               loadUsers();
               loadSchools();
-              loadLocations();
               setUserSearchTerm('');
               setFilteredUsers([]);
             }}
@@ -1405,22 +1400,38 @@ export const ProductDetail = () => {
                       ) : (
                         <>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
                               Konum *
                             </label>
-                            <select 
-                              value={assignmentForm.assignedLocationId}
-                              onChange={(e) => setAssignmentForm({...assignmentForm, assignedLocationId: e.target.value})}
-                              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                              required
-                            >
-                              <option value="">Konum Seçin</option>
-                              {locations.map(location => (
-                                <option key={location.id} value={location.id}>
-                                  {location.name} - {location.description}
-                                </option>
-                              ))}
-                            </select>
+                            <LocationHierarchyPickers
+                              rootId={assignmentForm.locationRootId}
+                              middleId={assignmentForm.locationMiddleId}
+                              leafId={assignmentForm.locationLeafId}
+                              onRootChange={(id) =>
+                                setAssignmentForm({
+                                  ...assignmentForm,
+                                  locationRootId: id,
+                                  locationMiddleId: null,
+                                  locationLeafId: null,
+                                })
+                              }
+                              onMiddleChange={(id) =>
+                                setAssignmentForm({
+                                  ...assignmentForm,
+                                  locationMiddleId: id,
+                                  locationLeafId: null,
+                                })
+                              }
+                              onLeafChange={(id) =>
+                                setAssignmentForm({
+                                  ...assignmentForm,
+                                  locationLeafId: id,
+                                })
+                              }
+                              showLeaf
+                              autoSelectDefaults
+                              disabled={assignmentLoading}
+                            />
                           </div>
 
                           <div>
@@ -1507,7 +1518,7 @@ export const ProductDetail = () => {
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   onClick={handleCreateAssignment}
-                  disabled={assignmentLoading || !assignmentForm.selectedStockItemId || (assignmentForm.assignmentType === 'user' && !assignmentForm.assignedUserId) || (assignmentForm.assignmentType === 'location' && !assignmentForm.assignedLocationId)}
+                  disabled={assignmentLoading || !assignmentForm.selectedStockItemId || (assignmentForm.assignmentType === 'user' && !assignmentForm.assignedUserId) || (assignmentForm.assignmentType === 'location' && !(assignmentForm.locationLeafId ?? assignmentForm.locationMiddleId ?? assignmentForm.locationRootId))}
                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {assignmentLoading ? 'Oluşturuluyor...' : 'Zimmet Oluştur'}
