@@ -1,573 +1,659 @@
-import { Alert, SafeAreaView, ScrollView, StyleSheet, View, TouchableOpacity, RefreshControl } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { AppColors } from '@/constants/colors';
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  IconButton,
+  ListItem,
+  Loading,
+  Screen,
+  Section,
+  Text,
+} from '@/components/ui';
+import {
+  getSeenPendingApprovalIds,
+  markPendingApprovalSeen,
+  pruneSeenPendingApprovals,
+} from '@/domain/home/dashboardPendingSeen';
+import {
+  countInProgressRequests,
+  countThisMonthRequests,
+  countTodayRequests,
+  filterInProgressRequests,
+  isPurchasingStaff,
+  requesterLabel,
+  sortByCreatedDesc,
+} from '@/domain/home/dashboardStats';
+import {
+  EMPTY_HOME_COUNTS,
+  getAttentionChips,
+  getHomeMetrics,
+  getPrimaryCta,
+  getQuickActions,
+  isOpenRequestStatus,
+  type HomeCounts,
+  type HomeRoute,
+} from '@/domain/home/homeConfig';
+import { useAppTheme } from '@/hooks/useAppTheme';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { useAuth } from '@/contexts/AuthContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { purchaseService } from '@/services/api/purchase.service';
-import { PurchaseRequest } from '@/services/types/purchase.types';
 import { transferService } from '@/services/api/transfer.service';
+import type { PurchaseRequest } from '@/services/types/purchase.types';
+import { Ionicons } from '@expo/vector-icons';
+import { router, Stack } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
+
+function toneColors(
+  tone: 'primary' | 'success' | 'warning' | 'info' | 'error',
+  colors: ReturnType<typeof useAppTheme>['colors']
+) {
+  switch (tone) {
+    case 'success':
+      return { fg: colors.success, bg: colors.successMuted };
+    case 'warning':
+      return { fg: colors.warning, bg: colors.warningMuted };
+    case 'error':
+      return { fg: colors.error, bg: colors.errorMuted };
+    case 'primary':
+      return { fg: colors.primary, bg: colors.primaryMuted };
+    default:
+      return { fg: colors.info, bg: colors.infoMuted };
+  }
+}
+
+function requestSubtitle(request: PurchaseRequest, opts?: { seen?: boolean }): string {
+  const parts = [
+    requesterLabel(request),
+    `${request.items?.length || 0} ürün`,
+    new Date(request.createdAt || '').toLocaleDateString('tr-TR'),
+  ].filter(Boolean);
+  if (opts?.seen) parts.push('Görüntülendi');
+  return parts.join(' · ');
+}
 
 export default function HomeScreen() {
   const { user, logout, token, isAuthenticated } = useAuth();
-  const colorScheme = useColorScheme();
-  const colors = AppColors[colorScheme ?? 'light'];
+  const caps = useCapabilities();
+  const { colors, spacing, radius } = useAppTheme();
+  const { unreadCount } = useNotifications();
 
-  const [stats, setStats] = useState({
-    total: 0,
-    approved: 0,
-    pending: 0,
-    rejected: 0,
-  });
-  const [transferCount, setTransferCount] = useState(0);
+  const purchasingStaff = useMemo(() => isPurchasingStaff(user?.roles), [user?.roles]);
+
+  const [counts, setCounts] = useState<HomeCounts>(EMPTY_HOME_COUNTS);
+  const [inProgressList, setInProgressList] = useState<PurchaseRequest[]>([]);
+  const [pendingList, setPendingList] = useState<PurchaseRequest[]>([]);
+  const [seniorForwardedList, setSeniorForwardedList] = useState<PurchaseRequest[]>([]);
+  const [seenIds, setSeenIds] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Çıkış Yap',
-      'Çıkış yapmak istediğinizden emin misiniz?',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Çıkış Yap',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/login');
-            } catch (error) {
-              Alert.alert('Hata', 'Çıkış yapılırken bir sorun oluştu');
-            }
-          },
-        },
-      ]
-    );
-  };
+  const userName =
+    user?.displayName ||
+    `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() ||
+    'Kullanıcı';
 
-  // Rol bazlı buton işlevleri
-  const handleCreateRequest = () => {
-    router.push('/create-request');
-  };
-
-  const handleProductSearch = () => {
-    router.push('/product-search');
-  };
-
-  const handleCreateProduct = () => {
-    router.push('/create-product');
-  };
-
-  const handleApproveRequests = () => {
-    router.push('/(tabs)/pending-approvals');
-  };
-
-  const handleMyRequests = () => {
-    router.push('/(tabs)/my-requests');
-  };
-
-  const handleTransfers = () => {
-    router.push('/transfers');
-  };
-
-  const loadStats = async () => {
-    if (!isAuthenticated || !token || !user || !user.id) {
-      console.log('loadStats: Missing requirements', { 
-        isAuthenticated, 
-        hasToken: !!token, 
-        hasUser: !!user,
-        userId: user?.id 
-      });
+  const load = useCallback(async () => {
+    if (!isAuthenticated || !token || !user?.id) {
+      setLoading(false);
       return;
     }
 
     try {
-      console.log('loadStats: Loading transfer count for user:', user.id);
-      const [myRequests, pendingApprovals, count] = await Promise.all([
-        purchaseService.getMyRequests(token),
-        purchaseService.getPendingApprovals(token),
-        transferService.getAssignedTransferCount(user.id, token).catch((err) => {
-          console.error('Transfer count error:', err);
-          return 0;
-        }),
+      const myRequestsPromise = purchaseService.getMyRequests(token);
+      const pendingPromise = caps.canApprove
+        ? purchaseService.getPendingApprovals(token).catch(() => [] as PurchaseRequest[])
+        : Promise.resolve([] as PurchaseRequest[]);
+      const forwardedPromise =
+        caps.canApprove && purchasingStaff
+          ? purchaseService
+              .getSeniorForwardedPendingApprovals(token)
+              .catch(() => [] as PurchaseRequest[])
+          : Promise.resolve([] as PurchaseRequest[]);
+      const transferPromise = transferService
+        .getAssignedTransferCount(user.id, token)
+        .catch(() => 0);
+
+      const [myRequests, pendingApprovals, seniorForwarded, transferCount] = await Promise.all([
+        myRequestsPromise,
+        pendingPromise,
+        forwardedPromise,
+        transferPromise,
       ]);
 
-      console.log('loadStats: Transfer count loaded:', count);
-      setTransferCount(count || 0);
-      const approved = myRequests.filter(request => request.status === 'APPROVED').length;
-      const rejected = myRequests.filter(request => request.status === 'REJECTED').length;
-      setStats({
-        total: myRequests.length,
-        approved,
-        rejected,
-        pending: pendingApprovals.length,
+      const seniorForwardedIds = new Set(
+        seniorForwarded.map((r) => r.id).filter((id): id is number => id != null)
+      );
+      const pendingDisplay =
+        purchasingStaff
+          ? pendingApprovals.filter((r) => r.id != null && !seniorForwardedIds.has(r.id))
+          : pendingApprovals;
+
+      const myApproved = myRequests.filter((r) => r.status === 'APPROVED').length;
+      const myRejected = myRequests.filter((r) => r.status === 'REJECTED').length;
+      const myOpen = myRequests.filter((r) => isOpenRequestStatus(r.status)).length;
+      const thisMonth = countThisMonthRequests(myRequests);
+      const today = countTodayRequests(myRequests);
+      const inProgress = countInProgressRequests(myRequests);
+
+      setCounts({
+        myTotal: myRequests.length,
+        myOpen,
+        myApproved,
+        myRejected,
+        pendingApprovals: pendingDisplay.length,
+        transferCount: transferCount || 0,
+        thisMonth,
+        today,
+        inProgress,
       });
+
+      setInProgressList(filterInProgressRequests(myRequests).slice(0, 5));
+      setPendingList(sortByCreatedDesc(pendingDisplay).slice(0, 5));
+      setSeniorForwardedList(sortByCreatedDesc(seniorForwarded).slice(0, 8));
+
+      const pendingIds = pendingApprovals
+        .map((r) => r.id)
+        .filter((id): id is number => id != null);
+      const forwardedIds = seniorForwarded
+        .map((r) => r.id)
+        .filter((id): id is number => id != null);
+      await pruneSeenPendingApprovals(user.id, [...new Set([...pendingIds, ...forwardedIds])]);
+      const seen = await getSeenPendingApprovalIds(user.id);
+      setSeenIds(seen);
     } catch (error) {
-      console.error('Failed to load home stats:', error);
-      setStats({ total: 0, approved: 0, pending: 0, rejected: 0 });
-      setTransferCount(0);
+      console.error('Home load failed:', error);
+      setCounts(EMPTY_HOME_COUNTS);
+      setInProgressList([]);
+      setPendingList([]);
+      setSeniorForwardedList([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [isAuthenticated, token, user?.id, caps.canApprove, purchasingStaff]);
 
   useEffect(() => {
-    loadStats();
-  }, [isAuthenticated, token, user]);
+    void load();
+  }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadStats();
+    await load();
     setRefreshing(false);
   };
 
-  const userName = user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Kullanıcı';
+  const navigate = (route: HomeRoute) => {
+    router.push(route as never);
+  };
+
+  const openPendingItem = async (requestId: number) => {
+    if (user?.id) {
+      await markPendingApprovalSeen(user.id, requestId);
+      setSeenIds((prev) => {
+        const next = new Set(prev);
+        next.add(requestId);
+        return next;
+      });
+    }
+    router.push(`/approval-detail/${requestId}`);
+  };
+
+  const openOwnRequest = (requestId: number) => {
+    router.push(`/request-detail/${requestId}`);
+  };
+
+  const goToPendingList = () => {
+    navigate('/(tabs)/pending-approvals');
+  };
+
+  const primary = useMemo(() => getPrimaryCta(caps, counts), [caps, counts]);
+  const chips = useMemo(() => getAttentionChips(caps, counts), [caps, counts]);
+  const metrics = useMemo(() => getHomeMetrics(caps, counts), [caps, counts]);
+  const actions = useMemo(() => getQuickActions(caps, counts), [caps, counts]);
+
+  const confirmLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      setLogoutOpen(false);
+      router.replace('/login');
+    } catch {
+      setLoggingOut(false);
+    }
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Screen>
+          <Loading fullScreen label="Yükleniyor…" />
+        </Screen>
+      </>
+    );
+  }
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+    <>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-      >
-        {/* Hero Section */}
-        <View style={[styles.heroSection, { backgroundColor: colors.primary + '15' }]}>
-          <View style={styles.heroContent}>
-            <View style={styles.heroLeft}>
-              <View style={[styles.heroIconContainer, { backgroundColor: colors.primary + '20' }]}>
-                <Ionicons name="person-circle" size={32} color={colors.primary} />
-              </View>
-              <View style={styles.heroTextContainer}>
-                <ThemedText style={styles.heroGreeting}>Hoş Geldiniz</ThemedText>
-                <ThemedText style={styles.heroName} numberOfLines={1}>
-                  {userName}
-                </ThemedText>
-              </View>
+      <Screen scroll={false} padded={false} edges={['top', 'left', 'right']}>
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: spacing.lg,
+            paddingBottom: spacing['3xl'],
+            paddingTop: spacing.md,
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={[styles.header, { marginBottom: spacing.lg }]}>
+            <View style={{ flex: 1 }}>
+              <Text variant="caption">Merhaba</Text>
+              <Text variant="h2" numberOfLines={1}>
+                {userName}
+              </Text>
             </View>
-            <TouchableOpacity
-              onPress={handleLogout}
-              style={[styles.logoutIconButton, { backgroundColor: colors.background }]}
-            >
-              <Ionicons name="log-out-outline" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Quick Stats */}
-        <View style={styles.statsGrid}>
-          <Card style={[styles.statCard, { backgroundColor: colors.background }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#3B82F6' + '20' }]}>
-              <Ionicons name="document-text" size={24} color="#3B82F6" />
+            <View style={{ position: 'relative' }}>
+              <IconButton
+                name="notifications-outline"
+                accessibilityLabel="Bildirimler"
+                onPress={() => navigate('/(tabs)/notifications')}
+                color={colors.text}
+              />
+              {unreadCount > 0 ? (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.notifDot,
+                    {
+                      backgroundColor: colors.error,
+                      top: 8,
+                      right: 8,
+                    },
+                  ]}
+                />
+              ) : null}
             </View>
-            <ThemedText style={styles.statValue}>{stats.total}</ThemedText>
-            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Toplam Talep
-            </ThemedText>
-          </Card>
-
-          <Card style={[styles.statCard, { backgroundColor: colors.background }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#10B981' + '20' }]}>
-              <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-            </View>
-            <ThemedText style={styles.statValue}>{stats.approved}</ThemedText>
-            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Onaylanan
-            </ThemedText>
-          </Card>
-
-          <Card style={[styles.statCard, { backgroundColor: colors.background }]}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#F59E0B' + '20' }]}>
-              <Ionicons name="time" size={24} color="#F59E0B" />
-            </View>
-            <ThemedText style={styles.statValue}>{stats.pending}</ThemedText>
-            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Bekleyen
-            </ThemedText>
-          </Card>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.actionsSection}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="flash" size={20} color={colors.primary} />
-            <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Hızlı İşlemler</ThemedText>
+            <IconButton
+              name="log-out-outline"
+              accessibilityLabel="Çıkış yap"
+              onPress={() => setLogoutOpen(true)}
+              color={colors.textSecondary}
+            />
           </View>
 
-          <View style={styles.actionsGrid}>
-            <Card
-              style={[styles.actionCard, { backgroundColor: colors.background }]}
-              onPress={handleCreateRequest}
+          {/* Attention chips */}
+          {chips.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginBottom: spacing.md }}
+              contentContainerStyle={{ gap: spacing.sm }}
             >
-              <View style={[styles.actionIconContainer, { backgroundColor: colors.primary + '20' }]}>
-                <Ionicons name="add-circle" size={28} color={colors.primary} />
-              </View>
-              <ThemedText style={styles.actionTitle}>Yeni Talep</ThemedText>
-              <ThemedText style={[styles.actionDescription, { color: colors.textSecondary }]}>
-                Satın alma talebi oluşturun
-              </ThemedText>
-            </Card>
+              {chips.map((chip) => (
+                <Pressable
+                  key={chip.key}
+                  onPress={() => {
+                    if (chip.route === '/(tabs)/pending-approvals') {
+                      goToPendingList();
+                    } else {
+                      navigate(chip.route);
+                    }
+                  }}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.sm,
+                    borderRadius: radius.full,
+                    backgroundColor: colors.primaryMuted,
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <Ionicons name="flash" size={14} color={colors.primary} />
+                  <Text variant="label" color={colors.primary}>
+                    {chip.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
 
-            <Card
-              style={[styles.actionCard, { backgroundColor: colors.background }]}
-              onPress={handleApproveRequests}
-            >
-              <View style={[styles.actionIconContainer, { backgroundColor: '#10B981' + '20' }]}>
-                <Ionicons name="checkmark-circle" size={28} color="#10B981" />
-              </View>
-              <ThemedText style={styles.actionTitle}>Onay Bekleyenler</ThemedText>
-              <ThemedText style={[styles.actionDescription, { color: colors.textSecondary }]}>
-                Sizden onay bekleyen talepler
-              </ThemedText>
-              {stats.pending > 0 && (
-                <View style={styles.actionBadge}>
-                  <ThemedText style={styles.actionBadgeText}>{stats.pending}</ThemedText>
-                </View>
-              )}
-            </Card>
+          {/* Primary CTA */}
+          <Card style={{ marginBottom: spacing.lg }} elevated>
+            <Text variant="caption" style={{ marginBottom: spacing.sm }}>
+              Şimdi yap
+            </Text>
+            <Button
+              title={primary.title}
+              onPress={() => {
+                if (primary.route === '/(tabs)/pending-approvals') {
+                  goToPendingList();
+                } else {
+                  navigate(primary.route);
+                }
+              }}
+              fullWidth
+              leftIcon={<Ionicons name={primary.icon} size={20} color={colors.textInverse} />}
+            />
+          </Card>
 
-            <Card
-              style={[styles.actionCard, { backgroundColor: colors.background }]}
-              onPress={handleMyRequests}
-            >
-              <View style={[styles.actionIconContainer, { backgroundColor: '#3B82F6' + '20' }]}>
-                <Ionicons name="document-text" size={28} color="#3B82F6" />
-              </View>
-              <ThemedText style={styles.actionTitle}>Taleplerim</ThemedText>
-              <ThemedText style={[styles.actionDescription, { color: colors.textSecondary }]}>
-                Taleplerinizi görüntüleyin
-              </ThemedText>
-            </Card>
-
-            <Card
-              style={[styles.actionCard, { backgroundColor: colors.background }]}
-              onPress={handleProductSearch}
-            >
-              <View style={[styles.actionIconContainer, { backgroundColor: '#F59E0B' + '20' }]}>
-                <Ionicons name="search" size={28} color="#F59E0B" />
-              </View>
-              <ThemedText style={styles.actionTitle}>Ürün Arama</ThemedText>
-              <ThemedText style={[styles.actionDescription, { color: colors.textSecondary }]}>
-                Ürün adı veya kodu ile arama
-              </ThemedText>
-            </Card>
-
-            <Card
-              style={[styles.actionCard, { backgroundColor: colors.background }]}
-              onPress={handleCreateProduct}
-            >
-              <View style={[styles.actionIconContainer, { backgroundColor: '#8B5CF6' + '20' }]}>
-                <Ionicons name="cube" size={28} color="#8B5CF6" />
-              </View>
-              <ThemedText style={styles.actionTitle}>Ürün Oluştur</ThemedText>
-              <ThemedText style={[styles.actionDescription, { color: colors.textSecondary }]}>
-                Yeni ürün ekleyin
-              </ThemedText>
-            </Card>
-
-            <Card
-              style={[styles.actionCard, { backgroundColor: colors.background }]}
-              onPress={handleTransfers}
-            >
-              <View style={[styles.actionIconContainer, { backgroundColor: '#EC4899' + '20' }]}>
-                <Ionicons name="swap-horizontal" size={28} color="#EC4899" />
-              </View>
-              <ThemedText style={styles.actionTitle}>Transferler</ThemedText>
-              <ThemedText style={[styles.actionDescription, { color: colors.textSecondary }]}>
-                Teslim alınacak transferler
-              </ThemedText>
-              {transferCount > 0 && (
-                <View style={styles.actionBadge}>
-                  <ThemedText style={styles.actionBadgeText}>{transferCount}</ThemedText>
-                </View>
-              )}
-            </Card>
-          </View>
-        </View>
-
-        {/* User Info Card */}
-        {user && (
-          <Card style={[styles.userCard, { backgroundColor: colors.background }]}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="person" size={20} color={colors.primary} />
-              <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Kullanıcı Bilgileri</ThemedText>
-            </View>
-
-            <View style={styles.userInfoGrid}>
-              {user.email && (
-                <View style={styles.userInfoRow}>
-                  <Ionicons name="mail" size={16} color={colors.textSecondary} />
-                  <ThemedText style={[styles.userInfoLabel, { color: colors.textSecondary }]}>
-                    E-posta:
-                  </ThemedText>
-                  <ThemedText style={styles.userInfoValue} numberOfLines={1}>
-                    {user.email}
-                  </ThemedText>
-                </View>
-              )}
-
-              {user.department && (
-                <View style={styles.userInfoRow}>
-                  <Ionicons name="business" size={16} color={colors.textSecondary} />
-                  <ThemedText style={[styles.userInfoLabel, { color: colors.textSecondary }]}>
-                    Departman:
-                  </ThemedText>
-                  <ThemedText style={styles.userInfoValue}>{user.department}</ThemedText>
-                </View>
-              )}
-
-              {user.position && (
-                <View style={styles.userInfoRow}>
-                  <Ionicons name="briefcase" size={16} color={colors.textSecondary} />
-                  <ThemedText style={[styles.userInfoLabel, { color: colors.textSecondary }]}>
-                    Pozisyon:
-                  </ThemedText>
-                  <ThemedText style={styles.userInfoValue}>{user.position}</ThemedText>
-                </View>
-              )}
-
-              {user.roles && user.roles.length > 0 && (
-                <View style={styles.userInfoRow}>
-                  <Ionicons name="people" size={16} color={colors.textSecondary} />
-                  <ThemedText style={[styles.userInfoLabel, { color: colors.textSecondary }]}>
-                    Roller:
-                  </ThemedText>
-                  <View style={styles.rolesContainer}>
-                    {user.roles.map((role, index) => (
-                      <View key={index} style={[styles.roleBadge, { backgroundColor: colors.primary + '20' }]}>
-                        <ThemedText style={[styles.roleText, { color: colors.primary }]}>{role}</ThemedText>
-                      </View>
-                    ))}
+          {/* Dashboard stats — 2×2 */}
+          <View style={[styles.metricsGrid, { gap: spacing.sm, marginBottom: spacing.lg }]}>
+            {metrics.map((m) => {
+              const t = toneColors(m.tone, colors);
+              return (
+                <Card
+                  key={m.key}
+                  style={styles.metricCard}
+                  padding={spacing.md}
+                  elevated={false}
+                >
+                  <View
+                    style={[
+                      styles.metricIcon,
+                      { backgroundColor: t.bg, marginBottom: spacing.sm },
+                    ]}
+                  >
+                    <Ionicons name={m.icon} size={18} color={t.fg} />
                   </View>
-                </View>
-              )}
+                  <Text variant="h3">{m.value}</Text>
+                  <Text variant="caption" numberOfLines={2}>
+                    {m.label}
+                  </Text>
+                </Card>
+              );
+            })}
+          </View>
+
+          {/* Quick actions */}
+          <Section title="Hızlı erişim">
+            <View style={[styles.actionsGrid, { gap: spacing.sm }]}>
+              {actions.map((action) => (
+                <Card
+                  key={action.key}
+                  onPress={() => {
+                    if (action.route === '/(tabs)/pending-approvals') {
+                      goToPendingList();
+                    } else {
+                      navigate(action.route);
+                    }
+                  }}
+                  style={{ width: '48.5%', position: 'relative' }}
+                  padding={spacing.md}
+                >
+                  {action.badge ? (
+                    <View style={{ position: 'absolute', top: spacing.sm, right: spacing.sm }}>
+                      <Badge label={String(action.badge)} tone="error" />
+                    </View>
+                  ) : null}
+                  <View
+                    style={[
+                      styles.actionIcon,
+                      {
+                        backgroundColor: colors.primaryMuted,
+                        marginBottom: spacing.sm,
+                      },
+                    ]}
+                  >
+                    <Ionicons name={action.icon} size={22} color={colors.primary} />
+                  </View>
+                  <Text variant="bodyStrong" numberOfLines={1}>
+                    {action.title}
+                  </Text>
+                  <Text variant="caption" numberOfLines={2}>
+                    {action.description}
+                  </Text>
+                </Card>
+              ))}
             </View>
-          </Card>
-        )}
-      </ScrollView>
-    </ThemedView>
+          </Section>
+
+          {/* Onaylananlar — satın alma personeli */}
+          {caps.canApprove && purchasingStaff ? (
+            <Section
+              title="Onaylananlar"
+              description="Üst onaycıdan size iletilen talepler"
+            >
+              <View
+                style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}
+              >
+                <Pressable onPress={goToPendingList} hitSlop={8}>
+                  <Text variant="label" color={colors.primary}>
+                    Tümünü gör
+                  </Text>
+                </Pressable>
+              </View>
+              {seniorForwardedList.length === 0 ? (
+                <EmptyState
+                  title="İletilen talep yok"
+                  description="Üst onaycıdan size iletilmiş talep bulunmuyor."
+                  icon="checkmark-done-outline"
+                />
+              ) : (
+                <Card padding={spacing.sm}>
+                  {seniorForwardedList.map((item, index) => {
+                    const isSeen = seenIds.has(item.id);
+                    return (
+                      <View key={item.id}>
+                        <ListItem
+                          title={item.title || `Talep #${item.id}`}
+                          subtitle={requestSubtitle(item, { seen: isSeen })}
+                          left={
+                            !isSeen ? (
+                              <View
+                                style={[styles.unseenDot, { backgroundColor: colors.success }]}
+                              />
+                            ) : undefined
+                          }
+                          onPress={() => void openPendingItem(item.id)}
+                          right={<Badge label="İletildi" tone="success" />}
+                        />
+                        {index < seniorForwardedList.length - 1 ? (
+                          <View
+                            style={{
+                              height: StyleSheet.hairlineWidth,
+                              backgroundColor: colors.border,
+                              marginLeft: spacing.md,
+                            }}
+                          />
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </Card>
+              )}
+            </Section>
+          ) : null}
+
+          {/* İşlemde — kendi talepleri */}
+          <Section
+            title="İşlemde"
+            description="Onaylanmış ve işlemdeki talepleriniz"
+          >
+            <View
+              style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}
+            >
+              <Pressable onPress={() => navigate('/(tabs)/my-requests')} hitSlop={8}>
+                <Text variant="label" color={colors.primary}>
+                  Tümünü gör
+                </Text>
+              </Pressable>
+            </View>
+            {inProgressList.length === 0 ? (
+              <EmptyState
+                title="İşlemde talep yok"
+                description="Onaylanmış veya işlemde olan talebiniz bulunmuyor."
+                icon="flash-outline"
+              />
+            ) : (
+              <Card padding={spacing.sm}>
+                {inProgressList.map((item, index) => (
+                  <View key={item.id}>
+                    <ListItem
+                      title={item.title || `Talep #${item.id}`}
+                      subtitle={requestSubtitle(item)}
+                      onPress={() => openOwnRequest(item.id)}
+                      right={<Badge label="İşlemde" tone="info" />}
+                    />
+                    {index < inProgressList.length - 1 ? (
+                      <View
+                        style={{
+                          height: StyleSheet.hairlineWidth,
+                          backgroundColor: colors.border,
+                          marginLeft: spacing.md,
+                        }}
+                      />
+                    ) : null}
+                  </View>
+                ))}
+              </Card>
+            )}
+          </Section>
+
+          {/* Onay bekleyen */}
+          {caps.canApprove ? (
+            <Section
+              title="Onay bekleyen"
+              description="Sizin onayınızı bekleyen talepler"
+            >
+              <View
+                style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}
+              >
+                <Pressable onPress={goToPendingList} hitSlop={8}>
+                  <Text variant="label" color={colors.primary}>
+                    Tümünü gör
+                  </Text>
+                </Pressable>
+              </View>
+              {pendingList.length === 0 ? (
+                <EmptyState
+                  title="Onay bekleyen yok"
+                  description="Şu an onayınızı bekleyen talep bulunmuyor."
+                  icon="time-outline"
+                />
+              ) : (
+                <Card padding={spacing.sm}>
+                  {pendingList.map((item, index) => {
+                    const isSeen = seenIds.has(item.id);
+                    const isOwn =
+                      user?.id != null && item.requester?.id === user.id;
+                    return (
+                      <View key={item.id}>
+                        <ListItem
+                          title={item.title || `Talep #${item.id}`}
+                          subtitle={requestSubtitle(item, { seen: isSeen })}
+                          left={
+                            !isSeen ? (
+                              <View
+                                style={[styles.unseenDot, { backgroundColor: colors.primary }]}
+                              />
+                            ) : undefined
+                          }
+                          onPress={() => void openPendingItem(item.id)}
+                          right={
+                            <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                              <Badge label="Onay Bekliyor" tone="warning" />
+                              <Badge
+                                label={isOwn ? 'Kendi talebiniz' : 'Size onay'}
+                                tone={isOwn ? 'neutral' : 'warning'}
+                              />
+                            </View>
+                          }
+                        />
+                        {index < pendingList.length - 1 ? (
+                          <View
+                            style={{
+                              height: StyleSheet.hairlineWidth,
+                              backgroundColor: colors.border,
+                              marginLeft: spacing.md,
+                            }}
+                          />
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </Card>
+              )}
+            </Section>
+          ) : null}
+        </ScrollView>
+
+        <ConfirmDialog
+          visible={logoutOpen}
+          title="Çıkış yap"
+          message="Oturumu kapatmak istediğinize emin misiniz?"
+          confirmTitle="Çıkış yap"
+          cancelTitle="İptal"
+          destructive
+          loading={loggingOut}
+          onCancel={() => setLogoutOpen(false)}
+          onConfirm={() => void confirmLogout()}
+        />
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 24,
-    paddingTop: 16,
-  },
-  // Hero Section
-  heroSection: {
-    padding: 20,
-    paddingTop: 24,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    marginBottom: 20,
-    marginTop: 8,
-  },
-  heroContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  heroLeft: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: 4,
   },
-  heroIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+  notifDot: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  heroTextContainer: {
-    flex: 1,
-  },
-  heroGreeting: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
-    opacity: 0.8,
-  },
-  heroName: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  logoutIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  // Stats Grid
-  statsGrid: {
+  metricsGrid: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 12,
-    marginBottom: 24,
+    flexWrap: 'wrap',
   },
-  statCard: {
-    flex: 1,
-    padding: 16,
+  metricCard: {
+    width: '48.5%',
+  },
+  metricIcon: {
+    width: 32,
+    height: 32,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  statIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  // Actions Section
-  actionsSection: {
-    marginBottom: 24,
-    paddingHorizontal: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
   },
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
   },
-  actionCard: {
-    width: '47.5%',
-    padding: 16,
-    borderRadius: 16,
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    position: 'relative',
-  },
-  actionIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
   },
-  actionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  actionDescription: {
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  actionBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: '#EF4444',
-    borderRadius: 12,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  actionBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  // User Card
-  userCard: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  userInfoGrid: {
-    gap: 12,
-    marginTop: 12,
-  },
-  userInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  userInfoLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    minWidth: 80,
-  },
-  userInfoValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'right',
-  },
-  rolesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  roleBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  roleText: {
-    fontSize: 11,
-    fontWeight: '600',
+  unseenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });

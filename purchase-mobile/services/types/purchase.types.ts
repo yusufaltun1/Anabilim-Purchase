@@ -9,6 +9,7 @@ export interface Supplier {
 
 export interface SupplierQuote {
   id: number;
+  quoteUid?: string;
   quoteNumber?: string;
   unitPrice?: number;
   quantity?: number;
@@ -21,11 +22,23 @@ export interface SupplierQuote {
   supplierReference?: string;
   status?: string;
   isSelected?: boolean;
+  counterOfferUnitPrice?: number | null;
+  counterOfferQuantity?: number | null;
+  counterOfferEnteredAt?: string | null;
   supplier?: { id: number; name: string; contactPerson?: string; contactPhone?: string; contactEmail?: string };
 }
 
 export interface PurchaseRequestItem {
   id?: number;
+  productId?: number | null;
+  product?: {
+    id: number;
+    name?: string;
+    code?: string;
+    description?: string;
+    category?: { id: number; name?: string };
+    unit?: string;
+  };
   productName: string;
   description?: string;
   quantity: number;
@@ -90,7 +103,17 @@ export interface PurchaseRequest {
   id: number;
   title: string;
   description: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'IN_APPROVAL';
+  status:
+    | 'DRAFT'
+    | 'PENDING'
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'IN_PROGRESS'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'IN_APPROVAL'
+    | 'PARTIAL_APPROVAL'
+    | 'PARTIALLY_APPROVED';
   requester: {
     id: number;
     fullName: string;

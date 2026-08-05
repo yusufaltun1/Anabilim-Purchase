@@ -1,15 +1,30 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View, TouchableOpacity, RefreshControl } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View, RefreshControl } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import {
+  AssignmentReturnModal,
+  SerialStockItemSection,
+} from '@/components/assignments';
+import { AccessDenied } from '@/components/auth/AccessDenied';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ConfirmDialog, useToast } from '@/components/ui';
 import { AppColors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { assignmentService } from '@/services/api/assignment.service';
 import { productService } from '@/services/api/product.service';
+import { warehouseService } from '@/services/api/warehouse.service';
+import {
+  canCancelAssignment,
+  usesSerialStockItems,
+  type StockItem,
+} from '@/services/types/assignment.types';
 import { Assignment, AssignmentStatus, ProductStockDetail } from '@/services/types/product.types';
 
 const formatDate = (dateString?: string) => {
@@ -78,30 +93,48 @@ const getStatusLabel = (status: AssignmentStatus) => {
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams();
+  const router = useRouter();
   const { token } = useAuth();
+  const { canInventoryView, canInventoryManage } = useCapabilities();
   const colorScheme = useColorScheme();
   const colors = AppColors[colorScheme ?? 'light'];
+  const { showToast } = useToast();
   const [detail, setDetail] = useState<ProductStockDetail | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [productType, setProductType] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
+  const [stockItemsLoading, setStockItemsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [returnTarget, setReturnTarget] = useState<Assignment | null>(null);
+  const [returning, setReturning] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<Assignment | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
-  const loadDetail = async () => {
-    if (!token || !id) return;
+  const productId = Number(id);
+  const isSerialProduct = usesSerialStockItems(productType ?? detail?.product?.productType);
+
+  const loadDetail = useCallback(async () => {
+    if (!token || !id || !canInventoryView) return;
     setLoading(true);
     try {
-      const data = await productService.getProductStockDetail(Number(id), token);
+      const [data, product] = await Promise.all([
+        productService.getProductStockDetail(Number(id), token),
+        productService.getProductById(Number(id), token).catch(() => null),
+      ]);
       setDetail(data);
+      const type = product?.productType ?? data.product.productType;
+      setProductType(type);
     } catch (error) {
       console.error('Product detail fetch failed:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, id, canInventoryView]);
 
-  const loadAssignments = async () => {
-    if (!token || !id) return;
+  const loadAssignments = useCallback(async () => {
+    if (!token || !id || !canInventoryView) return;
     setAssignmentsLoading(true);
     try {
       const data = await productService.getAssignmentsByProduct(Number(id), token);
@@ -112,18 +145,100 @@ export default function ProductDetailScreen() {
     } finally {
       setAssignmentsLoading(false);
     }
-  };
+  }, [token, id, canInventoryView]);
+
+  const loadStockItems = useCallback(async () => {
+    if (!token || !id || !canInventoryView) return;
+    const type = productType ?? detail?.product?.productType;
+    if (!usesSerialStockItems(type)) {
+      setStockItems([]);
+      return;
+    }
+    setStockItemsLoading(true);
+    try {
+      const items = await warehouseService.getProductStockItems(Number(id), token);
+      setStockItems(items);
+    } catch (error) {
+      console.error('Stock items fetch failed:', error);
+      setStockItems([]);
+    } finally {
+      setStockItemsLoading(false);
+    }
+  }, [token, id, canInventoryView, productType, detail?.product?.productType]);
 
   useEffect(() => {
-    loadDetail();
-    loadAssignments();
-  }, [id, token]);
+    if (!canInventoryView) {
+      setLoading(false);
+      setAssignmentsLoading(false);
+      return;
+    }
+    void loadDetail();
+    void loadAssignments();
+  }, [canInventoryView, loadDetail, loadAssignments]);
+
+  useEffect(() => {
+    void loadStockItems();
+  }, [loadStockItems]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadDetail(), loadAssignments()]);
+    await Promise.all([loadDetail(), loadAssignments(), loadStockItems()]);
     setRefreshing(false);
   };
+
+  const handleReturn = async (payload: {
+    warehouseId: number;
+    notes?: string;
+    photoUri: string;
+    photoName?: string;
+    photoMimeType?: string;
+    documentUri?: string;
+    documentName?: string;
+    documentMimeType?: string;
+  }) => {
+    if (!returnTarget || !token) return;
+    try {
+      setReturning(true);
+      await assignmentService.returnAssignment(returnTarget.id, payload, token);
+      showToast({ message: 'Zimmet iade edildi', tone: 'success' });
+      setReturnTarget(null);
+      await Promise.all([loadAssignments(), loadStockItems(), loadDetail()]);
+    } catch (err) {
+      showToast({
+        message: err instanceof Error ? err.message : 'Zimmet iade edilemedi',
+        tone: 'error',
+      });
+    } finally {
+      setReturning(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!cancelTarget || !token) return;
+    try {
+      setCancelling(true);
+      await assignmentService.cancelAssignment(cancelTarget.id, token);
+      showToast({ message: 'Zimmet iptal edildi', tone: 'success' });
+      setCancelTarget(null);
+      await Promise.all([loadAssignments(), loadStockItems(), loadDetail()]);
+    } catch (err) {
+      showToast({
+        message: err instanceof Error ? err.message : 'Zimmet iptal edilemedi',
+        tone: 'error',
+      });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  if (!canInventoryView) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Ürün Detayı' }} />
+        <AccessDenied description="Ürün detayını görüntüleme yetkiniz bulunmuyor." />
+      </>
+    );
+  }
 
   if (loading) {
     return (
@@ -249,77 +364,104 @@ export default function ProductDetailScreen() {
               </ThemedText>
             </View>
           )}
+          {canInventoryManage ? (
+            <View style={{ marginTop: 16, gap: 8 }}>
+              <Button
+                title="Düzenle"
+                onPress={() => router.push(`/products/edit/${id}`)}
+              />
+              <Button
+                title="Tedarikçi ekle"
+                variant="outline"
+                onPress={() => router.push(`/products/${id}/suppliers/add`)}
+              />
+            </View>
+          ) : null}
         </Card>
 
-        {/* Warehouse Stocks */}
+        {/* Warehouse Stocks / Serial devices */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="storefront" size={20} color={colors.primary} />
-            <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Depo Bazlı Stok</ThemedText>
-          </View>
-          {detail.warehouseStocks.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Ionicons name="archive-outline" size={32} color={colors.textSecondary} />
-              <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Depo bilgisi bulunmuyor
-              </ThemedText>
-            </Card>
+          {isSerialProduct ? (
+            <SerialStockItemSection
+              productId={productId}
+              stockItems={stockItems}
+              loading={stockItemsLoading}
+              canManage={canInventoryManage}
+              onRefresh={() => {
+                void Promise.all([loadStockItems(), loadAssignments(), loadDetail()]);
+              }}
+            />
           ) : (
-            detail.warehouseStocks.map((stock) => (
-              <Card key={stock.stockId} style={styles.warehouseCard}>
-                <View style={styles.warehouseHeader}>
-                  <View style={styles.warehouseHeaderLeft}>
-                    <View style={[styles.warehouseIconContainer, { backgroundColor: '#3B82F6' + '20' }]}>
-                      <Ionicons name="business" size={20} color="#3B82F6" />
-                    </View>
-                    <View>
-                      <ThemedText style={styles.warehouseName}>{stock.warehouse.name}</ThemedText>
-                      {stock.warehouse.code && (
-                        <ThemedText style={[styles.warehouseCode, { color: colors.textSecondary }]}>
-                          {stock.warehouse.code}
-                        </ThemedText>
+            <>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="storefront" size={20} color={colors.primary} />
+                <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Depo Bazlı Stok</ThemedText>
+              </View>
+              {detail.warehouseStocks.length === 0 ? (
+                <Card style={styles.emptyCard}>
+                  <Ionicons name="archive-outline" size={32} color={colors.textSecondary} />
+                  <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    Depo bilgisi bulunmuyor
+                  </ThemedText>
+                </Card>
+              ) : (
+                detail.warehouseStocks.map((stock) => (
+                  <Card key={stock.stockId} style={styles.warehouseCard}>
+                    <View style={styles.warehouseHeader}>
+                      <View style={styles.warehouseHeaderLeft}>
+                        <View style={[styles.warehouseIconContainer, { backgroundColor: '#3B82F6' + '20' }]}>
+                          <Ionicons name="business" size={20} color="#3B82F6" />
+                        </View>
+                        <View>
+                          <ThemedText style={styles.warehouseName}>{stock.warehouse.name}</ThemedText>
+                          {stock.warehouse.code && (
+                            <ThemedText style={[styles.warehouseCode, { color: colors.textSecondary }]}>
+                              {stock.warehouse.code}
+                            </ThemedText>
+                          )}
+                        </View>
+                      </View>
+                      {stock.isLowStock && (
+                        <View style={styles.lowStockBadge}>
+                          <Ionicons name="warning" size={12} color="#DC2626" />
+                          <ThemedText style={styles.lowStockText}>Düşük</ThemedText>
+                        </View>
                       )}
                     </View>
-                  </View>
-                  {stock.isLowStock && (
-                    <View style={styles.lowStockBadge}>
-                      <Ionicons name="warning" size={12} color="#DC2626" />
-                      <ThemedText style={styles.lowStockText}>Düşük</ThemedText>
-                    </View>
-                  )}
-                </View>
 
-                <View style={styles.warehouseStats}>
-                  <View style={styles.warehouseStatItem}>
-                    <Ionicons name="cube" size={16} color={colors.textSecondary} />
-                    <ThemedText style={[styles.warehouseStatLabel, { color: colors.textSecondary }]}>
-                      Mevcut
-                    </ThemedText>
-                    <ThemedText style={styles.warehouseStatValue}>{stock.currentStock}</ThemedText>
-                  </View>
-                  {(stock.minStock !== null || stock.maxStock !== null) && (
-                    <View style={styles.warehouseStatItem}>
-                      <Ionicons name="resize" size={16} color={colors.textSecondary} />
-                      <ThemedText style={[styles.warehouseStatLabel, { color: colors.textSecondary }]}>
-                        Min/Max
-                      </ThemedText>
-                      <ThemedText style={styles.warehouseStatValue}>
-                        {stock.minStock ?? '-'} / {stock.maxStock ?? '-'}
-                      </ThemedText>
+                    <View style={styles.warehouseStats}>
+                      <View style={styles.warehouseStatItem}>
+                        <Ionicons name="cube" size={16} color={colors.textSecondary} />
+                        <ThemedText style={[styles.warehouseStatLabel, { color: colors.textSecondary }]}>
+                          Mevcut
+                        </ThemedText>
+                        <ThemedText style={styles.warehouseStatValue}>{stock.currentStock}</ThemedText>
+                      </View>
+                      {(stock.minStock !== null || stock.maxStock !== null) && (
+                        <View style={styles.warehouseStatItem}>
+                          <Ionicons name="resize" size={16} color={colors.textSecondary} />
+                          <ThemedText style={[styles.warehouseStatLabel, { color: colors.textSecondary }]}>
+                            Min/Max
+                          </ThemedText>
+                          <ThemedText style={styles.warehouseStatValue}>
+                            {stock.minStock ?? '-'} / {stock.maxStock ?? '-'}
+                          </ThemedText>
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
 
-                {stock.lastMovementDate && (
-                  <View style={styles.warehouseFooter}>
-                    <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
-                    <ThemedText style={[styles.warehouseFooterText, { color: colors.textSecondary }]}>
-                      Son hareket: {formatDate(stock.lastMovementDate)}
-                    </ThemedText>
-                  </View>
-                )}
-              </Card>
-            ))
+                    {stock.lastMovementDate && (
+                      <View style={styles.warehouseFooter}>
+                        <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
+                        <ThemedText style={[styles.warehouseFooterText, { color: colors.textSecondary }]}>
+                          Son hareket: {formatDate(stock.lastMovementDate)}
+                        </ThemedText>
+                      </View>
+                    )}
+                  </Card>
+                ))
+              )}
+            </>
           )}
         </View>
 
@@ -554,11 +696,54 @@ export default function ProductDetailScreen() {
                     <ThemedText style={styles.expiredText}>Süresi Dolmuş</ThemedText>
                   </View>
                 )}
+
+                {canInventoryManage &&
+                assignment.status === AssignmentStatus.ACTIVE &&
+                assignment.isActive ? (
+                  <View style={{ marginTop: 12, gap: 8 }}>
+                    {assignment.canBeReturned ? (
+                      <Button
+                        title="İade"
+                        variant="outline"
+                        onPress={() => setReturnTarget(assignment)}
+                      />
+                    ) : null}
+                    {canCancelAssignment(assignment) ? (
+                      <Button
+                        title="İptal"
+                        variant="destructive"
+                        onPress={() => setCancelTarget(assignment)}
+                      />
+                    ) : null}
+                  </View>
+                ) : null}
               </Card>
             ))
           )}
         </View>
       </ScrollView>
+
+      <AssignmentReturnModal
+        visible={returnTarget != null}
+        assignment={returnTarget}
+        submitting={returning}
+        onClose={() => {
+          if (!returning) setReturnTarget(null);
+        }}
+        onSubmit={handleReturn}
+      />
+
+      <ConfirmDialog
+        visible={cancelTarget != null}
+        title="Zimmeti iptal et"
+        message="Bu zimmeti iptal etmek istediğinize emin misiniz?"
+        confirmTitle="İptal et"
+        cancelTitle="Vazgeç"
+        destructive
+        loading={cancelling}
+        onConfirm={() => void handleCancel()}
+        onCancel={() => setCancelTarget(null)}
+      />
     </>
   );
 }

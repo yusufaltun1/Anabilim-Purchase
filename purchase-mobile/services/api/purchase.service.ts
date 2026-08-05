@@ -172,6 +172,35 @@ class PurchaseService {
     }
   }
 
+  /** Üst onaycıdan iletilmiş talepler — satın alma personeli Home/Dashboard */
+  async getSeniorForwardedPendingApprovals(token: string): Promise<PurchaseRequest[]> {
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.SENIOR_FORWARDED_PENDING_APPROVALS}`,
+        {
+          method: 'GET',
+          headers: getAuthHeaders(token),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP hatası! Durum: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data && Array.isArray(data.data)) {
+        return data.data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Üst onaydan iletilen talepler yüklenirken hata:', error);
+      throw error;
+    }
+  }
+
   async getMyRequestsPage(token: string, page = 0, size = 20) {
     const response = await fetch(
       `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.MY_REQUESTS}/paged?page=${page}&size=${size}`,
@@ -308,6 +337,42 @@ class PurchaseService {
     }
   }
 
+  async updateItems(
+    id: number,
+    updateData: {
+      title: string;
+      description: string;
+      items: any[];
+    },
+    token: string
+  ): Promise<PurchaseRequest> {
+    const response = await fetch(
+      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.UPDATE_ITEMS(id)}`,
+      {
+        method: 'PUT',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify(updateData),
+      }
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Kalemler güncellenemedi (${response.status})`);
+    }
+    const data = await response.json();
+    return (data?.data ?? data) as PurchaseRequest;
+  }
+
+  async deleteRequest(id: number, token: string): Promise<void> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PURCHASE.DELETE(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Talep silinemedi (${response.status})`);
+    }
+  }
+
   async getSuppliers(token: string) {
     try {
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SUPPLIERS.BASE}`, {
@@ -324,6 +389,35 @@ class PurchaseService {
       console.error('Tedarikçiler yüklenirken hata:', error);
       throw error;
     }
+  }
+
+  async getActiveSuppliers(token: string): Promise<import('../types/purchase.types').Supplier[]> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SUPPLIERS.ACTIVE}`, {
+      method: 'GET',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      // fallback
+      const all = await this.getSuppliers(token);
+      return Array.isArray(all) ? all : Array.isArray(all?.data) ? all.data : [];
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+  }
+
+  async getSuppliersByCategory(
+    categoryId: number,
+    token: string
+  ): Promise<import('../types/purchase.types').Supplier[]> {
+    const response = await fetch(
+      `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SUPPLIERS.BY_CATEGORY(categoryId)}`,
+      { method: 'GET', headers: getAuthHeaders(token) }
+    );
+    if (!response.ok) {
+      return this.getActiveSuppliers(token);
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
   }
 
   async uploadAttachment(

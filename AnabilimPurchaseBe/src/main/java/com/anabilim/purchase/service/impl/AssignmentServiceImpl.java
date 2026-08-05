@@ -105,8 +105,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         // Assignment'ı kaydet
         Assignment savedAssignment = assignmentRepository.save(assignment);
         
-        // Konum zimmeti: cihazın konum bilgisini zimmetlenen konuma yaz
-        applyAssignedLocationToStockItem(savedAssignment);
+        // Zimmet sonrası cihaz konumunu güncelle (kişi çalışma konumu veya konum zimmeti)
+        applyAssignmentLocationToStockItem(savedAssignment);
 
         // Depodan çıkış kaydı oluştur
         createStockMovementForAssignment(savedAssignment, dto.getWarehouseId());
@@ -142,7 +142,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
 
         revertStockForCancelledAssignment(assignment);
-        clearStockItemLocationIfLocationAssignment(assignment);
+        clearStockItemLocationFromAssignment(assignment);
         assignmentFormService.deleteFormPhotoFiles(assignment);
         assignmentRepository.delete(assignment);
     }
@@ -274,8 +274,8 @@ public class AssignmentServiceImpl implements AssignmentService {
         
         assignment.markAsReturned();
 
-        // Konum zimmeti iade edilince cihaz üzerindeki konum bilgisi temizlenir
-        clearStockItemLocationIfLocationAssignment(assignment);
+        // İade sonrası cihaz üzerindeki zimmet kaynaklı konum bilgisi temizlenir
+        clearStockItemLocationFromAssignment(assignment);
         
         Assignment savedAssignment = assignmentRepository.save(assignment);
         
@@ -324,6 +324,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         assignment.transferToUser(newUser, newLocation);
         
         Assignment savedAssignment = assignmentRepository.save(assignment);
+        applyAssignmentLocationToStockItem(savedAssignment);
         return assignmentMapper.toDto(savedAssignment);
     }
     
@@ -645,17 +646,41 @@ public class AssignmentServiceImpl implements AssignmentService {
         return "Konum: " + assignment.getLocationName();
     }
 
-    /** Konum zimmetinde cihazın varsayılan konumunu zimmetlenen konuma bağlar. */
-    private void applyAssignedLocationToStockItem(Assignment assignment) {
-        if (!assignment.isLocationAssignment() || assignment.getStockItem() == null) {
+    /**
+     * Zimmet sonrası cihazın liste konum alanlarını günceller:
+     * - Kişi zimmeti → kullanıcının çalışma konumu (ve okulu)
+     * - Konum zimmeti → zimmetlenen konum hiyerarşisi
+     */
+    private void applyAssignmentLocationToStockItem(Assignment assignment) {
+        if (assignment.getStockItem() == null) {
             return;
         }
+
+        StockItem stockItem = assignment.getStockItem();
+
+        if (assignment.isUserAssignment()) {
+            User user = assignment.getAssignedUser();
+            if (user == null) {
+                return;
+            }
+            stockItem.setDefaultParentLocation(user.getWorkLocationParent());
+            stockItem.setDefaultChildLocation(user.getWorkLocationChild());
+            if (user.getSchool() != null) {
+                stockItem.setSchool(user.getSchool());
+            }
+            stockItemRepository.save(stockItem);
+            return;
+        }
+
+        if (!assignment.isLocationAssignment()) {
+            return;
+        }
+
         Location assignedLocation = assignment.getAssignedLocation();
         if (assignedLocation == null) {
             return;
         }
 
-        StockItem stockItem = assignment.getStockItem();
         Location root = assignedLocation;
         while (root.getParent() != null) {
             root = root.getParent();
@@ -671,9 +696,12 @@ public class AssignmentServiceImpl implements AssignmentService {
         stockItemRepository.save(stockItem);
     }
 
-    /** Konum zimmeti iade/iptalinde cihaz konum bilgisini temizler. */
-    private void clearStockItemLocationIfLocationAssignment(Assignment assignment) {
-        if (!assignment.isLocationAssignment() || assignment.getStockItem() == null) {
+    /** Zimmet iade/iptalinde cihaz üzerindeki zimmet kaynaklı konum bilgisini temizler. */
+    private void clearStockItemLocationFromAssignment(Assignment assignment) {
+        if (assignment.getStockItem() == null) {
+            return;
+        }
+        if (!assignment.isUserAssignment() && !assignment.isLocationAssignment()) {
             return;
         }
         StockItem stockItem = assignment.getStockItem();

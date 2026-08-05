@@ -1,40 +1,32 @@
+import { AccessDenied } from '@/components/auth/AccessDenied';
 import { PurchaseRequestForm } from '@/components/forms/PurchaseRequestForm';
-import { AppColors } from '@/constants/colors';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { router } from 'expo-router';
+import { Screen, ScreenHeader } from '@/components/ui';
+import { useCapabilities } from '@/hooks/useCapabilities';
+import { router, Stack } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 
 export default function CreateRequestScreen() {
-  const colorScheme = useColorScheme();
-  const colors = AppColors[colorScheme ?? 'light'];
+  const { canCreateRequest } = useCapabilities();
 
-  const handleSuccess = (request: any) => {
-    // Talep başarıyla oluşturuldu, ana sayfaya dön
-    router.back();
-  };
-
-  const handleCancel = () => {
-    // İptal edildi, geri dön
-    router.back();
-  };
+  if (!canCreateRequest) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Yeni Talep', headerShown: false }} />
+        <AccessDenied description="Satın alma talebi oluşturma yetkiniz bulunmuyor." />
+      </>
+    );
+  }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar 
-        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} 
-        backgroundColor={colors.background} 
-      />
-      <PurchaseRequestForm 
-        onSuccess={handleSuccess}
-        onCancel={handleCancel}
-      />
-    </SafeAreaView>
+    <>
+      <Stack.Screen options={{ title: 'Yeni Talep', headerShown: false }} />
+      <Screen padded edges={['top', 'left', 'right', 'bottom']}>
+        <ScreenHeader title="Yeni talep" subtitle="Satın alma talebi oluşturun" />
+        <PurchaseRequestForm
+          onSuccess={() => router.replace('/(tabs)/my-requests')}
+          onCancel={() => router.back()}
+        />
+      </Screen>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});

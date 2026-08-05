@@ -1,148 +1,139 @@
-import { AppColors } from '@/constants/colors';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextStyle, TouchableOpacity, ViewStyle } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
+import { Text } from './Text';
 
-interface ButtonProps {
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'destructive' | 'ghost';
+export type ButtonSize = 'small' | 'medium' | 'large';
+
+export type ButtonProps = {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline';
-  size?: 'small' | 'medium' | 'large';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
-}
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+  fullWidth?: boolean;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
+  accessibilityLabel?: string;
+};
 
-export const Button: React.FC<ButtonProps> = ({
+export function Button({
   title,
   onPress,
   variant = 'primary',
   size = 'medium',
   disabled = false,
   loading = false,
+  leftIcon,
+  rightIcon,
+  fullWidth = false,
   style,
   textStyle,
-}) => {
-  const colorScheme = useColorScheme();
-  const colors = AppColors[colorScheme ?? 'light'];
+  accessibilityLabel,
+}: ButtonProps) {
+  const { colors, spacing, radius, fontSize, minTouchTarget, opacity } = useAppTheme();
+  const isDisabled = disabled || loading;
 
-  const getButtonStyle = () => {
-    const baseStyle = [styles.button, styles[size]];
-    
-    switch (variant) {
-      case 'primary':
-        return [
-          ...baseStyle,
-          {
-            backgroundColor: disabled ? colors.textMuted : colors.primary,
-          },
-        ];
-      case 'secondary':
-        return [
-          ...baseStyle,
-          {
-            backgroundColor: disabled ? colors.textMuted : colors.background,
-            borderWidth: 1,
-            borderColor: colors.border,
-          },
-        ];
-      case 'outline':
-        return [
-          ...baseStyle,
-          {
-            backgroundColor: 'transparent',
-            borderWidth: 1,
-            borderColor: disabled ? colors.textMuted : colors.primary,
-          },
-        ];
-      default:
-        return baseStyle;
-    }
-  };
+  const sizePad = {
+    small: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, minHeight: Math.max(36, minTouchTarget - 8) },
+    medium: { paddingHorizontal: spacing['2xl'], paddingVertical: spacing.md, minHeight: Math.max(48, minTouchTarget) },
+    large: { paddingHorizontal: spacing['3xl'], paddingVertical: spacing.lg, minHeight: 56 },
+  }[size];
 
-  const getTextStyle = () => {
-    const baseTextStyle = [styles.text, styles[`${size}Text`]];
-    
-    switch (variant) {
-      case 'primary':
-        return [
-          ...baseTextStyle,
-          {
-            color: disabled ? colors.textMuted : colors.WHITE,
-          },
-        ];
-      case 'secondary':
-        return [
-          ...baseTextStyle,
-          {
-            color: disabled ? colors.textMuted : colors.text,
-          },
-        ];
-      case 'outline':
-        return [
-          ...baseTextStyle,
-          {
-            color: disabled ? colors.textMuted : colors.primary,
-          },
-        ];
-      default:
-        return baseTextStyle;
-    }
-  };
+  const font = {
+    small: fontSize.sm,
+    medium: fontSize.md,
+    large: fontSize.lg,
+  }[size];
+
+  const bg = (() => {
+    if (variant === 'primary') return colors.primary;
+    if (variant === 'destructive') return colors.error;
+    if (variant === 'secondary') return colors.backgroundSecondary;
+    if (variant === 'outline' || variant === 'ghost') return 'transparent';
+    return colors.primary;
+  })();
+
+  const borderColor = (() => {
+    if (variant === 'outline') return colors.primary;
+    if (variant === 'secondary') return colors.border;
+    return 'transparent';
+  })();
+
+  const labelColor = (() => {
+    if (variant === 'primary' || variant === 'destructive') return colors.textInverse;
+    if (variant === 'outline' || variant === 'ghost') return colors.primary;
+    return colors.text;
+  })();
+
+  const spinnerColor =
+    variant === 'primary' || variant === 'destructive' ? colors.textInverse : colors.primary;
 
   return (
-    <TouchableOpacity
-      style={[getButtonStyle(), style]}
+    <Pressable
       onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.7}
+      disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      style={({ pressed }) => [
+        styles.base,
+        sizePad,
+        {
+          backgroundColor: bg,
+          borderColor,
+          borderWidth: variant === 'outline' || variant === 'secondary' ? 1 : 0,
+          borderRadius: radius.md,
+          opacity: isDisabled ? opacity.disabled : pressed ? opacity.pressed : 1,
+          alignSelf: fullWidth ? 'stretch' : 'auto',
+          width: fullWidth ? '100%' : undefined,
+        },
+        style,
+      ]}
     >
       {loading ? (
-        <ActivityIndicator 
-          color={variant === 'primary' ? colors.WHITE : colors.primary} 
-          size="small" 
-        />
+        <ActivityIndicator color={spinnerColor} size="small" />
       ) : (
-        <Text style={[getTextStyle(), textStyle]}>{title}</Text>
+        <View style={styles.content}>
+          {leftIcon ? <View style={styles.icon}>{leftIcon}</View> : null}
+          <Text
+            variant="bodyStrong"
+            style={[{ color: labelColor, fontSize: font }, textStyle]}
+          >
+            {title}
+          </Text>
+          {rightIcon ? <View style={styles.icon}>{rightIcon}</View> : null}
+        </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  button: {
-    borderRadius: 8,
+  base: {
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
   },
-  small: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    minHeight: 36,
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  medium: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    minHeight: 48,
-  },
-  large: {
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    minHeight: 56,
-  },
-  text: {
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  smallText: {
-    fontSize: 14,
-  },
-  mediumText: {
-    fontSize: 16,
-  },
-  largeText: {
-    fontSize: 18,
+  icon: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -1,0 +1,10 @@
+ALTER TABLE "Location" ADD COLUMN IF NOT EXISTS created_at TIMESTAMP;
+ALTER TABLE "Location" ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+
+UPDATE "Location"
+SET created_at = CURRENT_TIMESTAMP
+WHERE created_at IS NULL;
+
+UPDATE "Location"
+SET updated_at = CURRENT_TIMESTAMP
+WHERE updated_at IS NULL;

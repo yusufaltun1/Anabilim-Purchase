@@ -9,6 +9,7 @@ import {
   FiLayers,
   FiMapPin,
   FiPackage,
+  FiArchive,
   FiTag,
   FiTool,
   FiUserCheck,
@@ -168,8 +169,11 @@ export const LocationCell = ({ product }: { product: Product }) => {
   const hasSchool = Boolean(product.schoolName);
   const hasParent = Boolean(product.defaultParentLocationName);
   const hasChild = Boolean(product.defaultChildLocationName);
+  const inWarehouse =
+    product.stockItemStatus === 'IN_STOCK' && Boolean(product.warehouseName);
+  const hasLocationHierarchy = hasSchool || hasParent || hasChild;
 
-  if (!hasSchool && !hasParent && !hasChild) {
+  if (!hasLocationHierarchy && !inWarehouse) {
     return <EmptyCell />;
   }
 
@@ -184,6 +188,11 @@ export const LocationCell = ({ product }: { product: Product }) => {
       {hasChild && (
         <div className="pl-4">
           <InfoLine icon={FiMapPin} label="Alt" value={product.defaultChildLocationName!} />
+        </div>
+      )}
+      {inWarehouse && (
+        <div className={hasLocationHierarchy ? 'pl-4' : undefined}>
+          <InfoLine icon={FiArchive} label="Depo" value={product.warehouseName!} />
         </div>
       )}
     </div>

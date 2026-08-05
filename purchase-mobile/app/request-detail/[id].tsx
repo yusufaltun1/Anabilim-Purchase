@@ -1,7 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { AppColors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -13,12 +12,9 @@ import {
   ScrollView,
   Image,
   View,
-  Modal,
-  TextInput,
   TouchableOpacity,
   Alert,
   RefreshControl,
-  FlatList,
   Linking,
   Platform,
 } from 'react-native';
@@ -26,34 +22,63 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { purchaseService } from '@/services/api/purchase.service';
-import { ParentApproverCandidate, PurchaseRequest, PurchaseRequestApproval, PurchaseRequestAttachment, SupplierQuote } from '@/services/types/purchase.types';
-
-type StatusStyle = {
-  text: string;
-  color: string;
-};
+import { ParentApproverCandidate, PurchaseRequest, PurchaseRequestAttachment } from '@/services/types/purchase.types';
+import { canDeleteRequest, canUserApprove } from '@/domain/requests/approvalRules';
+import {
+  ApprovalActionPanel,
+  ApprovalTimeline,
+  CandidatePickerModal,
+  RejectModal,
+  RequestHeaderCard,
+  SupplierQuoteSection,
+  type CandidatePickerOption,
+} from '@/components/requests';
+import { Button } from '@/components/ui';
+import { useCapabilities } from '@/hooks/useCapabilities';
+import { useRequestApproval } from '@/hooks/useRequestApproval';
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [request, setRequest] = useState<PurchaseRequest | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [returnToUserId, setReturnToUserId] = useState<number | ''>('');
+  const [isResubmitting, setIsResubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [nextApproverCandidatesList, setNextApproverCandidatesList] = useState<ParentApproverCandidate[]>([]);
   const [nextApproverUserId, setNextApproverUserId] = useState<number | ''>('');
   const [sendToUserId, setSendToUserId] = useState<number | ''>('');
-  const [pickModal, setPickModal] = useState<'nextApprover' | 'sendDown' | 'returnTo' | null>(null);
-  const [approvalComment, setApprovalComment] = useState('');
-  const [returnToOptions, setReturnToOptions] = useState<{ id: number; label: string }[]>([]);
-  const [returnToExpanded, setReturnToExpanded] = useState(false);
+  const [pickModal, setPickModal] = useState<'nextApprover' | 'sendDown' | null>(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const { canApprove: canApproveCapability, hasCapability } = useCapabilities();
+  const canEditCapability = hasCapability('REQUEST_EDIT');
   const colorScheme = useColorScheme();
   const colors = AppColors[colorScheme ?? 'light'];
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const {
+    isSubmitting,
+    approvalComment,
+    setApprovalComment,
+    rejectVisible,
+    rejectionReason,
+    setRejectionReason,
+    returnToUserId,
+    setReturnToUserId,
+    returnToCandidates,
+    isSerkanBeyApprover,
+    hasSendDownUi,
+    openRejectModal,
+    closeRejectModal,
+    handleApprove,
+    handleReject,
+  } = useRequestApproval({
+    requestId: Number(id),
+    request,
+    nextApproverCandidates: nextApproverCandidatesList,
+    nextApproverUserId,
+    sendToUserId,
+  });
 
   const fetchRequestDetail = async () => {
     if (!id || !token) return;
@@ -97,174 +122,6 @@ export default function RequestDetailScreen() {
     setRefreshing(true);
     await fetchRequestDetail();
     setRefreshing(false);
-  };
-
-  const getStatusTranslationAndColor = (status: string): StatusStyle => {
-    switch (status) {
-      case 'IN_APPROVAL':
-        return { text: 'Onayda', color: '#F59E0B' };
-      case 'APPROVED':
-        return { text: 'Onaylandı', color: '#10B981' };
-      case 'REJECTED':
-        return { text: 'Reddedildi', color: '#EF4444' };
-      case 'PENDING':
-        return { text: 'Beklemede', color: '#6B7280' };
-      case 'COMPLETED':
-        return { text: 'Tamamlandı', color: '#3B82F6' };
-      case 'CANCELLED':
-        return { text: 'İptal Edildi', color: '#6B7280' };
-      case 'IN_PROGRESS':
-        return { text: 'İşlemde', color: '#06B6D4' };
-      default:
-        return { text: status, color: '#000000' };
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'IN_APPROVAL':
-        return 'time-outline';
-      case 'APPROVED':
-        return 'checkmark-circle';
-      case 'REJECTED':
-        return 'close-circle';
-      case 'PENDING':
-        return 'hourglass-outline';
-      case 'COMPLETED':
-        return 'checkmark-done-circle';
-      case 'CANCELLED':
-        return 'ban';
-      case 'IN_PROGRESS':
-        return 'sync';
-      default:
-        return 'document-text';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('tr-TR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <ThemedText style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Yükleniyor...
-        </ThemedText>
-      </ThemedView>
-    );
-  }
-
-  if (!request) {
-    return (
-      <ThemedView style={styles.centerContainer}>
-        <View style={[styles.emptyIconContainer, { backgroundColor: colors.backgroundSecondary }]}>
-          <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} />
-        </View>
-        <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>Talep bulunamadı</ThemedText>
-        <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-          Bu talep mevcut değil veya erişim yetkiniz yok
-        </ThemedText>
-      </ThemedView>
-    );
-  }
-
-  const statusStyle = getStatusTranslationAndColor(request.status);
-  const canApproveOrReject = request.status === 'IN_APPROVAL' || request.status === 'PENDING' || request.status === 'IN_PROGRESS';
-  const isRejected = request.status === 'REJECTED';
-  const { user } = useAuth();
-  const isRequester = user?.email === request.requester.email;
-
-  const selectableNext = nextApproverCandidatesList.filter((c) => c.userId != null);
-  const hasSendDownUi = Boolean(
-    request.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0
-  );
-  const openRejectModal = () => {
-    const list = request?.sendDownCandidates?.length
-      ? request.sendDownCandidates.map((c) => ({
-          id: Number(c.userId),
-          label: c.label ? `${c.userName} (${c.label})` : c.userName,
-        }))
-      : [];
-    setReturnToOptions(list);
-    setReturnToExpanded(false);
-    setModalVisible(true);
-  };
-
-  const returnToFullList = [{ id: 0, label: 'Tamamen reddet (talep kapanır)' }, ...returnToOptions];
-
-  const handleApprove = async (completeChain = false) => {
-    if (!token) return;
-    if (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) {
-      Alert.alert('Uyarı', 'Birden fazla üst grubunuz var. Lütfen onayı hangi üst gruba ileteceğinizi seçin.');
-      return;
-    }
-    const hasSendDown = Boolean(
-      request?.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0
-    );
-    if (hasSendDown && !completeChain && (sendToUserId === '' || sendToUserId == null)) {
-      Alert.alert('Uyarı', 'İletmek için listeden bir kişi seçin veya Tamamen onayla ile süreci sonlandırın.');
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      let sendToUserIdPayload: number | null | undefined = undefined;
-      if (request?.hasNoNextApprover) {
-        if (hasSendDown) {
-          sendToUserIdPayload = completeChain ? null : Number(sendToUserId);
-        } else {
-          sendToUserIdPayload = null;
-        }
-      }
-      const payload = {
-        comment: approvalComment.trim() || undefined,
-        nextApproverUserId: selectableNext.length >= 1 ? (nextApproverUserId === '' ? selectableNext[0].userId! : nextApproverUserId) : undefined,
-        sendToUserId: sendToUserIdPayload,
-      };
-      await purchaseService.approveRequest(Number(id), token, payload);
-      Alert.alert('Başarılı', 'Talep onaylandı.', [
-        { text: 'Tamam', onPress: () => router.back() },
-      ]);
-    } catch (error) {
-      console.error('Failed to approve request:', error);
-      Alert.alert('Hata', (error as Error).message || 'Talep onaylanırken bir sorun oluştu.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!token) return;
-    if (!rejectionReason.trim()) {
-      Alert.alert('Hata', 'Lütfen reddetme nedenini giriniz.');
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      await purchaseService.rejectRequest(Number(id), token, {
-        comment: rejectionReason,
-        rejectionReason: rejectionReason,
-        returnToUserId: returnToUserId === '' ? null : returnToUserId,
-      });
-      setModalVisible(false);
-      setReturnToUserId('');
-      Alert.alert('Başarılı', returnToUserId ? 'Talep seçtiğiniz kişiye geri gönderildi.' : 'Talep reddedildi.', [
-        { text: 'Tamam', onPress: () => router.back() },
-      ]);
-    } catch (error) {
-      console.error('Failed to reject request:', error);
-      Alert.alert('Hata', (error as Error).message || 'Talep reddedilirken bir sorun oluştu.');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleAddDocument = async () => {
@@ -316,6 +173,83 @@ export default function RequestDetailScreen() {
     }
   };
 
+  if (loading) {
+    return (
+      <ThemedView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <ThemedText style={[styles.loadingText, { color: colors.textSecondary }]}>
+          Yükleniyor...
+        </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (!request) {
+    return (
+      <ThemedView style={styles.centerContainer}>
+        <View style={[styles.emptyIconContainer, { backgroundColor: colors.backgroundSecondary }]}>
+          <Ionicons name="document-text-outline" size={48} color={colors.textSecondary} />
+        </View>
+        <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>Talep bulunamadı</ThemedText>
+        <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+          Bu talep mevcut değil veya erişim yetkiniz yok
+        </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  const canApproveOrReject =
+    canApproveCapability && canUserApprove(request, user?.id ?? null);
+  const isRejected = request.status === 'REJECTED';
+  const isRequester = user?.email === request.requester.email;
+  const canDelete = canDeleteRequest(request, user?.id, canEditCapability);
+
+  const handleDeleteRequest = () => {
+    if (!token || !id) return;
+    Alert.alert('Talebi sil', 'Bu talebi silmek istediğinize emin misiniz?', [
+      { text: 'İptal', style: 'cancel' },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              setIsDeleting(true);
+              await purchaseService.deleteRequest(Number(id), token);
+              Alert.alert('Başarılı', 'Talep silindi.', [
+                { text: 'Tamam', onPress: () => router.back() },
+              ]);
+            } catch (err) {
+              console.error('Delete request failed:', err);
+              Alert.alert(
+                'Hata',
+                err instanceof Error ? err.message : 'Talep silinirken bir hata oluştu'
+              );
+            } finally {
+              setIsDeleting(false);
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
+  const approvalPanelProps = {
+    nextApproverCandidates: nextApproverCandidatesList,
+    nextApproverUserId,
+    onOpenNextApproverPicker: () => setPickModal('nextApprover'),
+    hasSendDownUi,
+    sendDownCandidates: request.sendDownCandidates ?? [],
+    sendToUserId,
+    onOpenSendDownPicker: () => setPickModal('sendDown'),
+    approvalComment,
+    onChangeComment: setApprovalComment,
+    isSerkanBeyApprover,
+    isSubmitting,
+    onApprove: handleApprove,
+    onReject: openRejectModal,
+  };
+
   return (
     <>
       <Stack.Screen options={{ title: request.title || 'Talep Detayı' }} />
@@ -326,124 +260,21 @@ export default function RequestDetailScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* Header Card */}
-        <View style={[styles.headerSection, { backgroundColor: colors.primary + '15' }]}>
-          <View style={styles.headerContent}>
-            <View style={[styles.headerIconContainer, { backgroundColor: colors.primary + '20' }]}>
-              <Ionicons name="document-text" size={32} color={colors.primary} />
-            </View>
-            <View style={styles.headerTextContainer}>
-              <ThemedText style={styles.headerTitle}>{request.title}</ThemedText>
-              <View style={[styles.statusBadge, { backgroundColor: statusStyle.color + '20' }]}>
-                <Ionicons name={getStatusIcon(request.status) as any} size={14} color={statusStyle.color} />
-                <ThemedText style={[styles.statusText, { color: statusStyle.color }]}>
-                  {statusStyle.text}
-                </ThemedText>
-              </View>
-            </View>
-          </View>
-        </View>
-
         <View style={styles.contentContainer}>
-          {/* Description Card */}
-          {request.description && (
-            <Card style={StyleSheet.flatten([styles.infoCard, { backgroundColor: colors.background }])}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="document-text-outline" size={18} color={colors.primary} />
-                <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Açıklama</ThemedText>
-              </View>
-              <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
-                {request.description}
-              </ThemedText>
-            </Card>
-          )}
+          <RequestHeaderCard request={request} />
 
-          {/* Request Info Card */}
-          <Card style={StyleSheet.flatten([styles.infoCard, { backgroundColor: colors.background }])}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="information-circle" size={18} color={colors.primary} />
-              <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Talep Bilgileri</ThemedText>
+          {canDelete ? (
+            <View style={{ marginHorizontal: 16, marginBottom: 12, alignItems: 'flex-end' }}>
+              <Button
+                title="Sil"
+                onPress={handleDeleteRequest}
+                variant="destructive"
+                size="small"
+                loading={isDeleting}
+                disabled={isDeleting}
+              />
             </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Ionicons name="person" size={16} color={colors.textSecondary} />
-                <ThemedText style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                  Talep Eden
-                </ThemedText>
-                <ThemedText style={styles.infoValue}>
-                  {request.requester.firstName && request.requester.lastName
-                    ? `${request.requester.firstName} ${request.requester.lastName}`
-                    : request.requester.fullName}
-                </ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Ionicons name="calendar" size={16} color={colors.textSecondary} />
-                <ThemedText style={[styles.infoLabel, { color: colors.textSecondary }]}>Oluşturulma</ThemedText>
-                <ThemedText style={styles.infoValue}>{formatDate(request.createdAt)}</ThemedText>
-              </View>
-            </View>
-          </Card>
-
-          {canApproveOrReject && nextApproverCandidatesList.length > 0 && (
-            <Card style={StyleSheet.flatten([styles.infoCard, { backgroundColor: colors.background }])}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="arrow-up-circle" size={18} color={colors.primary} />
-                <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Onayı hangi üst gruba ileteceksiniz?</ThemedText>
-              </View>
-              <TouchableOpacity
-                style={[styles.pickerTouch, { borderColor: colors.border }]}
-                onPress={() => setPickModal('nextApprover')}
-                disabled={selectableNext.length <= 1}
-              >
-                <ThemedText style={{ color: colors.text }}>
-                  {selectableNext.length <= 1 && nextApproverCandidatesList.length > 0
-                    ? (nextApproverCandidatesList.find((c) => c.userId != null)
-                        ? `${nextApproverCandidatesList.find((c) => c.userId != null)!.userName} (${nextApproverCandidatesList.find((c) => c.userId != null)!.groupName})`
-                        : 'Tek üst grup')
-                    : nextApproverUserId
-                      ? nextApproverCandidatesList.find((c) => c.userId === nextApproverUserId)
-                        ? `${nextApproverCandidatesList.find((c) => c.userId === nextApproverUserId)!.userName} (${nextApproverCandidatesList.find((c) => c.userId === nextApproverUserId)!.groupName})`
-                        : 'Seçin'
-                      : '— Seçin —'}
-                </ThemedText>
-                <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-              {selectableNext.length <= 1 && (
-                <ThemedText style={[styles.attachmentHint, { color: colors.textSecondary }]}>
-                  Tek üst grubunuz var; onay bu kişiye iletilecek.
-                </ThemedText>
-              )}
-            </Card>
-          )}
-
-          {canApproveOrReject && request.hasNoNextApprover && request.sendDownCandidates && request.sendDownCandidates.length > 0 && (
-            <Card style={StyleSheet.flatten([styles.infoCard, { backgroundColor: colors.background }])}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="arrow-down-circle" size={18} color={colors.primary} />
-                <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Üst onaycı bulunmuyor</ThemedText>
-              </View>
-              <ThemedText style={[styles.attachmentHint, { color: colors.textSecondary, marginBottom: 8 }]}>
-                İletmek için kişi seçin. Zinciri sonlandırmak için alttaki Tamamen onayla düğmesini kullanın.
-              </ThemedText>
-              <TouchableOpacity
-                style={[styles.pickerTouch, { borderColor: colors.border }]}
-                onPress={() => setPickModal('sendDown')}
-              >
-                <ThemedText style={{ color: colors.text }}>
-                  {sendToUserId === ''
-                    ? '— İletilecek kişiyi seçin —'
-                    : request.sendDownCandidates?.find((c) => c.userId === sendToUserId)
-                      ? `${request.sendDownCandidates.find((c) => c.userId === sendToUserId)!.userName} (${request.sendDownCandidates.find((c) => c.userId === sendToUserId)!.label})`
-                      : '— İletilecek kişiyi seçin —'}
-                </ThemedText>
-                <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </Card>
-          )}
+          ) : null}
 
           {/* Products Card */}
           <Card style={StyleSheet.flatten([styles.infoCard, { backgroundColor: colors.background }])}>
@@ -477,52 +308,23 @@ export default function RequestDetailScreen() {
                       </View>
                     )}
                   </View>
-                  {item.supplierQuotes && item.supplierQuotes.length > 0 && (
-                    <View style={[styles.quotesSection, { borderTopColor: colors.border }]}>
-                      <ThemedText style={[styles.quotesSectionTitle, { color: colors.text }]}>Teklifler</ThemedText>
-                      {item.supplierQuotes.map((quote: SupplierQuote) => {
-                        const isSelected = quote.isSelected || (item.selectedSupplierId != null && quote.supplier?.id === item.selectedSupplierId);
-                        return (
-                          <View key={quote.id} style={[styles.quoteCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                            <View style={styles.quoteHeader}>
-                              <ThemedText style={[styles.quoteSupplierName, { color: colors.text }]} numberOfLines={1}>
-                                {quote.supplier?.name ?? '—'}
-                              </ThemedText>
-                              {isSelected && (
-                                <View style={[styles.quoteSelectedBadge, { backgroundColor: '#10B981' }]}>
-                                  <ThemedText style={styles.quoteSelectedText}>Seçilen</ThemedText>
-                                </View>
-                              )}
-                            </View>
-                            {quote.quoteNumber && (
-                              <ThemedText style={[styles.quoteDetail, { color: colors.textSecondary }]}>
-                                Teklif no: {quote.quoteNumber}
-                              </ThemedText>
-                            )}
-                            {(quote.unitPrice != null || quote.totalPrice != null) && (
-                              <ThemedText style={[styles.quoteDetail, { color: colors.textSecondary }]}>
-                                {quote.unitPrice != null && `Birim: ${quote.unitPrice} ${quote.currency ?? 'TRY'}  `}
-                                {quote.totalPrice != null && `Toplam: ${quote.totalPrice} ${quote.currency ?? 'TRY'}`}
-                              </ThemedText>
-                            )}
-                            {quote.deliveryDate && (
-                              <ThemedText style={[styles.quoteDetail, { color: colors.textSecondary }]}>
-                                Teslimat: {formatDate(quote.deliveryDate)}
-                              </ThemedText>
-                            )}
-                            {quote.notes && quote.notes.trim() !== '' && (
-                              <ThemedText style={[styles.quoteNotes, { color: colors.textSecondary }]} numberOfLines={2}>
-                                {quote.notes}
-                              </ThemedText>
-                            )}
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
+                  <SupplierQuoteSection
+                    quotes={item.supplierQuotes}
+                    selectedSupplierId={item.selectedSupplierId}
+                    onChanged={() => void fetchRequestDetail()}
+                  />
                 </View>
               </Card>
             ))}
+          </Card>
+
+          {/* Onay Süreci */}
+          <Card style={StyleSheet.flatten([styles.infoCard, { backgroundColor: colors.background }])}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="time" size={18} color={colors.primary} />
+              <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Onay Süreci</ThemedText>
+            </View>
+            <ApprovalTimeline approvals={request.approvals ?? []} />
           </Card>
 
           {/* Belgeler */}
@@ -585,99 +387,16 @@ export default function RequestDetailScreen() {
           )}
 
           {canApproveOrReject && (
-            <View style={[styles.infoCard, { backgroundColor: colors.background, marginBottom: 16 }]}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
-                <ThemedText style={[styles.sectionTitle, { marginLeft: 8 }]}>Onay yorumu (isteğe bağlı)</ThemedText>
-              </View>
-              <TextInput
-                style={[styles.commentInput, { borderColor: colors.border, color: colors.text }]}
-                placeholder="Onaylarken eklemek istediğiniz not..."
-                placeholderTextColor={colors.textSecondary}
-                multiline
-                numberOfLines={2}
-                value={approvalComment}
-                onChangeText={setApprovalComment}
-              />
+            <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+              <ApprovalActionPanel {...approvalPanelProps} showFooter={false} />
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Action Buttons */}
       {canApproveOrReject && (
-        <View style={[styles.buttonContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.rejectButton, { backgroundColor: '#EF4444' }]}
-            onPress={openRejectModal}
-            disabled={isSubmitting}
-          >
-            <Ionicons name="close-circle" size={20} color="#FFFFFF" />
-            <ThemedText style={styles.buttonText}>Reddet</ThemedText>
-          </TouchableOpacity>
-          {hasSendDownUi ? (
-            <View style={{ flex: 2, gap: 8 }}>
-              <TouchableOpacity
-                style={[
-                  styles.approveButton,
-                  { backgroundColor: colors.primary, paddingVertical: 12 },
-                  (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
-                  sendToUserId === '' ||
-                  sendToUserId == null
-                    ? styles.buttonDisabled
-                    : undefined,
-                ]}
-                onPress={() => handleApprove(false)}
-                disabled={
-                  isSubmitting ||
-                  (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)) ||
-                  sendToUserId === '' ||
-                  sendToUserId == null
-                }
-              >
-                <Ionicons name="arrow-redo" size={18} color="#FFFFFF" />
-                <ThemedText style={styles.buttonText}>Kişiye ilet</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.approveButton,
-                  {
-                    backgroundColor: colors.background,
-                    borderWidth: 2,
-                    borderColor: colors.primary,
-                    paddingVertical: 12,
-                  },
-                  selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)
-                    ? styles.buttonDisabled
-                    : undefined,
-                ]}
-                onPress={() => handleApprove(true)}
-                disabled={
-                  isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
-                }
-              >
-                <Ionicons name="checkmark-done" size={18} color={colors.primary} />
-                <ThemedText style={[styles.buttonText, { color: colors.primary }]}>Tamamen onayla</ThemedText>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.approveButton,
-                { backgroundColor: colors.primary },
-                selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null)
-                  ? styles.buttonDisabled
-                  : undefined,
-              ]}
-              onPress={() => handleApprove(false)}
-              disabled={
-                isSubmitting || (selectableNext.length > 1 && (nextApproverUserId === '' || nextApproverUserId == null))
-              }
-            >
-              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-              <ThemedText style={styles.buttonText}>Onayla</ThemedText>
-            </TouchableOpacity>
-          )}
+        <View style={[styles.buttonContainer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingHorizontal: 16 }]}>
+          <ApprovalActionPanel {...approvalPanelProps} showSelectors={false} showFooter />
         </View>
       )}
 
@@ -687,7 +406,7 @@ export default function RequestDetailScreen() {
           <TouchableOpacity
             style={[styles.editButton, { backgroundColor: '#3B82F6', borderColor: '#3B82F6' }]}
             onPress={() => router.push(`/edit-request/${id}`)}
-            disabled={isSubmitting}
+            disabled={isResubmitting}
           >
             <Ionicons name="create-outline" size={18} color="#FFFFFF" />
             <ThemedText style={styles.buttonText} numberOfLines={1}>Güncelle</ThemedText>
@@ -696,7 +415,7 @@ export default function RequestDetailScreen() {
             style={[styles.resubmitButton, { backgroundColor: colors.primary }]}
             onPress={async () => {
               if (!token) return;
-              setIsSubmitting(true);
+              setIsResubmitting(true);
               try {
                 await purchaseService.resubmitRequest(Number(id), token);
                 Alert.alert('Başarılı', 'Talep tekrar onay sürecine gönderildi.', [
@@ -706,12 +425,12 @@ export default function RequestDetailScreen() {
                 console.error('Failed to resubmit request:', error);
                 Alert.alert('Hata', error.message || 'Talep tekrar gönderilirken bir sorun oluştu.');
               } finally {
-                setIsSubmitting(false);
+                setIsResubmitting(false);
               }
             }}
-            disabled={isSubmitting}
+            disabled={isResubmitting}
           >
-            {isSubmitting ? (
+            {isResubmitting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <>
@@ -723,138 +442,50 @@ export default function RequestDetailScreen() {
         </View>
       )}
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={[styles.modalView, { backgroundColor: colors.background }]}>
-            <View style={styles.modalHeader}>
-              <Ionicons name="close-circle" size={24} color="#EF4444" />
-              <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
-                Reddetme Nedenini Girin
-              </ThemedText>
-            </View>
-            <TextInput
-              style={[styles.modalInput, { borderColor: colors.border, color: colors.text }]}
-              multiline
-              numberOfLines={4}
-              onChangeText={setRejectionReason}
-              value={rejectionReason}
-              placeholder="Neden reddediyorsunuz?"
-              placeholderTextColor={colors.textSecondary}
-            />
-            <ThemedText style={[styles.modalLabel, { color: colors.text }]}>Geri gönderilecek kişi</ThemedText>
-            <TouchableOpacity
-              style={[styles.pickerTouch, { borderColor: colors.border, marginBottom: returnToExpanded ? 0 : 12 }]}
-              onPress={() => setReturnToExpanded((v) => !v)}
-              activeOpacity={0.7}
-            >
-              <ThemedText style={{ color: colors.text }} numberOfLines={1}>
-                {returnToUserId === '' ? 'Tamamen reddet (talep kapanır)' : returnToOptions.find((c) => c.id === returnToUserId)?.label ?? 'Seçin'}
-              </ThemedText>
-              <Ionicons name={returnToExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-            {returnToExpanded && (
-              <View style={[styles.returnToList, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                <ScrollView style={styles.returnToScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                  {returnToFullList.map((item) => (
-                    <TouchableOpacity
-                      key={item.id === 0 ? 'reject' : `r-${item.id}`}
-                      style={[styles.pickerItem, { borderBottomColor: colors.border }]}
-                      onPress={() => {
-                        setReturnToUserId(item.id === 0 ? '' : item.id);
-                        setReturnToExpanded(false);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <ThemedText style={styles.pickerItemText}>{item.label}</ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-            <View style={styles.modalButtonContainer}>
-              <TouchableOpacity
-                style={[styles.modalCancelButton, { borderColor: colors.border }]}
-                onPress={() => setModalVisible(false)}
-              >
-                <ThemedText style={[styles.modalButtonText, { color: colors.text }]}>İptal</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalSubmitButton, { backgroundColor: '#EF4444' }]}
-                onPress={handleReject}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <ThemedText style={styles.modalButtonTextWhite}>Gönder</ThemedText>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <RejectModal
+        visible={rejectVisible}
+        loading={isSubmitting}
+        rejectionReason={rejectionReason}
+        onChangeReason={setRejectionReason}
+        returnToUserId={returnToUserId}
+        onChangeReturnTo={setReturnToUserId}
+        returnToCandidates={returnToCandidates}
+        isSerkanBeyApprover={isSerkanBeyApprover}
+        onSubmit={handleReject}
+        onClose={closeRejectModal}
+      />
 
-      <Modal visible={!!pickModal} transparent animationType="slide">
-        <TouchableOpacity style={styles.pickerModalOverlay} activeOpacity={1} onPress={() => setPickModal(null)}>
-          <View style={[styles.pickerModalContent, { backgroundColor: colors.background }]}>
-            {pickModal === 'nextApprover' && (
-              <FlatList
-                data={nextApproverCandidatesList}
-                keyExtractor={(item) => (item.userId != null ? `u-${item.userId}` : `g-${item.groupName}`)}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[styles.pickerItem, item.userId == null && styles.pickerItemDisabled]}
-                    onPress={() => { if (item.userId != null) { setNextApproverUserId(item.userId); setPickModal(null); } }}
-                    disabled={item.userId == null}
-                  >
-                    <ThemedText style={[styles.pickerItemText, item.userId == null && { color: colors.textSecondary }]}>
-                      {item.userId != null ? `${item.userName} (${item.groupName})` : item.userName}
-                    </ThemedText>
-                  </TouchableOpacity>
-                )}
-              />
-            )}
-            {pickModal === 'sendDown' && request?.sendDownCandidates && (
-              <FlatList
-                data={request.sendDownCandidates}
-                keyExtractor={(item) => `s-${item.userId}`}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.pickerItem}
-                    onPress={() => { setSendToUserId(item.userId); setPickModal(null); }}
-                  >
-                    <ThemedText style={styles.pickerItemText}>
-                      {`${item.userName} (${item.label})`}
-                    </ThemedText>
-                  </TouchableOpacity>
-                )}
-              />
-            )}
-            {pickModal === 'returnTo' && (
-              <FlatList
-                data={[{ id: 0, label: 'Tamamen reddet (talep kapanır)' }, ...returnToOptions]}
-                keyExtractor={(item) => item.id === 0 ? 'reject' : `r-${item.id}`}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.pickerItem}
-                    onPress={() => { setReturnToUserId(item.id === 0 ? '' : item.id); setPickModal(null); }}
-                  >
-                    <ThemedText style={styles.pickerItemText}>{item.label}</ThemedText>
-                  </TouchableOpacity>
-                )}
-              />
-            )}
-            <TouchableOpacity style={[styles.pickerCancel, { borderColor: colors.border }]} onPress={() => setPickModal(null)}>
-              <ThemedText style={[styles.pickerCancelText, { color: colors.text }]}>İptal</ThemedText>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      <CandidatePickerModal
+        visible={!!pickModal}
+        title={
+          pickModal === 'nextApprover'
+            ? 'Üst onaycı seçin'
+            : pickModal === 'sendDown'
+              ? 'İletilecek kişiyi seçin'
+              : undefined
+        }
+        onClose={() => setPickModal(null)}
+        options={(() => {
+          if (pickModal === 'nextApprover') {
+            return nextApproverCandidatesList.map((item): CandidatePickerOption => ({
+              key: item.userId != null ? `u-${item.userId}` : `g-${item.groupName}`,
+              label: item.userId != null ? `${item.userName} (${item.groupName})` : item.userName,
+              disabled: item.userId == null,
+              onSelect: () => {
+                if (item.userId != null) setNextApproverUserId(item.userId);
+              },
+            }));
+          }
+          if (pickModal === 'sendDown' && request?.sendDownCandidates) {
+            return request.sendDownCandidates.map((item): CandidatePickerOption => ({
+              key: `s-${item.userId}`,
+              label: `${item.userName} (${item.label})`,
+              onSelect: () => setSendToUserId(item.userId),
+            }));
+          }
+          return [];
+        })()}
+      />
     </>
   );
 }
@@ -919,19 +550,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 8,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   contentContainer: {
     paddingHorizontal: 16,
@@ -1008,53 +626,6 @@ const styles = StyleSheet.create({
   productDetailText: {
     fontSize: 13,
   },
-  quotesSection: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-  },
-  quotesSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  quoteCard: {
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  quoteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  quoteSupplierName: {
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
-  quoteSelectedBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  quoteSelectedText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  quoteDetail: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  quoteNotes: {
-    fontSize: 12,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
   attachmentHint: {
     fontSize: 12,
     marginBottom: 10,
@@ -1116,24 +687,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  rejectButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-  },
-  approveButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-  },
   editButton: {
     flex: 1,
     flexDirection: 'row',
@@ -1162,238 +715,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     flexShrink: 1,
-  },
-  approvalProcessTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  approvalProcessSubtitle: {
-    fontSize: 13,
-    marginBottom: 16,
-  },
-  timelineEmpty: {
-    fontSize: 14,
-    fontStyle: 'italic',
-  },
-  timelineContainer: {
-    marginLeft: 4,
-  },
-  timelineRow: {
-    flexDirection: 'row',
-    marginBottom: 0,
-  },
-  timelineLeft: {
-    width: 28,
-    alignItems: 'center',
-  },
-  timelineDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  timelineDotNumber: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    minHeight: 12,
-    marginVertical: 2,
-  },
-  timelineContent: {
-    flex: 1,
-    marginLeft: 12,
-    marginBottom: 16,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-  },
-  timelineApprover: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  timelineRole: {
-    fontSize: 12,
-    marginBottom: 6,
-  },
-  timelineStatusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 6,
-  },
-  timelineStatusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  timelineDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-  },
-  timelineDateText: {
-    fontSize: 11,
-  },
-  timelineComment: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalView: {
-    margin: 20,
-    borderRadius: 20,
-    padding: 24,
-    width: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  modalHeader: {
-    alignItems: 'center',
-    marginBottom: 20,
-    gap: 8,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  modalInput: {
-    width: '100%',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    marginBottom: 20,
-    fontSize: 14,
-  },
-  commentInput: {
-    width: '100%',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    minHeight: 72,
-    textAlignVertical: 'top',
-    marginTop: 8,
-    fontSize: 14,
-  },
-  modalButtonContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalCancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalSubmitButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalButtonTextWhite: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  pickerTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    minHeight: 44,
-  },
-  hint: {
-    fontSize: 12,
-    marginTop: 6,
-  },
-  modalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  pickerModalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  pickerModalContent: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 16,
-    maxHeight: '50%',
-  },
-  pickerItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
-  },
-  returnToList: {
-    maxHeight: 220,
-    borderWidth: 1,
-    borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  returnToScroll: {
-    maxHeight: 220,
-  },
-  pickerItemDisabled: {
-    opacity: 0.6,
-  },
-  pickerItemText: {
-    fontSize: 16,
-  },
-  pickerCancel: {
-    marginTop: 12,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  pickerCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
   },
 });

@@ -13,12 +13,14 @@ import {
 import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { AccessDenied } from '@/components/auth/AccessDenied';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Card } from '@/components/ui/Card';
 import { BarcodeScanner } from '@/components/barcode/BarcodeScanner';
 import { AppColors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { productService } from '@/services/api/product.service';
 import { ProductStockSummary } from '@/services/types/product.types';
@@ -27,6 +29,7 @@ export default function ProductSearchScreen() {
   const colorScheme = useColorScheme();
   const colors = AppColors[colorScheme ?? 'light'];
   const { token } = useAuth();
+  const { canInventoryView } = useCapabilities();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ProductStockSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -132,6 +135,15 @@ export default function ProductSearchScreen() {
       </View>
     </Card>
   );
+
+  if (!canInventoryView) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Ürün Arama' }} />
+        <AccessDenied description="Ürün arama yetkiniz bulunmuyor." />
+      </>
+    );
+  }
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>

@@ -2,6 +2,14 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## Shared UI Kit
+
+Mobil ekranlar `@/components/ui` ortak bileşenlerini kullanır.
+
+- Dokümantasyon: [`components/ui/README.md`](./components/ui/README.md)
+- Geliştirme kataloğu: uygulamada **Ana Sayfa → UI Kit** (`/ui-kit`, yalnızca `__DEV__`)
+- Theme: `useAppTheme()` + `constants/tokens.ts` + `constants/colors.ts`
+
 ## Get started
 
 1. Install dependencies

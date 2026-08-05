@@ -1,0 +1,100 @@
+{
+  "generatedAt": "2026-08-04T18:00:00+03:00",
+  "sourceWorkspace": "purchase-fe",
+  "enrichedFromSource": true,
+  "slugs": [
+    {
+      "slug": "SchoolList",
+      "file": "final-SchoolList.md"
+    },
+    {
+      "slug": "SchoolCreate",
+      "file": "final-SchoolCreate.md"
+    },
+    {
+      "slug": "SchoolEdit",
+      "file": "final-SchoolEdit.md"
+    },
+    {
+      "slug": "SchoolDetail",
+      "file": "final-SchoolDetail.md"
+    },
+    {
+      "slug": "PersonnelList",
+      "file": "final-PersonnelList.md"
+    },
+    {
+      "slug": "PersonnelCreate",
+      "file": "final-PersonnelCreate.md"
+    },
+    {
+      "slug": "PersonnelDetail",
+      "file": "final-PersonnelDetail.md"
+    },
+    {
+      "slug": "SupplierList",
+      "file": "final-SupplierList.md"
+    },
+    {
+      "slug": "SupplierCreate",
+      "file": "final-SupplierCreate.md"
+    },
+    {
+      "slug": "SupplierEdit",
+      "file": "final-SupplierEdit.md"
+    },
+    {
+      "slug": "WarehouseList",
+      "file": "final-WarehouseList.md"
+    },
+    {
+      "slug": "WarehouseCreate",
+      "file": "final-WarehouseCreate.md"
+    },
+    {
+      "slug": "WarehouseDetail",
+      "file": "final-WarehouseDetail.md"
+    },
+    {
+      "slug": "StockManagement",
+      "file": "final-StockManagement.md"
+    },
+    {
+      "slug": "StockDetail",
+      "file": "final-StockDetail.md"
+    },
+    {
+      "slug": "CategoryCreate",
+      "file": "final-CategoryCreate.md"
+    },
+    {
+      "slug": "CategoryEdit",
+      "file": "final-CategoryEdit.md"
+    },
+    {
+      "slug": "LocationCreate",
+      "file": "final-LocationCreate.md"
+    },
+    {
+      "slug": "LocationEdit",
+      "file": "final-LocationEdit.md"
+    },
+    {
+      "slug": "ProductSupplierAdd",
+      "file": "final-ProductSupplierAdd.md"
+    },
+    {
+      "slug": "AccountingOrders",
+      "file": "final-AccountingOrders.md"
+    },
+    {
+      "slug": "PurchaseOrders",
+      "file": "final-PurchaseOrders.md"
+    },
+    {
+      "slug": "PurchaseOrderDetail",
+      "file": "final-PurchaseOrderDetail.md"
+    }
+  ],
+  "count": 23
+}

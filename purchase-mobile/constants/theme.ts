@@ -1,14 +1,13 @@
 /**
- * App renk sistemi - Sadece 3 ana renk kullanılır:
- * 1. #db0032 (Ana kırmızı)
- * 2. Black (#000000) 
- * 3. White (#ffffff)
+ * App renk sistemi — AppColors + design tokens.
  */
 
 import { Platform } from 'react-native';
 import { AppColors } from './colors';
 
-// Eski Colors objesini yeni renk sistemiyle değiştir
+export { Spacing, Radius, FontSize, FontWeight, Shadow, Opacity, MinTouchTarget, ZIndex } from './tokens';
+export { AppColors, ColorUtils } from './colors';
+
 export const Colors = {
   light: {
     text: AppColors.light.text,
@@ -30,13 +29,9 @@ export const Colors = {
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {

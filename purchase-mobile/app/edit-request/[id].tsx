@@ -1,113 +1,116 @@
+import { AccessDenied } from '@/components/auth/AccessDenied';
 import { PurchaseRequestForm } from '@/components/forms/PurchaseRequestForm';
-import { AppColors } from '@/constants/colors';
+import { PurchaseRequestItemsForm } from '@/components/forms/PurchaseRequestItemsForm';
+import { Screen, ScreenHeader, Loading, EmptyState } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { router, useLocalSearchParams, Stack } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import { canEditRequest } from '@/domain/requests/approvalRules';
+import { useCapabilities } from '@/hooks/useCapabilities';
 import { purchaseService } from '@/services/api/purchase.service';
-import { PurchaseRequest } from '@/services/types/purchase.types';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import type { PurchaseRequest } from '@/services/types/purchase.types';
+import { router, useLocalSearchParams, Stack } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 
 export default function EditRequestScreen() {
   const { id } = useLocalSearchParams();
-  const { token } = useAuth();
-  const colorScheme = useColorScheme();
-  const colors = AppColors[colorScheme ?? 'light'];
+  const { token, user } = useAuth();
+  const { hasCapability } = useCapabilities();
+  const canEditCapability = hasCapability('REQUEST_EDIT');
   const [request, setRequest] = useState<PurchaseRequest | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const isPurchasingEditor = useMemo(() => {
+    const roles = user?.roles ?? [];
+    return roles.includes('SATIN_ALMA_DEPARTMANI') || roles.includes('PURCHASE_MANAGER');
+  }, [user?.roles]);
+
   useEffect(() => {
-    if (id && token) {
-      const fetchRequest = async () => {
-        try {
-          const data = await purchaseService.getRequestById(Number(id), token);
-          setRequest(data);
-        } catch (error) {
-          console.error('Failed to fetch request:', error);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchRequest();
+    if (!id || !token) {
+      setLoading(false);
+      return;
     }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await purchaseService.getRequestById(Number(id), token);
+        if (!cancelled) setRequest(data);
+      } catch (error) {
+        console.error('Failed to fetch request:', error);
+        if (!cancelled) setRequest(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [id, token]);
-
-  const handleSuccess = () => {
-    router.back();
-  };
-
-  const handleCancel = () => {
-    router.back();
-  };
 
   if (loading) {
     return (
-      <ThemedView style={[styles.container, styles.centerContainer, { backgroundColor: colors.background }]}>
-        <Stack.Screen options={{ title: 'Talep Güncelle' }} />
-        <ActivityIndicator size="large" color={colors.primary} />
-        <ThemedText style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Yükleniyor...
-        </ThemedText>
-      </ThemedView>
+      <>
+        <Stack.Screen options={{ title: 'Talep Güncelle', headerShown: false }} />
+        <Loading fullScreen label="Yükleniyor…" />
+      </>
     );
   }
 
   if (!request) {
     return (
-      <ThemedView style={[styles.container, styles.centerContainer, { backgroundColor: colors.background }]}>
-        <Stack.Screen options={{ title: 'Talep Güncelle' }} />
-        <ThemedText style={[styles.errorText, { color: colors.text }]}>
-          Talep bulunamadı
-        </ThemedText>
-      </ThemedView>
+      <>
+        <Stack.Screen options={{ title: 'Talep Güncelle', headerShown: false }} />
+        <Screen>
+          <EmptyState
+            title="Talep bulunamadı"
+            description="Bu talep mevcut değil veya erişim yetkiniz yok."
+            icon="document-text-outline"
+            actionTitle="Geri dön"
+            onAction={() => router.back()}
+          />
+        </Screen>
+      </>
     );
   }
 
-  if (request.status !== 'REJECTED') {
+  const isRequester = request.requester?.id === user?.id;
+
+  // Satın alma editörü: REQUEST_EDIT + canEditRequest kuralları
+  // Talep sahibi yolu: REJECTED+owner VEYA canEditRequest
+  const allowed = isPurchasingEditor
+    ? canEditRequest(request, canEditCapability)
+    : (request.status === 'REJECTED' && isRequester) || canEditRequest(request, canEditCapability);
+
+  if (!allowed) {
     return (
-      <ThemedView style={[styles.container, styles.centerContainer, { backgroundColor: colors.background }]}>
-        <Stack.Screen options={{ title: 'Talep Güncelle' }} />
-        <ThemedText style={[styles.errorText, { color: colors.text }]}>
-          Sadece reddedilmiş talepler güncellenebilir
-        </ThemedText>
-      </ThemedView>
+      <>
+        <Stack.Screen options={{ title: 'Talep Güncelle', headerShown: false }} />
+        <AccessDenied description="Bu talep düzenlenemez veya yetkiniz yok." />
+      </>
     );
   }
+
+  const requestId = Number(id);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ title: 'Talep Güncelle' }} />
-      <StatusBar 
-        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} 
-        backgroundColor={colors.background} 
-      />
-      <PurchaseRequestForm 
-        onSuccess={handleSuccess}
-        onCancel={handleCancel}
-        initialData={request}
-        requestId={Number(id)}
-      />
-    </SafeAreaView>
+    <>
+      <Stack.Screen options={{ title: 'Talep Güncelle', headerShown: false }} />
+      <Screen padded edges={['top', 'left', 'right', 'bottom']}>
+        <ScreenHeader title="Talep güncelle" subtitle={request.title} />
+        {isPurchasingEditor && canEditCapability ? (
+          <PurchaseRequestItemsForm
+            requestId={requestId}
+            initialData={request}
+            onSuccess={() => router.back()}
+            onCancel={() => router.back()}
+          />
+        ) : (
+          <PurchaseRequestForm
+            onSuccess={() => router.back()}
+            onCancel={() => router.back()}
+            initialData={request}
+            requestId={requestId}
+          />
+        )}
+      </Screen>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centerContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-});

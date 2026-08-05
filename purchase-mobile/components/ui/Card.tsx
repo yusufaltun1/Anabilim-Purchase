@@ -1,67 +1,56 @@
-import { AppColors } from '@/constants/colors';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View, ViewStyle, StyleProp } from 'react-native';
+import {
+  Pressable,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
-interface CardProps {
+export type CardProps = {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   padding?: number;
   margin?: number;
   onPress?: () => void;
-}
+  elevated?: boolean;
+};
 
-export const Card: React.FC<CardProps> = ({
+export function Card({
   children,
   style,
-  padding = 16,
+  padding,
   margin = 0,
   onPress,
-}) => {
-  const colorScheme = useColorScheme();
-  const colors = AppColors[colorScheme ?? 'light'];
+  elevated = true,
+}: CardProps) {
+  const { colors, spacing, radius, shadow } = useAppTheme();
+  const pad = padding ?? spacing.lg;
 
-  const cardStyle = [
-    styles.card,
+  const cardStyle: StyleProp<ViewStyle> = [
     {
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundElevated,
       borderColor: colors.border,
-      padding,
+      borderWidth: 1,
+      borderRadius: radius.lg,
+      padding: pad,
       margin,
+      ...(elevated ? shadow.sm : shadow.none),
     },
     style,
   ];
 
   if (onPress) {
     return (
-      <TouchableOpacity
-        style={cardStyle}
+      <Pressable
         onPress={onPress}
-        activeOpacity={0.7}
+        accessibilityRole="button"
+        style={({ pressed }) => [cardStyle, pressed ? { opacity: 0.85 } : null]}
       >
         {children}
-      </TouchableOpacity>
+      </Pressable>
     );
   }
 
-  return (
-    <View style={cardStyle}>
-      {children}
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-});
+  return <View style={cardStyle}>{children}</View>;
+}

@@ -1,5 +1,32 @@
 import { API_CONFIG, getAuthHeaders } from './api.config';
-import { Assignment, ProductSearchResponse, ProductStockDetail, ProductStockSummary } from '../types/product.types';
+import {
+  mapApiToProduct,
+  type Assignment,
+  type CreateProductRequest,
+  type Product,
+  type ProductSearchResponse,
+  type ProductStockDetail,
+  type ProductStockSummary,
+  type UpdateProductRequest,
+} from '../types/product.types';
+
+function unwrapArray<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  if (data && typeof data === 'object') {
+    const obj = data as { data?: unknown; content?: unknown; items?: unknown };
+    if (Array.isArray(obj.data)) return obj.data as T[];
+    if (Array.isArray(obj.content)) return obj.content as T[];
+    if (Array.isArray(obj.items)) return obj.items as T[];
+  }
+  return [];
+}
+
+function unwrapEntity<T>(data: unknown): T {
+  if (data && typeof data === 'object' && 'data' in data && (data as { data: unknown }).data != null) {
+    return (data as { data: T }).data;
+  }
+  return data as T;
+}
 
 class ProductService {
   private baseUrl = API_CONFIG.BASE_URL;
@@ -58,7 +85,6 @@ class ProductService {
     }
 
     const data = await response.json();
-    // Backend'den ApiResponse formatında geliyor
     if (data.data && Array.isArray(data.data)) {
       return data.data;
     }
@@ -68,36 +94,105 @@ class ProductService {
     return [];
   }
 
-  async createProduct(productData: {
-    name: string;
-    code?: string;
-    description?: string;
-    categoryId: number;
-    productType: 'CONSUMABLE' | 'SEMI_FIXED_ASSET' | 'FIXED_ASSET';
-    unitOfMeasure: 'PIECE' | 'METER' | 'LITER' | 'KILOGRAM';
-    minQuantity?: number;
-    maxQuantity?: number;
-    estimatedUnitPrice?: number;
-    currency?: string;
-    imageUrl?: string;
-    serialNumber?: string;
-  }, token: string): Promise<any> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/products`, {
-        method: 'POST',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify(productData),
-      });
+  async getAllProducts(token: string): Promise<Product[]> {
+    const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.PRODUCTS.BASE}`, {
+      method: 'GET',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      throw new Error(`Ürünler yüklenemedi (${response.status})`);
+    }
+    const data = await response.json();
+    return unwrapArray(data).map(mapApiToProduct);
+  }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP hatası! Durum: ${response.status}`);
-      }
+  async createProduct(productData: CreateProductRequest, token: string): Promise<Product> {
+    const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.PRODUCTS.BASE}`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify(productData),
+    });
 
-      return await response.json();
-    } catch (error) {
-      console.error('Ürün oluşturulurken hata:', error);
-      throw error;
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        (data as { message?: string }).message || `Ürün oluşturulamadı (${response.status})`
+      );
+    }
+    return mapApiToProduct(unwrapEntity(data));
+  }
+
+  async updateProduct(id: number, payload: UpdateProductRequest, token: string): Promise<Product> {
+    const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.PRODUCTS.BY_ID(id)}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        (data as { message?: string }).message || `Ürün güncellenemedi (${response.status})`
+      );
+    }
+    return mapApiToProduct(unwrapEntity(data));
+  }
+
+  async deleteProduct(id: number, token: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.PRODUCTS.BY_ID(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(
+        (data as { message?: string }).message || `Ürün silinemedi (${response.status})`
+      );
+    }
+  }
+
+  async getProductProcurement(id: number, token: string): Promise<unknown> {
+    const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.PRODUCTS.PROCUREMENT(id)}`, {
+      method: 'GET',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      throw new Error(`Satın alma geçmişi yüklenemedi (${response.status})`);
+    }
+    return response.json();
+  }
+
+  async getActiveProducts(token: string): Promise<Product[]> {
+    const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.PRODUCTS.ACTIVE}`, {
+      method: 'GET',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      throw new Error(`Aktif ürünler yüklenemedi (${response.status})`);
+    }
+    const data = await response.json();
+    return unwrapArray(data).map(mapApiToProduct);
+  }
+
+  async getProductById(id: number, token: string): Promise<Product> {
+    const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.PRODUCTS.BY_ID(id)}`, {
+      method: 'GET',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) throw new Error(`Ürün bulunamadı (${response.status})`);
+    const data = await response.json();
+    return mapApiToProduct(unwrapEntity(data));
+  }
+
+  async addSupplierToProduct(productId: number, supplierId: number, token: string): Promise<void> {
+    const response = await fetch(
+      `${this.baseUrl}${API_CONFIG.ENDPOINTS.PRODUCTS.ADD_SUPPLIER(productId, supplierId)}`,
+      { method: 'POST', headers: getAuthHeaders(token) }
+    );
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(
+        (data as { message?: string }).message || `Tedarikçi eklenemedi (${response.status})`
+      );
     }
   }
 }
