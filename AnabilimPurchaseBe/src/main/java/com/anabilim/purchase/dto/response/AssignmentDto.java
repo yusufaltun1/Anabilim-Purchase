@@ -62,6 +62,10 @@ public class AssignmentDto {
     private Long createdByUserId;
 
     private String createdByUserName;
+
+    private Long returnedByUserId;
+
+    private String returnedByUserName;
     
     // Hesaplanmış alanlar
     private boolean isExpired;

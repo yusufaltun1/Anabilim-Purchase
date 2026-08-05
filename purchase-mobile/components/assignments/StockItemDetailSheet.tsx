@@ -514,6 +514,12 @@ export function StockItemDetailSheet({
                               '—'}
                           </Text>
                           <Text variant="caption">{formatDate(a.assignmentDate)}</Text>
+                          <Text variant="caption">
+                            İşlemi yapan: {a.createdByUserName || '—'}
+                            {a.status === 'RETURNED' && a.returnedByUserName
+                              ? ` · İade: ${a.returnedByUserName}`
+                              : ''}
+                          </Text>
                           {a.notes ? <Text variant="caption">{a.notes}</Text> : null}
                         </View>
                       ))

@@ -32,6 +32,8 @@ export interface Assignment {
   updatedAt: string;
   createdByUserId?: number;
   createdByUserName?: string;
+  returnedByUserId?: number;
+  returnedByUserName?: string;
   expired: boolean;
   userAssignment: boolean;
   locationAssignment: boolean;

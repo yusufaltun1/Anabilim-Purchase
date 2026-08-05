@@ -126,10 +126,15 @@ export type Assignment = {
   isLocationAssignment: boolean;
   canBeReturned: boolean;
   canBeCancelled?: boolean;
+  createdByUserId?: number;
+  createdByUserName?: string;
+  returnedByUserId?: number;
+  returnedByUserName?: string;
   hasSignedForm?: boolean;
   hasFormPhoto?: boolean;
   formPhotoUrl?: string;
   hasReturnPhoto?: boolean;
+  returnPhotoUrl?: string;
   hasReturnDocument?: boolean;
   returnNotes?: string;
 };

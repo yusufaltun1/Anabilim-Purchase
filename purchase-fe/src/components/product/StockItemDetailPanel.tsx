@@ -14,7 +14,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { formatDate } from '../../utils/date';
 import { isAssignableStockRow } from '../../utils/inventoryProduct';
 import { StockItemAssignmentForm } from './StockItemAssignmentForm';
-import { AssignmentFormPhotoThumb } from './AssignmentFormPhotoThumb';
+import { AssignmentFormPhotoThumb, AssignmentPhotoThumb } from './AssignmentFormPhotoThumb';
 import { AssignmentReturnModal } from './AssignmentReturnModal';
 import { AssignmentDocumentLinks } from './AssignmentDocumentLinks';
 import { LocationHierarchyPickers } from '../common/LocationHierarchyPickers';
@@ -102,6 +102,7 @@ export const StockItemDetailPanel = ({
   const [cancelling, setCancelling] = useState(false);
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [returning, setReturning] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [locationRootId, setLocationRootId] = useState<number | null>(null);
   const [locationMiddleId, setLocationMiddleId] = useState<number | null>(null);
   const [locationLeafId, setLocationLeafId] = useState<number | null>(null);
@@ -582,6 +583,9 @@ export const StockItemDetailPanel = ({
                                   Atanan
                                 </th>
                                 <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
+                                  İşlemi yapan
+                                </th>
+                                <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
                                   Fotoğraf
                                 </th>
                                 <th className="px-3 py-2.5 text-left text-xs font-medium text-slate-500">
@@ -607,18 +611,41 @@ export const StockItemDetailPanel = ({
                                       assignment.locationName ||
                                       '—'}
                                   </td>
+                                  <td className="px-3 py-2.5 text-slate-700">
+                                    <div>{assignment.createdByUserName || '—'}</div>
+                                    {assignment.status === AssignmentStatus.RETURNED &&
+                                      assignment.returnedByUserName && (
+                                        <div className="text-xs text-slate-500 mt-0.5">
+                                          İade: {assignment.returnedByUserName}
+                                        </div>
+                                      )}
+                                  </td>
                                   <td className="px-3 py-2.5">
-                                    <AssignmentFormPhotoThumb
-                                      assignmentId={assignment.id}
-                                      hasFormPhoto={assignment.hasFormPhoto}
-                                      formPhotoUrl={assignment.formPhotoUrl}
-                                      className="h-8 w-8 rounded object-cover border border-slate-200"
-                                    />
+                                    <div className="flex items-center gap-2">
+                                      <AssignmentFormPhotoThumb
+                                        assignmentId={assignment.id}
+                                        hasFormPhoto={assignment.hasFormPhoto}
+                                        formPhotoUrl={assignment.formPhotoUrl}
+                                        className="h-8 w-8 rounded object-cover border border-slate-200"
+                                        onImageClick={(url) => setSelectedImage(url)}
+                                      />
+                                      {(assignment.hasReturnPhoto || assignment.returnPhotoUrl) && (
+                                        <AssignmentPhotoThumb
+                                          assignmentId={assignment.id}
+                                          kind="return"
+                                          hasPhoto={assignment.hasReturnPhoto}
+                                          photoUrl={assignment.returnPhotoUrl}
+                                          className="h-8 w-8 rounded object-cover border border-emerald-200"
+                                          onImageClick={(url) => setSelectedImage(url)}
+                                        />
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="px-3 py-2.5">
                                     <AssignmentDocumentLinks
                                       assignment={assignment}
                                       onError={(message) => showNotification(message, 'error')}
+                                      onImageClick={(url) => setSelectedImage(url)}
                                     />
                                   </td>
                                   <td className="px-3 py-2.5 text-slate-500">
@@ -724,6 +751,21 @@ export const StockItemDetailPanel = ({
         }}
         onSubmit={handleReturnAssignment}
       />
+
+      {selectedImage && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setSelectedImage(null)}
+          role="presentation"
+        >
+          <img
+            src={selectedImage}
+            alt="Zimmet / iade fotoğrafı"
+            className="max-h-[90vh] max-w-full rounded shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </>,
     document.body
   );

@@ -11,6 +11,9 @@ public interface AssignmentService {
     
     // CRUD İşlemleri
     AssignmentDto createAssignment(CreateAssignmentDto dto);
+
+    /** Zimmet oluşturur; ürün fotoğrafı zorunludur. */
+    AssignmentDto createAssignment(CreateAssignmentDto dto, MultipartFile photo);
     
     AssignmentDto getAssignmentById(Long id);
     

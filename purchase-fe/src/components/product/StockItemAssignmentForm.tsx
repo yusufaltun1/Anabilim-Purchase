@@ -82,41 +82,42 @@ export const StockItemAssignmentForm = ({
       showNotification('Lütfen bir konum seçin', 'error');
       return;
     }
+    if (!formPhotoFile) {
+      showNotification('Zimmet için ürün fotoğrafı zorunludur', 'error');
+      return;
+    }
 
     try {
       setSubmitting(true);
-      const result = await assignmentService.createAssignment({
-        productId,
-        stockItemId,
-        expectedReturnDate: expectedReturnDate || undefined,
-        notes: notes.trim() || undefined,
-        ...(assignmentType === 'user'
-          ? {
-              assignedUserId: parseInt(assignedUserId, 10),
-              assignedSchoolId: assignedSchoolId ? parseInt(assignedSchoolId, 10) : undefined,
-            }
-          : {
-              assignedLocationId,
-              locationDetails: locationDetails.trim() || undefined,
-            }),
-      });
+      const result = await assignmentService.createAssignment(
+        {
+          productId,
+          stockItemId,
+          expectedReturnDate: expectedReturnDate || undefined,
+          notes: notes.trim() || undefined,
+          ...(assignmentType === 'user'
+            ? {
+                assignedUserId: parseInt(assignedUserId, 10),
+                assignedSchoolId: assignedSchoolId
+                  ? parseInt(assignedSchoolId, 10)
+                  : selectedUser?.schoolId ?? undefined,
+              }
+            : {
+                assignedLocationId,
+                locationDetails: locationDetails.trim() || undefined,
+              }),
+        },
+        formPhotoFile
+      );
 
       const created = result.data && !Array.isArray(result.data) ? result.data : null;
       if (created?.id) {
         try {
-          if (formPhotoFile) {
-            await assignmentService.uploadFormPhoto(created.id, formPhotoFile);
-          }
           await assignmentService.downloadAssignmentForm(created.id);
-          showNotification(
-            formPhotoFile
-              ? 'Zimmet oluşturuldu. Fotoğraf forma eklendi, form indirildi.'
-              : 'Zimmet oluşturuldu. Form indirildi.',
-            'success'
-          );
+          showNotification('Zimmet oluşturuldu. Fotoğraf forma eklendi, form indirildi.', 'success');
         } catch (err: unknown) {
           showNotification(
-            err instanceof Error ? err.message : 'Zimmet oluşturuldu ancak fotoğraf/form işlemi tamamlanamadı.',
+            err instanceof Error ? err.message : 'Zimmet oluşturuldu ancak form indirilemedi.',
             'error'
           );
         }
@@ -183,7 +184,8 @@ export const StockItemAssignmentForm = ({
                       key={user.id}
                       type="button"
                       onClick={() => {
-                        setAssignedUserId(user.id.toString());
+                        setAssignedUserId(user.id!.toString());
+                        setAssignedSchoolId(user.schoolId?.toString() ?? '');
                         setUserSearchTerm('');
                       }}
                       className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
@@ -197,6 +199,21 @@ export const StockItemAssignmentForm = ({
               </div>
             )}
           </div>
+          {selectedUser && (
+            <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+              <span className="font-medium text-gray-700">Çalışma konumu: </span>
+              {selectedUser.workLocationName ||
+                (selectedUser.workLocationParentId ? 'Tanımlı' : 'Tanımlı değil')}
+              {selectedUser.schoolName && (
+                <span className="block text-xs text-gray-500 mt-0.5">
+                  Okul: {selectedUser.schoolName}
+                </span>
+              )}
+              <p className="text-xs text-gray-400 mt-1">
+                Konum, kullanıcının kartındaki çalışma konumundan otomatik alınır.
+              </p>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Okul (opsiyonel)</label>
             <select
@@ -267,6 +284,8 @@ export const StockItemAssignmentForm = ({
           setFormPhotoPreview(nextPreview);
         }}
         disabled={submitting}
+        label="Ürün fotoğrafı (zorunlu)"
+        required
       />
 
       <div>

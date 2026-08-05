@@ -41,11 +41,29 @@ class AssignmentService {
     return `${API_CONFIG.BASE_URL}${this.basePath}${path}`;
   }
 
-  async createAssignment(payload: CreateAssignmentRequest, token: string): Promise<Assignment> {
+  async createAssignment(
+    payload: CreateAssignmentRequest,
+    token: string,
+    photo: { uri: string; fileName?: string; mimeType?: string }
+  ): Promise<Assignment> {
+    if (!photo?.uri) {
+      throw new Error('Zimmet için ürün fotoğrafı zorunludur');
+    }
+    const formData = new FormData();
+    formData.append('assignment', JSON.stringify(payload));
+    formData.append(
+      'photo',
+      rnFilePart(
+        photo.uri,
+        photo.fileName || `zimmet-foto-${Date.now()}.jpg`,
+        photo.mimeType || 'image/jpeg'
+      ) as unknown as Blob
+    );
+
     const response = await fetch(this.url(), {
       method: 'POST',
-      headers: getAuthHeaders(token),
-      body: JSON.stringify(payload),
+      headers: getAuthHeadersMultipart(token),
+      body: formData,
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {

@@ -1,22 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { assignmentService } from '../../services/assignment.service';
 
-interface AssignmentFormPhotoThumbProps {
+export type AssignmentPhotoKind = 'form' | 'return';
+
+interface AssignmentPhotoThumbProps {
   assignmentId: number;
-  hasFormPhoto?: boolean;
-  formPhotoUrl?: string;
+  kind?: AssignmentPhotoKind;
+  hasPhoto?: boolean;
+  photoUrl?: string;
   className?: string;
+  alt?: string;
   onImageClick?: (blobUrl: string) => void;
 }
 
-export const AssignmentFormPhotoThumb = ({
+/** Zimmet veya iade fotoğrafını indirmeden önizler; tıklanınca lightbox için URL verir. */
+export const AssignmentPhotoThumb = ({
   assignmentId,
-  hasFormPhoto,
-  formPhotoUrl,
+  kind = 'form',
+  hasPhoto,
+  photoUrl,
   className = 'h-10 w-10 rounded object-cover border border-gray-200',
+  alt,
   onImageClick,
-}: AssignmentFormPhotoThumbProps) => {
-  const showPhoto = hasFormPhoto || !!formPhotoUrl;
+}: AssignmentPhotoThumbProps) => {
+  const showPhoto = hasPhoto || !!photoUrl;
   const [src, setSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const blobUrlRef = useRef<string | null>(null);
@@ -30,8 +37,12 @@ export const AssignmentFormPhotoThumb = ({
     let cancelled = false;
     setLoading(true);
 
-    assignmentService
-      .fetchFormPhotoBlobUrl(assignmentId)
+    const fetchUrl =
+      kind === 'return'
+        ? assignmentService.fetchReturnPhotoBlobUrl(assignmentId)
+        : assignmentService.fetchFormPhotoBlobUrl(assignmentId);
+
+    fetchUrl
       .then((url) => {
         if (cancelled) {
           URL.revokeObjectURL(url);
@@ -53,7 +64,7 @@ export const AssignmentFormPhotoThumb = ({
     return () => {
       cancelled = true;
     };
-  }, [assignmentId, showPhoto]);
+  }, [assignmentId, showPhoto, kind]);
 
   useEffect(() => {
     return () => {
@@ -75,13 +86,40 @@ export const AssignmentFormPhotoThumb = ({
     return <span className="text-xs text-gray-400">Yüklenemedi</span>;
   }
 
+  const imageAlt =
+    alt ?? (kind === 'return' ? 'İade ürün fotoğrafı' : 'Zimmet ürün fotoğrafı');
+
   if (onImageClick) {
     return (
       <button type="button" onClick={() => onImageClick(src)} className="block">
-        <img src={src} alt="Zimmet ürün fotoğrafı" className={className} />
+        <img src={src} alt={imageAlt} className={className} />
       </button>
     );
   }
 
-  return <img src={src} alt="Zimmet ürün fotoğrafı" className={className} />;
+  return <img src={src} alt={imageAlt} className={className} />;
 };
+
+/** @deprecated AssignmentPhotoThumb kullanın */
+export const AssignmentFormPhotoThumb = ({
+  assignmentId,
+  hasFormPhoto,
+  formPhotoUrl,
+  className,
+  onImageClick,
+}: {
+  assignmentId: number;
+  hasFormPhoto?: boolean;
+  formPhotoUrl?: string;
+  className?: string;
+  onImageClick?: (blobUrl: string) => void;
+}) => (
+  <AssignmentPhotoThumb
+    assignmentId={assignmentId}
+    kind="form"
+    hasPhoto={hasFormPhoto}
+    photoUrl={formPhotoUrl}
+    className={className}
+    onImageClick={onImageClick}
+  />
+);

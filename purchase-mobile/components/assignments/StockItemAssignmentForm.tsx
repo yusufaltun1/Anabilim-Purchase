@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { assignmentService } from '@/services/api/assignment.service';
 import { userService } from '@/services/api/user.service';
+import type { User } from '@/services/types/user.types';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
@@ -28,6 +29,12 @@ export type StockItemAssignmentFormProps = {
 };
 
 type AssignmentType = 'user' | 'location';
+
+type UserOptionWithLocation = UserOption & {
+  workLocationName?: string;
+  schoolName?: string;
+  schoolId?: number | null;
+};
 
 function toIsoDate(date: Date | null): string | undefined {
   if (!date) return undefined;
@@ -54,7 +61,7 @@ export function StockItemAssignmentForm({
   const { showToast } = useToast();
 
   const [assignmentType, setAssignmentType] = useState<AssignmentType>('user');
-  const [users, setUsers] = useState<UserOption[]>([]);
+  const [users, setUsers] = useState<UserOptionWithLocation[]>([]);
   const [assignedUserId, setAssignedUserId] = useState<string | null>(null);
   const [locationValue, setLocationValue] = useState<LocationHierarchyValue>(emptyHierarchy);
   const [expectedReturnDate, setExpectedReturnDate] = useState<Date | null>(null);
@@ -68,7 +75,7 @@ export function StockItemAssignmentForm({
     setUsersLoading(true);
     userService
       .getActiveUsers(token)
-      .then((list) =>
+      .then((list: User[]) =>
         setUsers(
           list.map((u) => ({
             id: u.id,
@@ -76,12 +83,20 @@ export function StockItemAssignmentForm({
               u.fullName || `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || `Kullanıcı #${u.id}`,
             email: u.email,
             department: u.department,
+            workLocationName: u.workLocationName,
+            schoolName: u.schoolName,
+            schoolId: u.schoolId,
           }))
         )
       )
       .catch(() => setUsers([]))
       .finally(() => setUsersLoading(false));
   }, [token]);
+
+  const selectedUser = useMemo(
+    () => users.find((u) => String(u.id) === String(assignedUserId)),
+    [users, assignedUserId]
+  );
 
   const typeOptions = useMemo(
     () => [
@@ -93,6 +108,17 @@ export function StockItemAssignmentForm({
 
   const handleSubmit = async () => {
     if (!token) return;
+
+    if (!photo?.uri) {
+      showToast({ message: 'Zimmet için ürün fotoğrafı zorunludur', tone: 'error' });
+      return;
+    }
+
+    const photoPayload = {
+      uri: photo.uri,
+      fileName: photo.fileName || undefined,
+      mimeType: photo.mimeType || undefined,
+    };
 
     if (assignmentType === 'location') {
       const assignedLocationId = resolveSelectedLocationId(locationValue);
@@ -111,33 +137,21 @@ export function StockItemAssignmentForm({
             expectedReturnDate: toIsoDate(expectedReturnDate),
             notes: notes.trim() || undefined,
           },
-          token
+          token,
+          photoPayload
         );
 
         if (created?.id) {
           try {
-            if (photo?.uri) {
-              await assignmentService.uploadFormPhoto(
-                created.id,
-                photo.uri,
-                photo.fileName || undefined,
-                photo.mimeType || undefined,
-                token
-              );
-            }
             await assignmentService.downloadAssignmentForm(created.id, token);
             showToast({
-              message: photo?.uri
-                ? 'Konum zimmeti oluşturuldu. Fotoğraf eklendi, form indirildi.'
-                : 'Konum zimmeti oluşturuldu. Form indirildi.',
+              message: 'Konum zimmeti oluşturuldu. Fotoğraf eklendi, form indirildi.',
               tone: 'success',
             });
           } catch (err) {
             showToast({
               message:
-                err instanceof Error
-                  ? err.message
-                  : 'Zimmet oluşturuldu ancak fotoğraf/form işlemi tamamlanamadı.',
+                err instanceof Error ? err.message : 'Zimmet oluşturuldu ancak form indirilemedi.',
               tone: 'error',
             });
           }
@@ -168,36 +182,25 @@ export function StockItemAssignmentForm({
           productId,
           stockItemId,
           assignedUserId: Number(assignedUserId),
+          assignedSchoolId: selectedUser?.schoolId ?? undefined,
           expectedReturnDate: toIsoDate(expectedReturnDate),
           notes: notes.trim() || undefined,
         },
-        token
+        token,
+        photoPayload
       );
 
       if (created?.id) {
         try {
-          if (photo?.uri) {
-            await assignmentService.uploadFormPhoto(
-              created.id,
-              photo.uri,
-              photo.fileName || undefined,
-              photo.mimeType || undefined,
-              token
-            );
-          }
           await assignmentService.downloadAssignmentForm(created.id, token);
           showToast({
-            message: photo?.uri
-              ? 'Zimmet oluşturuldu. Fotoğraf eklendi, form indirildi.'
-              : 'Zimmet oluşturuldu. Form indirildi.',
+            message: 'Zimmet oluşturuldu. Fotoğraf eklendi, form indirildi.',
             tone: 'success',
           });
         } catch (err) {
           showToast({
             message:
-              err instanceof Error
-                ? err.message
-                : 'Zimmet oluşturuldu ancak fotoğraf/form işlemi tamamlanamadı.',
+              err instanceof Error ? err.message : 'Zimmet oluşturuldu ancak form indirilemedi.',
             tone: 'error',
           });
         }
@@ -251,15 +254,41 @@ export function StockItemAssignmentForm({
           required
         />
       ) : (
-        <UserSearchSelect
-          label="Kullanıcı"
-          required
-          users={users}
-          value={assignedUserId}
-          onChange={setAssignedUserId}
-          disabled={submitting || usersLoading}
-          placeholder={usersLoading ? 'Kullanıcılar yükleniyor…' : 'Kullanıcı seçiniz'}
-        />
+        <>
+          <UserSearchSelect
+            label="Kullanıcı"
+            required
+            users={users}
+            value={assignedUserId}
+            onChange={setAssignedUserId}
+            disabled={submitting || usersLoading}
+            placeholder={usersLoading ? 'Kullanıcılar yükleniyor…' : 'Kullanıcı seçiniz'}
+          />
+          {selectedUser ? (
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 8,
+                padding: spacing.sm,
+                gap: 2,
+              }}
+            >
+              <Text variant="caption" color={colors.textSecondary}>
+                Çalışma konumu:{' '}
+                {selectedUser.workLocationName || 'Tanımlı değil'}
+              </Text>
+              {selectedUser.schoolName ? (
+                <Text variant="caption" color={colors.textSecondary}>
+                  Okul: {selectedUser.schoolName}
+                </Text>
+              ) : null}
+              <Text variant="caption" color={colors.textSecondary}>
+                Konum, kullanıcının kartındaki çalışma konumundan otomatik alınır.
+              </Text>
+            </View>
+          ) : null}
+        </>
       )}
 
       <DateTimeField
@@ -277,7 +306,8 @@ export function StockItemAssignmentForm({
         onChange={setPhoto}
         source="both"
         disabled={submitting}
-        helper="Opsiyonel — zimmet formuna eklenir"
+        required
+        helper="Zorunlu — zimmet formuna eklenir"
       />
 
       <TextArea

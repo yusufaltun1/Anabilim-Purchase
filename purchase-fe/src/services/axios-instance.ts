@@ -16,6 +16,12 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // FormData gönderirken boundary'nin otomatik set edilmesi için Content-Type kaldırılır
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      if (config.headers && typeof config.headers === 'object') {
+        delete (config.headers as Record<string, unknown>)['Content-Type'];
+      }
+    }
     return config;
   },
   (error) => {

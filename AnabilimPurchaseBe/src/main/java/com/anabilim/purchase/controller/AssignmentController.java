@@ -7,8 +7,12 @@ import com.anabilim.purchase.dto.response.AssignmentFormPhotoDto;
 import com.anabilim.purchase.dto.response.AssignmentSignedFormDto;
 import com.anabilim.purchase.dto.response.AttachmentDownloadResult;
 import com.anabilim.purchase.entity.enums.AssignmentStatus;
+import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.service.AssignmentFormService;
 import com.anabilim.purchase.service.AssignmentService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -18,6 +22,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/assignments")
@@ -26,11 +32,36 @@ public class AssignmentController {
     
     private final AssignmentService assignmentService;
     private final AssignmentFormService assignmentFormService;
+    private final ObjectMapper objectMapper;
+    private final Validator validator;
     
     // ========== CRUD İşlemleri ==========
     
-    @PostMapping
-    public ResponseEntity<ApiResponse<AssignmentDto>> createAssignment(@RequestBody CreateAssignmentDto dto) {
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<AssignmentDto>> createAssignment(
+            @RequestParam("assignment") String assignmentJson,
+            @RequestParam("photo") MultipartFile photo) {
+        CreateAssignmentDto dto;
+        try {
+            dto = objectMapper.readValue(assignmentJson, CreateAssignmentDto.class);
+        } catch (Exception e) {
+            throw new ValidationException("Zimmet verisi okunamadı: " + e.getMessage());
+        }
+        Set<ConstraintViolation<CreateAssignmentDto>> violations = validator.validate(dto);
+        if (!violations.isEmpty()) {
+            String message = violations.stream()
+                    .map(ConstraintViolation::getMessage)
+                    .collect(Collectors.joining(", "));
+            throw new ValidationException(message);
+        }
+        AssignmentDto createdAssignment = assignmentService.createAssignment(dto, photo);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Zimmet başarıyla oluşturuldu", createdAssignment));
+    }
+
+    /** Eski JSON istemciler için: fotoğraf zorunlu — multipart kullanın. */
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<AssignmentDto>> createAssignmentJson(@RequestBody CreateAssignmentDto dto) {
         AssignmentDto createdAssignment = assignmentService.createAssignment(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Zimmet başarıyla oluşturuldu", createdAssignment));

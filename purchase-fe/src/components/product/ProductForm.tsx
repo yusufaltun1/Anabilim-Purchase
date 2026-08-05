@@ -388,6 +388,9 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
     } else if (assignmentState.assignmentType === 'location' && !resolveCreateLocationId()) {
       errors.assignedLocationId = 'Zimmet için konum seçin';
     }
+    if (!assignmentState.formPhotoFile) {
+      errors.formPhoto = 'Zimmet için ürün fotoğrafı zorunludur';
+    }
     return errors;
   };
 
@@ -409,34 +412,37 @@ export const ProductForm = ({ mode, productId, cloneFromId, onSuccess, onCancel 
   };
 
   const createAssignmentAfterProduct = async (productId: number, stockItemId: number) => {
+    if (!assignmentState.formPhotoFile) {
+      throw new Error('Zimmet için ürün fotoğrafı zorunludur');
+    }
     const assignedLocationId =
       assignmentState.assignmentType === 'location' ? resolveCreateLocationId() : null;
-    const result = await assignmentService.createAssignment({
-      productId,
-      stockItemId,
-      expectedReturnDate: assignmentState.expectedReturnDate || undefined,
-      notes: assignmentState.notes.trim() || undefined,
-      ...(assignmentState.assignmentType === 'user'
-        ? {
-            assignedUserId: parseInt(assignmentState.assignedUserId, 10),
-            assignedSchoolId: assignmentState.assignedSchoolId
-              ? parseInt(assignmentState.assignedSchoolId, 10)
-              : undefined,
-          }
-        : {
-            assignedLocationId: assignedLocationId!,
-            locationDetails: assignmentState.locationDetails.trim() || undefined,
-          }),
-    });
+    const result = await assignmentService.createAssignment(
+      {
+        productId,
+        stockItemId,
+        expectedReturnDate: assignmentState.expectedReturnDate || undefined,
+        notes: assignmentState.notes.trim() || undefined,
+        ...(assignmentState.assignmentType === 'user'
+          ? {
+              assignedUserId: parseInt(assignmentState.assignedUserId, 10),
+              assignedSchoolId: assignmentState.assignedSchoolId
+                ? parseInt(assignmentState.assignedSchoolId, 10)
+                : undefined,
+            }
+          : {
+              assignedLocationId: assignedLocationId!,
+              locationDetails: assignmentState.locationDetails.trim() || undefined,
+            }),
+      },
+      assignmentState.formPhotoFile
+    );
 
     const created = result.data && !Array.isArray(result.data) ? result.data : null;
     if (!created?.id) {
       return;
     }
 
-    if (assignmentState.formPhotoFile) {
-      await assignmentService.uploadFormPhoto(created.id, assignmentState.formPhotoFile);
-    }
     await assignmentService.downloadAssignmentForm(created.id);
   };
 

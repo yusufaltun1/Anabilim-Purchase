@@ -85,6 +85,10 @@ public class Assignment {
     @JoinColumn(name = "created_by_user_id")
     private User createdByUser;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "returned_by_user_id")
+    private User returnedByUser;
+
     @Column(name = "signed_form_file_name")
     private String signedFormFileName;
 

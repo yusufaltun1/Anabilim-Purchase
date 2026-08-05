@@ -252,7 +252,13 @@ export const AssignmentManageSection = ({
                       {formatDate(assignment.assignmentDate)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-                      {assignment.createdByUserName || '—'}
+                      <div>{assignment.createdByUserName || '—'}</div>
+                      {assignment.status === AssignmentStatus.RETURNED &&
+                        assignment.returnedByUserName && (
+                          <div className="text-xs text-gray-400">
+                            İade: {assignment.returnedByUserName}
+                          </div>
+                        )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
                       {STATUS_LABELS[assignment.status] ?? assignment.status}
@@ -271,6 +277,7 @@ export const AssignmentManageSection = ({
                         downloadingId={formDownloadingId}
                         onDownloadingChange={setFormDownloadingId}
                         onError={(message) => showNotification(message, 'error')}
+                        onImageClick={(url) => setSelectedImage(url)}
                       />
                     </td>
                     <td className="px-4 py-3 text-sm">

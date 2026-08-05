@@ -392,6 +392,11 @@ export const ProductDetail = () => {
         }
       }
 
+      if (!assignmentFormPhotoFile) {
+        showNotification('Zimmet için ürün fotoğrafı zorunludur', 'error');
+        return;
+      }
+
       // Stock item seçimi kontrolü
       if (!assignmentForm.selectedStockItemId) {
         showNotification('Lütfen bir stock item seçin', 'error');
@@ -441,28 +446,23 @@ export const ProductDetail = () => {
         })
       };
 
-      const createResult = await assignmentService.createAssignment(request);
+      const createResult = await assignmentService.createAssignment(request, assignmentFormPhotoFile);
       const createdAssignment = createResult.data && !Array.isArray(createResult.data)
         ? createResult.data
         : null;
 
       if (createdAssignment?.id) {
         try {
-          if (assignmentFormPhotoFile) {
-            await assignmentService.uploadFormPhoto(createdAssignment.id, assignmentFormPhotoFile);
-          }
           await assignmentService.downloadAssignmentForm(createdAssignment.id);
           await Promise.all([loadAssignments(), loadStockItems()]);
           showNotification(
-            assignmentFormPhotoFile
-              ? 'Zimmet oluşturuldu. Fotoğraf forma eklendi; imzalı halini yükleyebilirsiniz.'
-              : 'Zimmet oluşturuldu. Form indirildi; imzalı halini yükleyebilirsiniz.',
+            'Zimmet oluşturuldu. Fotoğraf forma eklendi; imzalı halini yükleyebilirsiniz.',
             'success'
           );
         } catch (err: unknown) {
           await Promise.all([loadAssignments(), loadStockItems()]);
           showNotification(
-            err instanceof Error ? err.message : 'Zimmet oluşturuldu ancak fotoğraf/form işlemi tamamlanamadı.',
+            err instanceof Error ? err.message : 'Zimmet oluşturuldu ancak form indirilemedi.',
             'error'
           );
         }
@@ -1099,6 +1099,7 @@ export const ProductDetail = () => {
                           downloadingId={formDownloadingId}
                           onDownloadingChange={setFormDownloadingId}
                           onError={(message) => showNotification(message, 'error')}
+                          onImageClick={(url) => setSelectedImage(url)}
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -1355,8 +1356,11 @@ export const ProductDetail = () => {
                                         key={user.id}
                                         type="button"
                                         onClick={() => {
-                                          setAssignmentForm({...assignmentForm, assignedUserId: user.id.toString()});
-                                          // Kullanıcı seçildikten sonra arama terimini temizle ve listeyi kapat
+                                          setAssignmentForm({
+                                            ...assignmentForm,
+                                            assignedUserId: user.id!.toString(),
+                                            assignedSchoolId: user.schoolId?.toString() ?? '',
+                                          });
                                           setUserSearchTerm('');
                                         }}
                                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
@@ -1372,11 +1376,29 @@ export const ProductDetail = () => {
                                 </div>
                               )}
                             </div>
-                            {assignmentForm.assignedUserId && (
-                              <div className="mt-2 text-sm text-gray-600">
-                                Seçilen: {filteredUsers.find(u => u.id.toString() === assignmentForm.assignedUserId)?.firstName} {filteredUsers.find(u => u.id.toString() === assignmentForm.assignedUserId)?.lastName}
-                              </div>
-                            )}
+                            {assignmentForm.assignedUserId && (() => {
+                              const selected =
+                                users.find((u) => u.id?.toString() === assignmentForm.assignedUserId) ??
+                                filteredUsers.find((u) => u.id?.toString() === assignmentForm.assignedUserId);
+                              if (!selected) return null;
+                              return (
+                                <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                                  <div>
+                                    Seçilen: {selected.firstName} {selected.lastName}
+                                  </div>
+                                  <div className="mt-1">
+                                    <span className="font-medium text-gray-700">Çalışma konumu: </span>
+                                    {selected.workLocationName ||
+                                      (selected.workLocationParentId ? 'Tanımlı' : 'Tanımlı değil')}
+                                  </div>
+                                  {selected.schoolName && (
+                                    <div className="text-xs text-gray-500 mt-0.5">
+                                      Okul: {selected.schoolName}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           <div>
@@ -1484,7 +1506,8 @@ export const ProductDetail = () => {
                           setAssignmentFormPhotoPreview(nextPreview);
                         }}
                         disabled={assignmentLoading}
-                        label="Ürün fotoğrafı (form F8 hücresi)"
+                        label="Ürün fotoğrafı (zorunlu)"
+                        required
                       />
 
                       {/* Bilgilendirici Kutu */}

@@ -255,7 +255,7 @@ export const ProductCreateAssignmentSection = ({
         />
       </FormField>
 
-      <FormField label="Ürün fotoğrafı (form F8 hücresi)" error={fieldErrors.formPhoto}>
+      <FormField label="Ürün fotoğrafı (zorunlu)" required error={fieldErrors.formPhoto}>
         <input
           type="file"
           accept="image/jpeg,image/png"

@@ -42,6 +42,15 @@ public class AssignmentServiceImpl implements AssignmentService {
     
     @Override
     public AssignmentDto createAssignment(CreateAssignmentDto dto) {
+        throw new ValidationException("Zimmet için ürün fotoğrafı zorunludur.");
+    }
+
+    @Override
+    public AssignmentDto createAssignment(CreateAssignmentDto dto, MultipartFile photo) {
+        if (photo == null || photo.isEmpty()) {
+            throw new ValidationException("Zimmet için ürün fotoğrafı zorunludur.");
+        }
+
         // Ürün kontrolü
         Product product = productRepository.findById(dto.getProductId())
                 .orElseThrow(() -> new ResourceNotFoundException("Ürün bulunamadı: " + dto.getProductId()));
@@ -70,13 +79,11 @@ public class AssignmentServiceImpl implements AssignmentService {
                     .ifPresent(assetConditionSupport::validateAssignable);
         }
         
-        // Kullanıcı zimmeti
+        // Kullanıcı zimmeti — konum bilgisi kullanıcının çalışma konumundan (kullanıcı kartı/grup) alınır
         if (dto.getAssignedUserId() != null) {
             User user = userRepository.findById(dto.getAssignedUserId())
                     .orElseThrow(() -> new ResourceNotFoundException("Kullanıcı bulunamadı: " + dto.getAssignedUserId()));
             assignment.setAssignedUser(user);
-            
-
         }
 
         // Konum kontrolü
@@ -110,8 +117,12 @@ public class AssignmentServiceImpl implements AssignmentService {
 
         // Depodan çıkış kaydı oluştur
         createStockMovementForAssignment(savedAssignment, dto.getWarehouseId());
+
+        assignmentFormService.uploadFormPhoto(savedAssignment.getId(), photo);
         
-        return assignmentMapper.toDto(savedAssignment);
+        return assignmentMapper.toDto(
+                assignmentRepository.findById(savedAssignment.getId()).orElse(savedAssignment)
+        );
     }
 
     @Override
@@ -273,6 +284,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         }
         
         assignment.markAsReturned();
+        currentUserService.findCurrentUser().ifPresent(assignment::setReturnedByUser);
 
         // İade sonrası cihaz üzerindeki zimmet kaynaklı konum bilgisi temizlenir
         clearStockItemLocationFromAssignment(assignment);

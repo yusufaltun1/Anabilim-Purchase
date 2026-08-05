@@ -108,6 +108,7 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
             "LEFT JOIN FETCH wlcm.parent " +
             "LEFT JOIN FETCH a.assignedLocation " +
             "LEFT JOIN FETCH a.createdByUser " +
+            "LEFT JOIN FETCH a.returnedByUser " +
             "WHERE a.id = :id")
     Optional<Assignment> findByIdWithDetails(@Param("id") Long id);
 

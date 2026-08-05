@@ -15,22 +15,17 @@ class AssignmentService {
   private readonly baseUrl = '/api/v1/assignments';
 
   // CRUD İşlemleri
-  async createAssignment(request: CreateAssignmentRequest): Promise<AssignmentResponse> {
-    console.log('AssignmentService - createAssignment called with request:', request);
-    console.log('AssignmentService - request type:', typeof request);
-    console.log('AssignmentService - request keys:', Object.keys(request));
-    console.log('AssignmentService - request details:', {
-      productId: request.productId,
-      stockItemId: request.stockItemId,
-      quantity: request.quantity,
-      assignedUserId: request.assignedUserId,
-      assignedSchoolId: request.assignedSchoolId,
-      assignedLocationId: request.assignedLocationId
-    });
-    
+  async createAssignment(request: CreateAssignmentRequest, photo: File): Promise<AssignmentResponse> {
+    if (!photo) {
+      throw new Error('Zimmet için ürün fotoğrafı zorunludur');
+    }
+
+    const formData = new FormData();
+    formData.append('assignment', JSON.stringify(request));
+    formData.append('photo', photo);
+
     try {
-      const response = await axiosInstance.post<{ data?: Assignment } & Assignment>(this.baseUrl, request);
-      console.log('AssignmentService - createAssignment success response:', response.data);
+      const response = await axiosInstance.post<{ data?: Assignment } & Assignment>(this.baseUrl, formData);
       const created = (response.data as { data?: Assignment }).data ?? (response.data as Assignment);
       return {
         success: true,
@@ -40,10 +35,6 @@ class AssignmentService {
       };
     } catch (error: any) {
       console.error('AssignmentService - createAssignment error:', error);
-      console.error('AssignmentService - error response data:', error.response?.data);
-      console.error('AssignmentService - error status:', error.response?.status);
-      console.error('AssignmentService - error message:', error.message);
-      console.error('AssignmentService - full error object:', error);
       throw error;
     }
   }
@@ -543,6 +534,17 @@ class AssignmentService {
     });
     if (!response.ok) {
       throw new Error('Fotoğraf yüklenemedi');
+    }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  }
+
+  async fetchReturnPhotoBlobUrl(assignmentId: number): Promise<string> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/${assignmentId}/return/photo`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      throw new Error('İade fotoğrafı yüklenemedi');
     }
     const blob = await response.blob();
     return URL.createObjectURL(blob);

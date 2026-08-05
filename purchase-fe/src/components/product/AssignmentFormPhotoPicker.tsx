@@ -8,6 +8,7 @@ interface AssignmentFormPhotoPickerProps {
   onChange: (file: File | null, preview: string | null) => void;
   disabled?: boolean;
   label?: string;
+  required?: boolean;
 }
 
 export const AssignmentFormPhotoPicker = ({
@@ -16,6 +17,7 @@ export const AssignmentFormPhotoPicker = ({
   onChange,
   disabled = false,
   label = 'Ürün fotoğrafı (form F8 hücresi)',
+  required = false,
 }: AssignmentFormPhotoPickerProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -39,7 +41,10 @@ export const AssignmentFormPhotoPicker = ({
 
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-600 mb-1">
+        {label}
+        {required ? <span className="text-red-500"> *</span> : null}
+      </label>
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -66,6 +71,9 @@ export const AssignmentFormPhotoPicker = ({
         />
       )}
       {file && !preview && <p className="mt-1 text-xs text-gray-500">{file.name}</p>}
+      {required && !file && (
+        <p className="mt-1 text-xs text-amber-600">Zimmet kaydı için ürün fotoğrafı zorunludur.</p>
+      )}
       <input
         ref={fileInputRef}
         type="file"
