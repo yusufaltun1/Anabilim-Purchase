@@ -100,29 +100,30 @@ public class StockItemMapper {
         }
 
         List<Assignment> assignments = assignmentRepository.findByStockItemId(entity.getId());
-        if (!assignments.isEmpty()) {
-            Assignment activeAssignment = assignments.stream()
-                    .filter(a -> a.isActive() && a.getStatus().equals(com.anabilim.purchase.entity.enums.AssignmentStatus.ACTIVE))
-                    .findFirst()
-                    .orElse(assignments.get(0));
-            
+        Assignment activeAssignment = assignments.stream()
+                .filter(a -> a.isActive()
+                        && a.getStatus() == com.anabilim.purchase.entity.enums.AssignmentStatus.ACTIVE)
+                .findFirst()
+                .orElse(null);
+
+        if (activeAssignment != null) {
             dto.setAssignmentId(activeAssignment.getId());
             dto.setAssignmentStatus(activeAssignment.getStatus().name());
             dto.setAssignmentDate(activeAssignment.getAssignmentDate());
             dto.setAssignmentNotes(activeAssignment.getNotes());
-            
-            // Assigned User bilgileri - Assignment'dan al
+
             if (activeAssignment.getAssignedUser() != null) {
                 dto.setAssignedUserId(activeAssignment.getAssignedUser().getId());
                 dto.setAssignedUserName(activeAssignment.getAssignedUser().getFullName());
             }
-            
-            // Assigned Location bilgileri - Assignment'dan al
+
             if (activeAssignment.getAssignedLocation() != null) {
                 dto.setAssignedLocationId(activeAssignment.getAssignedLocation().getId());
                 dto.setAssignedLocationName(activeAssignment.getAssignedLocation().getName());
             }
             dto.setAssigned(true);
+        } else {
+            dto.setAssigned(false);
         }
         
         // Hesaplanmış alanlar
@@ -159,20 +160,17 @@ public class StockItemMapper {
             dto.setWarehouseName(entity.getCurrentWarehouse().getName());
         }
         
-        // Zimmet bilgileri - Assignment tablosundan al
-        List<Assignment> assignments = assignmentRepository.findByStockItemId(entity.getId());
-        if (!assignments.isEmpty()) {
-            Assignment activeAssignment = assignments.stream()
-                    .filter(a -> a.isActive() && a.getStatus().equals(com.anabilim.purchase.entity.enums.AssignmentStatus.ACTIVE))
-                    .findFirst()
-                    .orElse(assignments.get(0)); // Eğer aktif zimmet yoksa ilkini al
-            
-            // Assigned User bilgileri - Assignment'dan al
+        // Zimmet bilgileri — yalnızca ACTIVE zimmet
+        Assignment activeAssignment = assignmentRepository.findByStockItemId(entity.getId()).stream()
+                .filter(a -> a.isActive()
+                        && a.getStatus() == com.anabilim.purchase.entity.enums.AssignmentStatus.ACTIVE)
+                .findFirst()
+                .orElse(null);
+
+        if (activeAssignment != null) {
             if (activeAssignment.getAssignedUser() != null) {
                 dto.setAssignedUserName(activeAssignment.getAssignedUser().getFullName());
             }
-            
-            // Assigned Location bilgileri - Assignment'dan al
             if (activeAssignment.getAssignedLocation() != null) {
                 dto.setAssignedLocationName(activeAssignment.getAssignedLocation().getName());
             }
