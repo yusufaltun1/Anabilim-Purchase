@@ -9,7 +9,6 @@ import {
   FiLayers,
   FiMapPin,
   FiPackage,
-  FiArchive,
   FiTag,
   FiTool,
   FiUserCheck,
