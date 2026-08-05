@@ -162,18 +162,20 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   flex-direction: column;
                   align-items: flex-start;
                   margin-top: -57px;
-                  padding-left: 67px;
+                  padding-left: 28px;
+                  max-width: 48mm;
                 }
                 .barcode-container {
                   width: 100%;
                   display: flex;
-                  justify-content: center;
+                  justify-content: flex-start;
                   align-items: flex-start;
                   max-height: 15mm;
+                  max-width: 45mm;
                 }
                 .barcode-svg {
                   width: auto;
-                  max-width: 100%;
+                  max-width: 45mm;
                   max-height: 15mm;
                   height: auto;
                   display: block;
@@ -181,9 +183,10 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                 .barcode-number {
                   font-size: 9pt;
                   font-weight: bold;
-                  text-align: center;
+                  text-align: left;
                   font-family: 'Courier New', monospace;
                   margin-top: 1mm;
+                  max-width: 45mm;
                 }
               </style>
             </head>
@@ -426,20 +429,22 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
           flex-direction: column;
           align-items: flex-start;
           margin-top: -57px;
-          padding-left: 67px;
+          padding-left: 28px;
+          max-width: 48mm;
         }
 
         .barcode-container {
           width: 100%;
           display: flex;
-          justify-content: center;
+          justify-content: flex-start;
           align-items: flex-start;
           max-height: 15mm;
+          max-width: 45mm;
         }
 
         .barcode-svg {
           width: auto;
-          max-width: 100%;
+          max-width: 45mm;
           max-height: 15mm;
           height: auto;
           display: block;
@@ -448,9 +453,10 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
         .barcode-number {
           font-size: 9pt;
           font-weight: bold;
-          text-align: center;
+          text-align: left;
           font-family: 'Courier New', monospace;
           margin-top: 1mm;
+          max-width: 45mm;
         }
       `}</style>
     </>

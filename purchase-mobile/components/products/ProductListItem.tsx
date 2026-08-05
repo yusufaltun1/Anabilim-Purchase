@@ -30,11 +30,12 @@ export function ProductListItem({
     (typeof product.category === 'string' ? product.category : undefined);
 
   const locationLines: string[] = [];
-  if (product.schoolName) locationLines.push(product.schoolName);
-  if (product.defaultParentLocationName) locationLines.push(product.defaultParentLocationName);
-  if (product.defaultChildLocationName) locationLines.push(product.defaultChildLocationName);
   if (product.stockItemStatus === 'IN_STOCK' && product.warehouseName) {
     locationLines.push(`Depo: ${product.warehouseName}`);
+  } else {
+    if (product.schoolName) locationLines.push(product.schoolName);
+    if (product.defaultParentLocationName) locationLines.push(product.defaultParentLocationName);
+    if (product.defaultChildLocationName) locationLines.push(product.defaultChildLocationName);
   }
 
   return (

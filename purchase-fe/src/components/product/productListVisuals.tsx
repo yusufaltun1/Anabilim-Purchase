@@ -165,14 +165,23 @@ export const StockStatusCell = ({ product }: { product: Product }) => {
 };
 
 export const LocationCell = ({ product }: { product: Product }) => {
+  const inWarehouse =
+    product.stockItemStatus === 'IN_STOCK' && Boolean(product.warehouseName);
+
+  // Depodayken konum yerine depo göster; aksi halde konum hiyerarşisi
+  if (inWarehouse) {
+    return (
+      <div className="space-y-1">
+        <InfoLine icon={FiArchive} label="Depo" value={product.warehouseName!} />
+      </div>
+    );
+  }
+
   const hasSchool = Boolean(product.schoolName);
   const hasParent = Boolean(product.defaultParentLocationName);
   const hasChild = Boolean(product.defaultChildLocationName);
-  const inWarehouse =
-    product.stockItemStatus === 'IN_STOCK' && Boolean(product.warehouseName);
-  const hasLocationHierarchy = hasSchool || hasParent || hasChild;
 
-  if (!hasLocationHierarchy && !inWarehouse) {
+  if (!hasSchool && !hasParent && !hasChild) {
     return <EmptyCell />;
   }
 
@@ -187,11 +196,6 @@ export const LocationCell = ({ product }: { product: Product }) => {
       {hasChild && (
         <div className="pl-4">
           <InfoLine icon={FiMapPin} label="Alt" value={product.defaultChildLocationName!} />
-        </div>
-      )}
-      {inWarehouse && (
-        <div className={hasLocationHierarchy ? 'pl-4' : undefined}>
-          <InfoLine icon={FiArchive} label="Depo" value={product.warehouseName!} />
         </div>
       )}
     </div>
