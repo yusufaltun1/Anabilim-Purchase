@@ -1,11 +1,23 @@
 import { API_CONFIG } from '../config/api.config';
 import { authService } from './auth.service';
+import { axiosInstance } from './axios-instance';
 import { 
   User, 
   UserResponse, 
   CreateUserRequest, 
   UpdateUserRequest 
 } from '../types/user';
+
+let activeUsersListPromise: Promise<User[]> | null = null;
+
+function parseUserList(payload: unknown): User[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    const nested = (payload as { data?: unknown }).data;
+    if (Array.isArray(nested)) return nested;
+  }
+  return [];
+}
 
 class UserService {
   private getHeaders(): HeadersInit {
@@ -31,37 +43,32 @@ class UserService {
     return Array.isArray(data.data) ? data.data : [];
   }
 
+  async getActiveUsersList(): Promise<User[]> {
+    if (!activeUsersListPromise) {
+      activeUsersListPromise = axiosInstance
+        .get<{ data?: User[] } | User[]>('/api/users/active', { timeout: 30000 })
+        .then((response) => parseUserList(response.data))
+        .catch((error) => {
+          activeUsersListPromise = null;
+          throw error;
+        });
+    }
+    return activeUsersListPromise;
+  }
+
+  invalidateActiveUsersListCache(): void {
+    activeUsersListPromise = null;
+  }
+
   async getActiveUsers(): Promise<UserResponse> {
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/users/active`, {
-        method: 'GET',
-        headers: this.getHeaders(),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch active users');
-      }
-
-      const data = await response.json();
-      console.log('Active Users Response:', data);
-      
-      // Backend'den gelen response formatını kontrol et
-      if (data && typeof data === 'object') {
-        return {
-          success: true,
-          message: 'Success',
-          data: Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [],
-          timestamp: new Date().toISOString(),
-          errorCode: null
-        };
-      }
-      
+      const data = await this.getActiveUsersList();
       return {
         success: true,
         message: 'Success',
-        data: [],
+        data,
         timestamp: new Date().toISOString(),
-        errorCode: null
+        errorCode: null,
       };
     } catch (error) {
       console.error('Error fetching active users:', error);
@@ -70,7 +77,7 @@ class UserService {
         message: error instanceof Error ? error.message : 'Failed to fetch active users',
         data: [],
         timestamp: new Date().toISOString(),
-        errorCode: 'FETCH_ERROR'
+        errorCode: 'FETCH_ERROR',
       };
     }
   }

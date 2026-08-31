@@ -15,6 +15,7 @@ import { PermissionList } from './pages/PermissionList';
 import { UserList } from './pages/UserList';
 import { UserCreate } from './pages/UserCreate';
 import { UserEdit } from './pages/UserEdit';
+import { UserDetail } from './pages/UserDetail';
 import { PurchaseRequests } from './pages/PurchaseRequests';
 import { PurchaseRequestCreate } from './pages/PurchaseRequestCreate';
 import { PurchaseRequestDetail } from './pages/PurchaseRequestDetail';
@@ -165,6 +166,14 @@ function App({ instance }: AppProps) {
                 element={
                   <PrivateRoute>
                     <UserEdit />
+                  </PrivateRoute>
+                } 
+              />
+              <Route 
+                path="/users/:id" 
+                element={
+                  <PrivateRoute>
+                    <UserDetail />
                   </PrivateRoute>
                 } 
               />

@@ -1,5 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, Modal, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  Modal,
+  ActivityIndicator,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
@@ -12,11 +20,21 @@ interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
 }
 
+const SCAN_FRAME_MAX = 280;
+
 export function BarcodeScanner({ visible, onClose, onScan }: BarcodeScannerProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const colorScheme = useColorScheme();
   const colors = AppColors[colorScheme ?? 'light'];
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
+  const frameSize = useMemo(
+    () => Math.min(windowWidth * 0.72, SCAN_FRAME_MAX),
+    [windowWidth]
+  );
+  const sideInset = Math.max((windowWidth - frameSize) / 2, 0);
+  const verticalInset = Math.max((windowHeight - frameSize) / 2, 0);
 
   useEffect(() => {
     if (visible && !permission?.granted) {
@@ -43,7 +61,14 @@ export function BarcodeScanner({ visible, onClose, onScan }: BarcodeScannerProps
 
   if (!permission) {
     return (
-      <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleClose}
+        statusBarTranslucent
+        presentationStyle="fullScreen"
+      >
         <View style={styles.modalContainer}>
           <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -58,7 +83,14 @@ export function BarcodeScanner({ visible, onClose, onScan }: BarcodeScannerProps
 
   if (!permission.granted) {
     return (
-      <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleClose}
+        statusBarTranslucent
+        presentationStyle="fullScreen"
+      >
         <View style={styles.modalContainer}>
           <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
             <Ionicons name="camera-outline" size={48} color={colors.primary} />
@@ -87,39 +119,59 @@ export function BarcodeScanner({ visible, onClose, onScan }: BarcodeScannerProps
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={handleClose}
+      statusBarTranslucent
+      presentationStyle="fullScreen"
+    >
       <View style={styles.container}>
         <CameraView
-          style={styles.camera}
+          style={StyleSheet.absoluteFillObject}
           facing="back"
+          {...(Platform.OS === 'android' ? { ratio: '16:9' as const } : {})}
           onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
           barcodeScannerSettings={{
-            barcodeTypes: ['ean13', 'ean8', 'upc', 'upce', 'code128', 'code39', 'code93', 'codabar', 'itf14', 'qr'],
+            barcodeTypes: [
+              'ean13',
+              'ean8',
+              'upc',
+              'upce',
+              'code128',
+              'code39',
+              'code93',
+              'codabar',
+              'itf14',
+              'qr',
+            ],
           }}
-        >
-          <View style={styles.overlay}>
-            <View style={styles.header}>
-              <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-                <Ionicons name="close" size={28} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
+        />
 
-            <View style={styles.scanArea}>
-              <View style={styles.scanFrame}>
-                <View style={[styles.corner, styles.topLeft]} />
-                <View style={[styles.corner, styles.topRight]} />
-                <View style={[styles.corner, styles.bottomLeft]} />
-                <View style={[styles.corner, styles.bottomRight]} />
-              </View>
-            </View>
+        <View style={styles.overlay} pointerEvents="box-none">
+          <View style={[styles.overlayDim, { height: verticalInset }]} />
 
-            <View style={styles.footer}>
-              <ThemedText style={styles.instructionText}>
-                Barkodu tarama alanına yerleştirin
-              </ThemedText>
+          <View style={[styles.scanRow, { height: frameSize }]}>
+            <View style={[styles.overlayDim, { width: sideInset }]} />
+            <View style={[styles.scanFrame, { width: frameSize, height: frameSize }]}>
+              <View style={[styles.corner, styles.topLeft]} />
+              <View style={[styles.corner, styles.topRight]} />
+              <View style={[styles.corner, styles.bottomLeft]} />
+              <View style={[styles.corner, styles.bottomRight]} />
             </View>
+            <View style={[styles.overlayDim, { width: sideInset }]} />
           </View>
-        </CameraView>
+
+          <View style={[styles.overlayDim, styles.bottomDim]}>
+            <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+              <Ionicons name="close" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <ThemedText style={styles.instructionText}>
+              Barkodu tarama alanına yerleştirin
+            </ThemedText>
+          </View>
+        </View>
       </View>
     </Modal>
   );
@@ -128,36 +180,21 @@ export function BarcodeScanner({ visible, onClose, onScan }: BarcodeScannerProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  camera: {
-    flex: 1,
+    backgroundColor: '#000000',
   },
   overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    ...StyleSheet.absoluteFillObject,
   },
-  header: {
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    alignItems: 'flex-end',
+  overlayDim: {
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scanArea: {
-    flex: 1,
-    justifyContent: 'center',
+  scanRow: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   scanFrame: {
-    width: 250,
-    height: 250,
     position: 'relative',
+    backgroundColor: 'transparent',
   },
   corner: {
     position: 'absolute',
@@ -189,9 +226,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
     borderRightWidth: 3,
   },
-  footer: {
-    paddingBottom: 50,
+  bottomDim: {
+    flex: 1,
+    paddingTop: 24,
     paddingHorizontal: 20,
+    paddingBottom: 40,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  closeButton: {
+    alignSelf: 'flex-end',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   instructionText: {

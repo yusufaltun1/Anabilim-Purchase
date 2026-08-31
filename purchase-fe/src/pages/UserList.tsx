@@ -48,6 +48,7 @@ export const UserList = () => {
     }
   };
 
+  const handleViewUser = (id: number) => navigate(`/users/${id}`);
   const handleEditUser = (id: number) => navigate(`/users/edit/${id}`);
 
   const handleDeleteUser = async (id: number) => {
@@ -314,7 +315,13 @@ export const UserList = () => {
                     {paginatedUsers.map((user) => (
                       <tr key={user.id} className="hover:bg-indigo-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {user.firstName} {user.lastName}
+                          <button
+                            type="button"
+                            onClick={() => handleViewUser(user.id!)}
+                            className="text-indigo-600 hover:text-indigo-900 font-medium"
+                          >
+                            {user.firstName} {user.lastName}
+                          </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {user.email}
@@ -342,6 +349,12 @@ export const UserList = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                          <button
+                            onClick={() => handleViewUser(user.id!)}
+                            className="text-gray-700 hover:text-gray-900 font-medium"
+                          >
+                            Detay
+                          </button>
                           <button
                             onClick={() => handleEditUser(user.id!)}
                             className="text-indigo-600 hover:text-indigo-900 font-medium"
