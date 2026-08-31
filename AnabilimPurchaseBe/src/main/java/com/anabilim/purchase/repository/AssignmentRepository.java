@@ -41,6 +41,14 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
     
     // StockItem'a zimmetler
     List<Assignment> findByStockItemId(Long stockItemId);
+
+    @Query("SELECT a FROM Assignment a " +
+            "LEFT JOIN FETCH a.createdByUser " +
+            "LEFT JOIN FETCH a.returnedByUser " +
+            "LEFT JOIN FETCH a.assignedUser " +
+            "WHERE a.stockItem.id = :stockItemId " +
+            "ORDER BY a.assignmentDate DESC")
+    List<Assignment> findByStockItemIdWithDetails(@Param("stockItemId") Long stockItemId);
     
     // Aktif zimmetler (sadece aktif durumda olanlar)
     List<Assignment> findByStatusAndIsActiveTrue(AssignmentStatus status);

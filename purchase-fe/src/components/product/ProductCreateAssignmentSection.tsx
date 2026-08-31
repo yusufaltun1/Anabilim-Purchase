@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { FormField } from '../common/FormField';
 import { LocationHierarchyPickers } from '../common/LocationHierarchyPickers';
 import { formSelect, formTextarea } from '../common/formStyles';
-import { userService } from '../../services/user.service';
 import { schoolService } from '../../services/school.service';
 import { User } from '../../types/user';
 import { School } from '../../types/school';
+import { AssignmentUserSelect } from './AssignmentUserSelect';
 
 export type ProductAssignmentType = 'user' | 'location';
 
@@ -49,19 +49,12 @@ export const ProductCreateAssignmentSection = ({
   fieldErrors = {},
   useSharedLocationPickers = false,
 }: ProductCreateAssignmentSectionProps) => {
-  const [users, setUsers] = useState<User[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
-  const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [formPhotoPreview, setFormPhotoPreview] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      userService.getAllUsers(),
-      schoolService.getAllSchools({ size: 500 }),
-    ]).then(([userList, schoolRes]) => {
-      setUsers(userList);
-      setFilteredUsers(userList);
+    schoolService.getAllSchools({ size: 500 }).then((schoolRes) => {
       setSchools(schoolRes.content ?? []);
     });
   }, []);
@@ -69,25 +62,6 @@ export const ProductCreateAssignmentSection = ({
   const patch = (partial: Partial<ProductCreateAssignmentState>) => {
     onChange({ ...value, ...partial });
   };
-
-  const handleUserSearch = (term: string) => {
-    setUserSearchTerm(term);
-    if (!term.trim()) {
-      setFilteredUsers(users);
-      return;
-    }
-    const lower = term.toLowerCase();
-    setFilteredUsers(
-      users.filter(
-        (u) =>
-          u.firstName?.toLowerCase().includes(lower) ||
-          u.lastName?.toLowerCase().includes(lower) ||
-          u.email?.toLowerCase().includes(lower)
-      )
-    );
-  };
-
-  const selectedUser = users.find((u) => u.id?.toString() === value.assignedUserId);
 
   return (
     <div className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-4 space-y-4">
@@ -102,7 +76,7 @@ export const ProductCreateAssignmentSection = ({
         <select
           className={formSelect}
           value={value.assignmentType}
-          onChange={(e) =>
+          onChange={(e) => {
             patch({
               assignmentType: e.target.value as ProductAssignmentType,
               assignedUserId: '',
@@ -111,8 +85,9 @@ export const ProductCreateAssignmentSection = ({
               assignedLocationMiddleId: null,
               assignedLocationLeafId: null,
               locationDetails: '',
-            })
-          }
+            });
+            setSelectedUser(null);
+          }}
         >
           <option value="user">Kişi zimmeti</option>
           <option value="location">Konum zimmeti</option>
@@ -122,51 +97,16 @@ export const ProductCreateAssignmentSection = ({
       {value.assignmentType === 'user' ? (
         <>
           <FormField label="Kullanıcı" required error={fieldErrors.assignedUserId}>
-            <div className="relative">
-              <input
-                type="text"
-                value={
-                  selectedUser
-                    ? `${selectedUser.firstName} ${selectedUser.lastName} (${selectedUser.email})`
-                    : userSearchTerm
-                }
-                onChange={(e) => {
-                  if (value.assignedUserId) {
-                    patch({ assignedUserId: '' });
-                    setUserSearchTerm(e.target.value);
-                    handleUserSearch(e.target.value);
-                  } else {
-                    handleUserSearch(e.target.value);
-                  }
-                }}
-                placeholder="Ad, soyad veya e-posta ile ara..."
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
-              />
-              {userSearchTerm && !value.assignedUserId && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-auto">
-                  {filteredUsers.length > 0 ? (
-                    filteredUsers.map((user) => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => {
-                          patch({
-                            assignedUserId: user.id!.toString(),
-                            assignedSchoolId: user.schoolId?.toString() ?? '',
-                          });
-                          setUserSearchTerm('');
-                        }}
-                        className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                      >
-                        {user.firstName} {user.lastName} ({user.email})
-                      </button>
-                    ))
-                  ) : (
-                    <p className="px-3 py-2 text-sm text-gray-500">Kullanıcı bulunamadı</p>
-                  )}
-                </div>
-              )}
-            </div>
+            <AssignmentUserSelect
+              value={value.assignedUserId}
+              onChange={(userId, user) => {
+                patch({
+                  assignedUserId: userId,
+                  assignedSchoolId: user?.schoolId?.toString() ?? '',
+                });
+                setSelectedUser(user);
+              }}
+            />
           </FormField>
 
           {selectedUser && (
@@ -179,6 +119,11 @@ export const ProductCreateAssignmentSection = ({
               {selectedUser.schoolName && (
                 <span className="block text-xs text-gray-500 mt-0.5">
                   Okul: {selectedUser.schoolName}
+                </span>
+              )}
+              {selectedUser.userGroupNames && selectedUser.userGroupNames.length > 0 && (
+                <span className="block text-xs text-gray-500 mt-0.5">
+                  Birim: {selectedUser.userGroupNames.join(', ')}
                 </span>
               )}
             </div>

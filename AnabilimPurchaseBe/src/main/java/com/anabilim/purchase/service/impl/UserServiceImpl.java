@@ -11,6 +11,7 @@ import com.anabilim.purchase.exception.ResourceNotFoundException;
 import com.anabilim.purchase.repository.LocationRepository;
 import com.anabilim.purchase.repository.RoleRepository;
 import com.anabilim.purchase.repository.SchoolRepository;
+import com.anabilim.purchase.repository.UserGroupRepository;
 import com.anabilim.purchase.repository.UserRepository;
 import com.anabilim.purchase.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -33,6 +35,7 @@ public class UserServiceImpl implements UserService {
     private final RoleRepository roleRepository;
     private final SchoolRepository schoolRepository;
     private final LocationRepository locationRepository;
+    private final UserGroupRepository userGroupRepository;
 
     @Override
     public List<UserDto> getAllUsers() {
@@ -42,9 +45,10 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<UserDto> getActiveUsers() {
         return userRepository.findByIsActiveTrue().stream()
-                .map(this::convertToDto)
+                .map(this::convertToSummaryDto)
                 .collect(Collectors.toList());
     }
 
@@ -273,7 +277,63 @@ public class UserServiceImpl implements UserService {
             }
             dto.setRoles(roleNames);
         }
+
+        if (user.getId() != null) {
+            dto.setUserGroupNames(
+                    userGroupRepository.findByMembers_Id(user.getId()).stream()
+                            .map(g -> g.getName())
+                            .filter(Objects::nonNull)
+                            .map(String::trim)
+                            .filter(name -> !name.isEmpty())
+                            .sorted(String.CASE_INSENSITIVE_ORDER)
+                            .collect(Collectors.toList())
+            );
+        }
         
+        return dto;
+    }
+
+    /** Liste / seçici ekranları için hafif DTO (yönetici, ast, rol yüklenmez). */
+    private UserDto convertToSummaryDto(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        UserDto dto = new UserDto();
+        dto.setId(user.getId());
+        dto.setEmail(user.getEmail());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+        dto.setDisplayName(user.getDisplayName());
+        dto.setDepartment(user.getDepartment());
+        dto.setPosition(user.getPosition());
+        dto.setWorkLocation(user.getWorkLocation());
+        if (user.getWorkLocationParent() != null) {
+            dto.setWorkLocationParentId(user.getWorkLocationParent().getId());
+        }
+        if (user.getWorkLocationChild() != null) {
+            dto.setWorkLocationChildId(user.getWorkLocationChild().getId());
+        }
+        dto.setWorkLocationName(resolveWorkLocationName(user));
+        dto.setPhone(user.getPhone());
+        if (user.getSchool() != null) {
+            dto.setSchoolId(user.getSchool().getId());
+            dto.setSchoolName(user.getSchool().getName());
+        }
+        dto.setIsActive(user.getIsActive());
+
+        if (user.getId() != null) {
+            dto.setUserGroupNames(
+                    userGroupRepository.findByMembers_Id(user.getId()).stream()
+                            .map(g -> g.getName())
+                            .filter(Objects::nonNull)
+                            .map(String::trim)
+                            .filter(name -> !name.isEmpty())
+                            .sorted(String.CASE_INSENSITIVE_ORDER)
+                            .collect(Collectors.toList())
+            );
+        }
+
         return dto;
     }
 

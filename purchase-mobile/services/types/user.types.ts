@@ -23,6 +23,7 @@ export type User = {
   workLocationName?: string;
   schoolId?: number | null;
   schoolName?: string;
+  userGroupNames?: string[];
   isActive?: boolean;
   active?: boolean;
   manager?: UserManagerRef | null;
@@ -169,6 +170,9 @@ export function mapApiToUser(raw: unknown): User {
     schoolId:
       u.schoolId === null || u.schoolId === undefined ? null : Number(u.schoolId),
     schoolName: typeof u.schoolName === 'string' ? u.schoolName : undefined,
+    userGroupNames: Array.isArray(u.userGroupNames)
+      ? u.userGroupNames.filter((name): name is string => typeof name === 'string')
+      : undefined,
     isActive,
     active: isActive,
     manager:

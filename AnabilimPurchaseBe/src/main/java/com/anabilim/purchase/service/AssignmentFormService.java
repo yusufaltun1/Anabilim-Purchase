@@ -42,7 +42,11 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -95,6 +99,84 @@ public class AssignmentFormService {
                 fileName,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         );
+    }
+
+    @Transactional(readOnly = true)
+    public AttachmentDownloadResult downloadBulkAssignmentForms(List<Long> assignmentIds) {
+        if (assignmentIds == null || assignmentIds.isEmpty()) {
+            throw new ValidationException("En az bir zimmet seçilmelidir.");
+        }
+        return buildFormsZip(assignmentIds, false);
+    }
+
+    @Transactional(readOnly = true)
+    public AttachmentDownloadResult downloadBulkReturnForms(List<Long> assignmentIds) {
+        if (assignmentIds == null || assignmentIds.isEmpty()) {
+            throw new ValidationException("En az bir zimmet seçilmelidir.");
+        }
+        List<Assignment> assignments = new ArrayList<>();
+        for (Long assignmentId : assignmentIds) {
+            Assignment assignment = loadAssignmentWithDetails(assignmentId);
+            if (!assignment.canBeReturned()) {
+                continue;
+            }
+            assignments.add(assignment);
+        }
+        if (assignments.isEmpty()) {
+            throw new ValidationException("Seçilen zimmetler için iade formu oluşturulamadı.");
+        }
+        validateSameAssigneeForCombinedForm(assignments);
+        byte[] content = generateCombinedReturnFilledForm(assignments);
+        String fileName = buildCombinedReturnFormFileName(assignments);
+        Resource resource = new org.springframework.core.io.ByteArrayResource(content) {
+            @Override
+            public String getFilename() {
+                return fileName;
+            }
+        };
+        return new AttachmentDownloadResult(
+                resource,
+                fileName,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+    }
+
+    private AttachmentDownloadResult buildFormsZip(List<Long> assignmentIds, boolean returnForms) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        int added = 0;
+        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+            for (Long assignmentId : assignmentIds) {
+                Assignment assignment = loadAssignmentWithDetails(assignmentId);
+                if (returnForms && !assignment.canBeReturned()) {
+                    continue;
+                }
+                byte[] content = returnForms
+                        ? generateReturnFilledForm(assignment)
+                        : generateFilledForm(assignment);
+                String entryName = returnForms
+                        ? buildReturnFormFileName(assignment)
+                        : buildFormFileName(assignment);
+                zos.putNextEntry(new ZipEntry(entryName));
+                zos.write(content);
+                zos.closeEntry();
+                added++;
+            }
+        } catch (IOException e) {
+            throw new ValidationException("Toplu form arşivi oluşturulamadı: " + e.getMessage());
+        }
+        if (added == 0) {
+            throw new ValidationException(returnForms
+                    ? "Seçilen zimmetler için iade formu oluşturulamadı."
+                    : "Seçilen zimmetler için form oluşturulamadı.");
+        }
+        String zipName = returnForms ? "Zimmet_Iade_Formlari.zip" : "Zimmet_Formlari.zip";
+        Resource resource = new org.springframework.core.io.ByteArrayResource(baos.toByteArray()) {
+            @Override
+            public String getFilename() {
+                return zipName;
+            }
+        };
+        return new AttachmentDownloadResult(resource, zipName, "application/zip");
     }
 
     @Transactional
@@ -367,17 +449,105 @@ public class AssignmentFormService {
     }
 
     private byte[] generateReturnFilledForm(Assignment assignment) {
+        return generateCombinedReturnFilledForm(List.of(assignment));
+    }
+
+    private byte[] generateCombinedReturnFilledForm(List<Assignment> assignments) {
+        if (assignments == null || assignments.isEmpty()) {
+            throw new ValidationException("En az bir zimmet seçilmelidir.");
+        }
+        Assignment primary = assignments.get(0);
         try (InputStream template = new ClassPathResource(TEMPLATE_PATH).getInputStream();
              XSSFWorkbook workbook = new XSSFWorkbook(template);
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.getSheetAt(0);
-            fillReturnForm(sheet, assignment);
-            insertProductPhoto((XSSFSheet) sheet, assignment);
+            fillReturnFormHeader(sheet, primary);
+
+            int productStartRow = 7; // Excel row 8
+            for (int i = 0; i < assignments.size(); i++) {
+                fillReturnProductRow(sheet, assignments.get(i), productStartRow + i);
+            }
+
+            int signatureRowIndex = 16 + assignments.size() - 1;
+            if (assignments.size() > 1) {
+                setCellValue(sheet, 16, 0, "");
+                setCellValue(sheet, 16, 3, "");
+            }
+            fillReturnSignatureRow(sheet, primary, signatureRowIndex);
+
+            if (assignments.size() == 1) {
+                insertProductPhoto((XSSFSheet) sheet, assignments.get(0));
+            }
+
             workbook.write(out);
             return out.toByteArray();
         } catch (IOException e) {
             throw new ValidationException("İade formu oluşturulamadı: " + e.getMessage());
         }
+    }
+
+    private void validateSameAssigneeForCombinedForm(List<Assignment> assignments) {
+        Assignment first = assignments.get(0);
+        Long firstUserId = first.getAssignedUser() != null ? first.getAssignedUser().getId() : null;
+        Long firstLocationId = first.getAssignedLocation() != null ? first.getAssignedLocation().getId() : null;
+
+        for (int i = 1; i < assignments.size(); i++) {
+            Assignment current = assignments.get(i);
+            Long currentUserId = current.getAssignedUser() != null ? current.getAssignedUser().getId() : null;
+            Long currentLocationId = current.getAssignedLocation() != null ? current.getAssignedLocation().getId() : null;
+
+            if (firstUserId != null) {
+                if (!firstUserId.equals(currentUserId)) {
+                    throw new ValidationException("Toplu iade formu yalnızca aynı kişiye ait zimmetler için oluşturulabilir.");
+                }
+            } else if (firstLocationId != null) {
+                if (!firstLocationId.equals(currentLocationId)) {
+                    throw new ValidationException("Toplu iade formu yalnızca aynı konuma ait zimmetler için oluşturulabilir.");
+                }
+            } else if (!nullToEmpty(first.getLocationName()).equals(nullToEmpty(current.getLocationName()))) {
+                throw new ValidationException("Toplu iade formu yalnızca aynı zimmetli kayıtlar için oluşturulabilir.");
+            }
+        }
+    }
+
+    private String buildCombinedReturnFormFileName(List<Assignment> assignments) {
+        Assignment primary = assignments.get(0);
+        String partyPart = "toplu_iade";
+        String name = resolveSignaturePartyName(primary);
+        if (name != null && !name.isBlank()) {
+            partyPart = name.replaceAll("[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ._-]", "_");
+        }
+        return "Zimmet_Iade_Formu_" + assignments.size() + "_Urun_" + partyPart + ".xlsx";
+    }
+
+    private void fillReturnFormHeader(Sheet sheet, Assignment assignment) {
+        User assignedUser = assignment.getAssignedUser();
+        String returnDate = formatFormDate(LocalDateTime.now());
+
+        setCellValue(sheet, "A1", "ZİMMET İADE FORMU");
+        setCellValue(sheet, "C3", resolveCompanyOrSchool(assignment));
+        setCellValue(sheet, "C4", resolvePersonnelName(assignment));
+        setCellValue(sheet, "C5", returnDate);
+        setCellValue(sheet, "F3", assignedUser != null ? sanitizePlaceholder(assignedUser.getDepartment()) : "");
+        setCellValue(sheet, "F4", assignedUser != null ? sanitizePlaceholder(assignedUser.getPosition()) : "");
+        setCellValue(sheet, "F5", resolveWorkLocationLabel(assignment));
+    }
+
+    private void fillReturnProductRow(Sheet sheet, Assignment assignment, int rowIndex) {
+        Product product = assignment.getProduct();
+        StockItem stockItem = assignment.getStockItem();
+
+        setCellValue(sheet, rowIndex, 1, product != null ? nullToEmpty(product.getName()) : "");
+        setCellValue(sheet, rowIndex, 2, resolveModelName(stockItem, product));
+        setCellValue(sheet, rowIndex, 3, resolveSerialNumber(stockItem));
+        setCellValue(sheet, rowIndex, 4, "İADE — " + resolveDescription(assignment, stockItem, product));
+    }
+
+    private void fillReturnSignatureRow(Sheet sheet, Assignment assignment, int rowIndex) {
+        String returnDate = formatFormDate(LocalDateTime.now());
+        User receivingUser = resolveCurrentUser();
+        setCellValue(sheet, rowIndex, 0, formatDeliveryPartyName(resolveSignaturePartyName(assignment), returnDate));
+        setCellValue(sheet, rowIndex, 3, formatDeliveryParty(receivingUser, returnDate));
     }
 
     private void fillForm(Sheet sheet, Assignment assignment) {
@@ -696,6 +866,18 @@ public class AssignmentFormService {
             return product.getDescription();
         }
         return "";
+    }
+
+    private void setCellValue(Sheet sheet, int rowIndex, int colIndex, String value) {
+        Row row = sheet.getRow(rowIndex);
+        if (row == null) {
+            row = sheet.createRow(rowIndex);
+        }
+        Cell cell = row.getCell(colIndex);
+        if (cell == null) {
+            cell = row.createCell(colIndex);
+        }
+        cell.setCellValue(value != null ? value : "");
     }
 
     private void setCellValue(Sheet sheet, String cellRef, String value) {

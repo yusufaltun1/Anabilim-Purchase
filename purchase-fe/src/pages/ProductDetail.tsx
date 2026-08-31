@@ -4,7 +4,6 @@ import { Navigation } from '../components/Navigation';
 import { productService } from '../services/product.service';
 import { warehouseService } from '../services/warehouse.service';
 import { assignmentService } from '../services/assignment.service';
-import { userService } from '../services/user.service';
 import { schoolService } from '../services/school.service';
 import { Product, PRODUCT_TYPE_LABELS } from '../types/product';
 import { StockItem } from '../types/warehouse';
@@ -21,6 +20,7 @@ import { AssignmentFormPhotoThumb } from '../components/product/AssignmentFormPh
 import { AssignmentReturnModal } from '../components/product/AssignmentReturnModal';
 import { AssignmentDocumentLinks } from '../components/product/AssignmentDocumentLinks';
 import { AssignmentFormPhotoPicker } from '../components/product/AssignmentFormPhotoPicker';
+import { AssignmentUserSelect } from '../components/product/AssignmentUserSelect';
 import { LocationHierarchyPickers } from '../components/common/LocationHierarchyPickers';
 import {
   isConsumableProductType,
@@ -74,12 +74,9 @@ export const ProductDetail = () => {
   const [formPhotoUploadingId, setFormPhotoUploadingId] = useState<number | null>(null);
   const [returnTargetAssignment, setReturnTargetAssignment] = useState<Assignment | null>(null);
   const [returningAssignment, setReturningAssignment] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
-  const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [assignmentSelectedUser, setAssignmentSelectedUser] = useState<User | null>(null);
   const [assignmentFormPhotoFile, setAssignmentFormPhotoFile] = useState<File | null>(null);
   const [assignmentFormPhotoPreview, setAssignmentFormPhotoPreview] = useState<string | null>(null);
   const [procurement, setProcurement] = useState<ProductProcurementSummary | null>(null);
@@ -217,22 +214,6 @@ export const ProductDetail = () => {
     }
   };
 
-  const loadUsers = async () => {
-    try {
-      setUsersLoading(true);
-      const response = await userService.getAllUsers();
-      const usersList = Array.isArray(response) ? response : [];
-      setUsers(usersList);
-      setFilteredUsers(usersList);
-    } catch (err: any) {
-      console.error('Error loading users:', err);
-      setUsers([]);
-      setFilteredUsers([]);
-    } finally {
-      setUsersLoading(false);
-    }
-  };
-
   const loadSchools = async () => {
     try {
       setSchoolsLoading(true);
@@ -244,20 +225,6 @@ export const ProductDetail = () => {
       setSchools([]);
     } finally {
       setSchoolsLoading(false);
-    }
-  };
-
-  const handleUserSearch = (searchTerm: string) => {
-    setUserSearchTerm(searchTerm);
-    if (searchTerm.trim() === '') {
-      setFilteredUsers(users);
-    } else {
-      const filtered = users.filter(user => 
-        user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredUsers(filtered);
     }
   };
 
@@ -490,10 +457,7 @@ export const ProductDetail = () => {
         locationDetails: '',
         quantity: 1
       });
-      
-      // Arama terimini de sıfırla
-      setUserSearchTerm('');
-      setFilteredUsers(users);
+      setAssignmentSelectedUser(null);
       
       if (!createdAssignment?.id) {
         showNotification(`Zimmet başarıyla oluşturuldu! ${assignmentForm.quantity || 1} adet depodan çıkış yapıldı.`, 'success');
@@ -954,10 +918,8 @@ export const ProductDetail = () => {
               if (!product?.canAssign) return;
               setShowAssignmentModal(true);
               loadStockItems();
-              loadUsers();
               loadSchools();
-              setUserSearchTerm('');
-              setFilteredUsers([]);
+              setAssignmentSelectedUser(null);
             }}
             disabled={!product?.canAssign}
             className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1083,7 +1045,13 @@ export const ProductDetail = () => {
                         {assignment.notes || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {assignment.createdByUserName || '—'}
+                        <div>{assignment.createdByUserName || '—'}</div>
+                        {assignment.status === AssignmentStatus.RETURNED &&
+                          assignment.returnedByUserName && (
+                            <div className="text-xs text-gray-400">
+                              İade: {assignment.returnedByUserName}
+                            </div>
+                          )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <AssignmentFormPhotoThumb
@@ -1328,77 +1296,41 @@ export const ProductDetail = () => {
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Kullanıcı *
                             </label>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={assignmentForm.assignedUserId 
-                                  ? `${users.find(u => u.id.toString() === assignmentForm.assignedUserId)?.firstName} ${users.find(u => u.id.toString() === assignmentForm.assignedUserId)?.lastName} (${users.find(u => u.id.toString() === assignmentForm.assignedUserId)?.email})`
-                                  : userSearchTerm
-                                }
-                                onChange={(e) => {
-                                  if (assignmentForm.assignedUserId) {
-                                    // Eğer kullanıcı seçiliyse ve input değişiyorsa, seçimi temizle
-                                    setAssignmentForm({...assignmentForm, assignedUserId: ''});
-                                    setUserSearchTerm(e.target.value);
-                                  } else {
-                                    // Normal arama
-                                    handleUserSearch(e.target.value);
-                                  }
-                                }}
-                                placeholder="Kullanıcı ara (ad, soyad veya email)..."
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                              />
-                              {userSearchTerm && (
-                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                                  {filteredUsers.length > 0 ? (
-                                    filteredUsers.map(user => (
-                                      <button
-                                        key={user.id}
-                                        type="button"
-                                        onClick={() => {
-                                          setAssignmentForm({
-                                            ...assignmentForm,
-                                            assignedUserId: user.id!.toString(),
-                                            assignedSchoolId: user.schoolId?.toString() ?? '',
-                                          });
-                                          setUserSearchTerm('');
-                                        }}
-                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                                      >
-                                        {user.firstName} {user.lastName} ({user.email})
-                                      </button>
-                                    ))
-                                  ) : (
-                                    <div className="px-4 py-2 text-sm text-gray-500">
-                                      Kullanıcı bulunamadı
-                                    </div>
-                                  )}
+                            <AssignmentUserSelect
+                              value={assignmentForm.assignedUserId}
+                              onChange={(userId, user) => {
+                                setAssignmentForm({
+                                  ...assignmentForm,
+                                  assignedUserId: userId,
+                                  assignedSchoolId: user?.schoolId?.toString() ?? '',
+                                });
+                                setAssignmentSelectedUser(user);
+                              }}
+                              disabled={assignmentLoading}
+                            />
+                            {assignmentSelectedUser && (
+                              <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                                <div>
+                                  Seçilen: {assignmentSelectedUser.firstName} {assignmentSelectedUser.lastName}
                                 </div>
-                              )}
-                            </div>
-                            {assignmentForm.assignedUserId && (() => {
-                              const selected =
-                                users.find((u) => u.id?.toString() === assignmentForm.assignedUserId) ??
-                                filteredUsers.find((u) => u.id?.toString() === assignmentForm.assignedUserId);
-                              if (!selected) return null;
-                              return (
-                                <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                                  <div>
-                                    Seçilen: {selected.firstName} {selected.lastName}
+                                <div className="mt-1">
+                                  <span className="font-medium text-gray-700">Çalışma konumu: </span>
+                                  {assignmentSelectedUser.workLocationName ||
+                                    (assignmentSelectedUser.workLocationParentId ? 'Tanımlı' : 'Tanımlı değil')}
+                                </div>
+                                {assignmentSelectedUser.schoolName && (
+                                  <div className="text-xs text-gray-500 mt-0.5">
+                                    Okul: {assignmentSelectedUser.schoolName}
                                   </div>
-                                  <div className="mt-1">
-                                    <span className="font-medium text-gray-700">Çalışma konumu: </span>
-                                    {selected.workLocationName ||
-                                      (selected.workLocationParentId ? 'Tanımlı' : 'Tanımlı değil')}
-                                  </div>
-                                  {selected.schoolName && (
+                                )}
+                                {assignmentSelectedUser.userGroupNames &&
+                                  assignmentSelectedUser.userGroupNames.length > 0 && (
                                     <div className="text-xs text-gray-500 mt-0.5">
-                                      Okul: {selected.schoolName}
+                                      Birim: {assignmentSelectedUser.userGroupNames.join(', ')}
                                     </div>
                                   )}
-                                </div>
-                              );
-                            })()}
+                              </div>
+                            )}
                           </div>
 
                           <div>

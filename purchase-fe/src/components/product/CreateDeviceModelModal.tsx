@@ -166,7 +166,7 @@ export const CreateDeviceModelModal = ({ isOpen, onClose, onCreated }: CreateDev
         <span className="hidden sm:inline-block sm:h-screen sm:align-middle" aria-hidden>
           &#8203;
         </span>
-        <div className="relative inline-block w-full max-w-lg transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:align-middle">
+        <div className="relative inline-block w-full max-w-lg transform overflow-visible rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:align-middle">
           <form onSubmit={handleSubmit}>
             <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
               <h3 className="text-lg font-semibold text-gray-900">Yeni cihaz modeli</h3>

@@ -25,8 +25,7 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
           format: 'CODE39',
           width: 1,
           height: 30,
-          displayValue: true,
-          fontSize: 10,
+          displayValue: false,
           margin: 2
         });
         setBarcodeReady(true);
@@ -91,14 +90,18 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   flex-direction: column;
                   box-sizing: border-box;
                 }
-                .label-top-section {
+                .label-main {
                   display: flex;
-                  justify-content: space-between;
-                  align-items: flex-start;
-                  margin-bottom: 0.5mm;
+                  flex: 1;
+                  min-height: 0;
+                  gap: 1.5mm;
                 }
                 .label-left {
                   flex: 1;
+                  min-width: 0;
+                  display: flex;
+                  flex-direction: column;
+                  justify-content: space-between;
                 }
                 .label-text-section {
                   display: flex;
@@ -120,9 +123,12 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   line-height: 1.1;
                 }
                 .label-right {
+                  width: 22mm;
+                  flex-shrink: 0;
                   display: flex;
                   flex-direction: column;
                   align-items: flex-end;
+                  justify-content: flex-start;
                 }
                 .label-logo {
                   width: 10mm;
@@ -146,11 +152,12 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   margin-bottom: 0.5mm;
                 }
                 .qr-container {
-                  width: 20mm;
-                  height: 20mm;
+                  width: 18mm;
+                  height: 18mm;
                   display: flex;
                   align-items: center;
                   justify-content: center;
+                  margin-top: auto;
                 }
                 .qr-image {
                   width: 100%;
@@ -161,43 +168,57 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                   display: flex;
                   flex-direction: column;
                   align-items: flex-start;
-                  margin-top: -57px;
-                  padding-left: 28px;
-                  max-width: 48mm;
+                  width: 100%;
+                  max-width: 100%;
+                  margin-top: 1mm;
+                  padding-left: 4mm;
+                }
+                .barcode-block {
+                  display: inline-flex;
+                  flex-direction: column;
+                  align-items: center;
+                  max-width: calc(100% - 4mm);
                 }
                 .barcode-container {
-                  width: 100%;
                   display: flex;
-                  justify-content: flex-start;
+                  justify-content: center;
                   align-items: flex-start;
-                  max-height: 15mm;
-                  max-width: 45mm;
+                  max-height: 14mm;
+                  overflow: hidden;
                 }
                 .barcode-svg {
                   width: auto;
-                  max-width: 45mm;
-                  max-height: 15mm;
+                  max-width: 100%;
+                  max-height: 14mm;
                   height: auto;
                   display: block;
                 }
                 .barcode-number {
                   font-size: 9pt;
                   font-weight: bold;
-                  text-align: left;
+                  text-align: center;
                   font-family: 'Courier New', monospace;
-                  margin-top: 1mm;
-                  max-width: 45mm;
+                  margin-top: 0.5mm;
+                  width: 100%;
                 }
               </style>
             </head>
             <body>
               <div class="label-content">
-                <div class="label-top-section">
+                <div class="label-main">
                   <div class="label-left">
                     <div class="label-text-section">
                       <div class="label-title">ANABİLİM EĞİTİM KURUMLARI</div>
                       <div class="label-subtitle">BİLGİ İŞLEM BİRİMİ</div>
                       <div class="label-subtitle">EKİPMANLARI</div>
+                    </div>
+                    <div class="label-barcode-section">
+                      <div class="barcode-block">
+                        <div class="barcode-container">
+                          ${barcodeSvg}
+                        </div>
+                        <div class="barcode-number">${barcodeValue}</div>
+                      </div>
                     </div>
                   </div>
                   <div class="label-right">
@@ -212,12 +233,6 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                       <img src="${window.location.origin}/qr.png" alt="QR Code" class="qr-image" />
                     </div>
                   </div>
-                </div>
-                <div class="label-barcode-section">
-                  <div class="barcode-container">
-                    ${barcodeSvg}
-                  </div>
-                  <div class="barcode-number">${barcodeValue}</div>
                 </div>
               </div>
               <script>
@@ -251,12 +266,20 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
     <>
       <div className="print-container">
         <div className="label-content">
-          <div className="label-top-section">
+          <div className="label-main">
             <div className="label-left">
               <div className="label-text-section">
                 <div className="label-title">ANABİLİM EĞİTİM KURUMLARI</div>
                 <div className="label-subtitle">BİLGİ İŞLEM BİRİMİ</div>
                 <div className="label-subtitle">EKİPMANLARI</div>
+              </div>
+              <div className="label-barcode-section">
+                <div className="barcode-block">
+                  <div className="barcode-container">
+                    <svg ref={barcodeRef} className="barcode-svg"></svg>
+                  </div>
+                  <div className="barcode-number">{barcodeValue}</div>
+                </div>
               </div>
             </div>
             <div className="label-right">
@@ -271,12 +294,6 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
                 <img src="/qr.png" alt="QR Code" className="qr-image" />
               </div>
             </div>
-          </div>
-          <div className="label-barcode-section">
-            <div className="barcode-container">
-              <svg ref={barcodeRef} className="barcode-svg"></svg>
-            </div>
-            <div className="barcode-number">{barcodeValue}</div>
           </div>
         </div>
       </div>
@@ -342,15 +359,19 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
           box-sizing: border-box;
         }
 
-        .label-top-section {
+        .label-main {
           display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 0.5mm;
+          flex: 1;
+          min-height: 0;
+          gap: 1.5mm;
         }
 
         .label-left {
           flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
         }
 
         .label-text-section {
@@ -376,9 +397,12 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
         }
 
         .label-right {
+          width: 22mm;
+          flex-shrink: 0;
           display: flex;
           flex-direction: column;
           align-items: flex-end;
+          justify-content: flex-start;
         }
 
         .label-logo {
@@ -411,11 +435,12 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
         }
 
         .qr-container {
-          width: 20mm;
-          height: 20mm;
+          width: 18mm;
+          height: 18mm;
           display: flex;
           align-items: center;
           justify-content: center;
+          margin-top: auto;
         }
 
         .qr-image {
@@ -428,24 +453,31 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          margin-top: -57px;
-          padding-left: 28px;
-          max-width: 48mm;
+          width: 100%;
+          max-width: 100%;
+          margin-top: 1mm;
+          padding-left: 4mm;
+        }
+
+        .barcode-block {
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          max-width: calc(100% - 4mm);
         }
 
         .barcode-container {
-          width: 100%;
           display: flex;
-          justify-content: flex-start;
+          justify-content: center;
           align-items: flex-start;
-          max-height: 15mm;
-          max-width: 45mm;
+          max-height: 14mm;
+          overflow: hidden;
         }
 
         .barcode-svg {
           width: auto;
-          max-width: 45mm;
-          max-height: 15mm;
+          max-width: 100%;
+          max-height: 14mm;
           height: auto;
           display: block;
         }
@@ -453,10 +485,10 @@ export const ProductLabelPrint: React.FC<ProductLabelPrintProps> = ({ productCod
         .barcode-number {
           font-size: 9pt;
           font-weight: bold;
-          text-align: left;
+          text-align: center;
           font-family: 'Courier New', monospace;
-          margin-top: 1mm;
-          max-width: 45mm;
+          margin-top: 0.5mm;
+          width: 100%;
         }
       `}</style>
     </>

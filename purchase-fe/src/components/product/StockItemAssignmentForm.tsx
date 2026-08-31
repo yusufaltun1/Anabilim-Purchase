@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { assignmentService } from '../../services/assignment.service';
-import { userService } from '../../services/user.service';
 import { schoolService } from '../../services/school.service';
 import { User } from '../../types/user';
 import { School } from '../../types/school';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AssignmentFormPhotoPicker } from './AssignmentFormPhotoPicker';
 import { LocationHierarchyPickers } from '../common/LocationHierarchyPickers';
+import { AssignmentUserSelect } from './AssignmentUserSelect';
 
 interface StockItemAssignmentFormProps {
   productId: number;
@@ -23,13 +23,11 @@ export const StockItemAssignmentForm = ({
 }: StockItemAssignmentFormProps) => {
   const { showNotification } = useNotification();
   const [submitting, setSubmitting] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
-  const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
 
   const [assignmentType, setAssignmentType] = useState<'user' | 'location'>('user');
   const [assignedUserId, setAssignedUserId] = useState('');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [assignedSchoolId, setAssignedSchoolId] = useState('');
   const [locationRootId, setLocationRootId] = useState<number | null>(null);
   const [locationMiddleId, setLocationMiddleId] = useState<number | null>(null);
@@ -41,34 +39,11 @@ export const StockItemAssignmentForm = ({
   const [formPhotoPreview, setFormPhotoPreview] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      userService.getAllUsers(),
-      schoolService.getAllSchools({ size: 500 }),
-    ]).then(([userList, schoolRes]) => {
-      setUsers(userList);
-      setFilteredUsers(userList);
+    schoolService.getAllSchools({ size: 500 }).then((schoolRes) => {
       setSchools(schoolRes.content ?? []);
     });
   }, []);
 
-  const handleUserSearch = (term: string) => {
-    setUserSearchTerm(term);
-    if (!term.trim()) {
-      setFilteredUsers(users);
-      return;
-    }
-    const lower = term.toLowerCase();
-    setFilteredUsers(
-      users.filter(
-        (u) =>
-          u.firstName?.toLowerCase().includes(lower) ||
-          u.lastName?.toLowerCase().includes(lower) ||
-          u.email?.toLowerCase().includes(lower)
-      )
-    );
-  };
-
-  const selectedUser = users.find((u) => u.id.toString() === assignedUserId);
   const assignedLocationId = locationLeafId ?? locationMiddleId ?? locationRootId;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -154,50 +129,17 @@ export const StockItemAssignmentForm = ({
 
       {assignmentType === 'user' ? (
         <>
-          <div className="relative">
+          <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Kullanıcı *</label>
-            <input
-              type="text"
-              value={
-                selectedUser
-                  ? `${selectedUser.firstName} ${selectedUser.lastName} (${selectedUser.email})`
-                  : userSearchTerm
-              }
-              onChange={(e) => {
-                if (assignedUserId) {
-                  setAssignedUserId('');
-                  setUserSearchTerm(e.target.value);
-                  handleUserSearch(e.target.value);
-                } else {
-                  handleUserSearch(e.target.value);
-                }
+            <AssignmentUserSelect
+              value={assignedUserId}
+              onChange={(userId, user) => {
+                setAssignedUserId(userId);
+                setSelectedUser(user);
+                setAssignedSchoolId(user?.schoolId?.toString() ?? '');
               }}
-              placeholder="Ad, soyad veya e-posta ile ara..."
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-              required={!assignedUserId}
+              disabled={submitting}
             />
-            {userSearchTerm && !assignedUserId && (
-              <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-auto">
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
-                    <button
-                      key={user.id}
-                      type="button"
-                      onClick={() => {
-                        setAssignedUserId(user.id!.toString());
-                        setAssignedSchoolId(user.schoolId?.toString() ?? '');
-                        setUserSearchTerm('');
-                      }}
-                      className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                    >
-                      {user.firstName} {user.lastName} ({user.email})
-                    </button>
-                  ))
-                ) : (
-                  <p className="px-3 py-2 text-sm text-gray-500">Kullanıcı bulunamadı</p>
-                )}
-              </div>
-            )}
           </div>
           {selectedUser && (
             <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
@@ -207,6 +149,11 @@ export const StockItemAssignmentForm = ({
               {selectedUser.schoolName && (
                 <span className="block text-xs text-gray-500 mt-0.5">
                   Okul: {selectedUser.schoolName}
+                </span>
+              )}
+              {selectedUser.userGroupNames && selectedUser.userGroupNames.length > 0 && (
+                <span className="block text-xs text-gray-500 mt-0.5">
+                  Birim: {selectedUser.userGroupNames.join(', ')}
                 </span>
               )}
               <p className="text-xs text-gray-400 mt-1">

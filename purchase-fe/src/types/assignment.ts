@@ -53,6 +53,13 @@ export interface Assignment {
   returnNotes?: string;
 }
 
+export interface BulkAssignmentOperationResult {
+  successCount: number;
+  failureCount: number;
+  errors: string[];
+  assignments: Assignment[];
+}
+
 export interface ReturnAssignmentRequest {
   photo: File;
   document: File;

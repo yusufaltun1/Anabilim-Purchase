@@ -2,6 +2,7 @@ package com.anabilim.purchase.service.impl;
 
 import com.anabilim.purchase.dto.request.CreateAssignmentDto;
 import com.anabilim.purchase.dto.response.AssignmentDto;
+import com.anabilim.purchase.dto.response.BulkAssignmentOperationResultDto;
 import com.anabilim.purchase.entity.*;
 import com.anabilim.purchase.entity.enums.AssignmentStatus;
 import com.anabilim.purchase.entity.enums.StockItemStatus;
@@ -19,8 +20,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -81,7 +90,7 @@ public class AssignmentServiceImpl implements AssignmentService {
         
         // Kullanıcı zimmeti — konum bilgisi kullanıcının çalışma konumundan (kullanıcı kartı/grup) alınır
         if (dto.getAssignedUserId() != null) {
-            User user = userRepository.findById(dto.getAssignedUserId())
+            User user = userRepository.findByIdWithWorkLocations(dto.getAssignedUserId())
                     .orElseThrow(() -> new ResourceNotFoundException("Kullanıcı bulunamadı: " + dto.getAssignedUserId()));
             assignment.setAssignedUser(user);
         }
@@ -175,7 +184,7 @@ public class AssignmentServiceImpl implements AssignmentService {
     @Override
     @Transactional(readOnly = true)
     public List<AssignmentDto> getAssignmentsByStockItemId(Long stockItemId) {
-        List<Assignment> assignments = assignmentRepository.findByStockItemId(stockItemId);
+        List<Assignment> assignments = assignmentRepository.findByStockItemIdWithDetails(stockItemId);
         return assignmentMapper.toDtoList(assignments);
     }
     
@@ -295,6 +304,108 @@ public class AssignmentServiceImpl implements AssignmentService {
         createStockMovementForReturn(savedAssignment, warehouseId);
         
         return assignmentMapper.toDto(savedAssignment);
+    }
+
+    @Override
+    public BulkAssignmentOperationResultDto bulkReturnAssignments(
+            List<Long> assignmentIds,
+            Long warehouseId,
+            String notes,
+            MultipartFile document,
+            Map<Long, MultipartFile> photosByAssignmentId
+    ) {
+        if (assignmentIds == null || assignmentIds.isEmpty()) {
+            throw new ValidationException("En az bir zimmet seçilmelidir.");
+        }
+        if (warehouseId == null) {
+            throw new ValidationException("İade için hedef depo seçilmelidir.");
+        }
+        if (document == null || document.isEmpty()) {
+            throw new ValidationException("Toplu iade için imzalı form yüklenmelidir.");
+        }
+
+        MultipartFile documentCopy;
+        try {
+            documentCopy = copyMultipartFile(document);
+        } catch (IOException e) {
+            throw new ValidationException("İade formu okunamadı: " + e.getMessage());
+        }
+
+        BulkAssignmentOperationResultDto result = new BulkAssignmentOperationResultDto();
+        result.setErrors(new ArrayList<>());
+        result.setAssignments(new ArrayList<>());
+
+        for (Long assignmentId : assignmentIds) {
+            MultipartFile photo = photosByAssignmentId != null ? photosByAssignmentId.get(assignmentId) : null;
+            if (photo == null || photo.isEmpty()) {
+                result.setFailureCount(result.getFailureCount() + 1);
+                result.getErrors().add("Zimmet #" + assignmentId + ": ürün fotoğrafı eksik.");
+                continue;
+            }
+            try {
+                MultipartFile perAssignmentDocument = copyMultipartFile(documentCopy);
+                AssignmentDto returned = returnAssignment(assignmentId, photo, perAssignmentDocument, notes, warehouseId);
+                result.getAssignments().add(returned);
+                result.setSuccessCount(result.getSuccessCount() + 1);
+            } catch (Exception ex) {
+                result.setFailureCount(result.getFailureCount() + 1);
+                result.getErrors().add("Zimmet #" + assignmentId + ": " + ex.getMessage());
+            }
+        }
+
+        if (result.getSuccessCount() == 0) {
+            throw new ValidationException(String.join(" ", result.getErrors()));
+        }
+
+        return result;
+    }
+
+    private MultipartFile copyMultipartFile(MultipartFile source) throws IOException {
+        byte[] bytes = source.getBytes();
+        String name = source.getName();
+        String originalFilename = source.getOriginalFilename();
+        String contentType = source.getContentType();
+        return new MultipartFile() {
+            @Override
+            public String getName() {
+                return name;
+            }
+
+            @Override
+            public String getOriginalFilename() {
+                return originalFilename;
+            }
+
+            @Override
+            public String getContentType() {
+                return contentType;
+            }
+
+            @Override
+            public boolean isEmpty() {
+                return bytes.length == 0;
+            }
+
+            @Override
+            public long getSize() {
+                return bytes.length;
+            }
+
+            @Override
+            public byte[] getBytes() {
+                return bytes;
+            }
+
+            @Override
+            public InputStream getInputStream() {
+                return new ByteArrayInputStream(bytes);
+            }
+
+            @Override
+            public void transferTo(File dest) throws IOException {
+                Files.write(dest.toPath(), bytes);
+            }
+        };
     }
 
     @Override

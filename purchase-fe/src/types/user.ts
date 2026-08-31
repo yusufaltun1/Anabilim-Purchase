@@ -11,11 +11,15 @@ export interface User {
   workLocationName?: string;
   schoolId?: number | null;
   schoolName?: string;
+  userGroupNames?: string[];
   phone: string;
   roles: string[];
   isActive?: boolean;
   manager?: {
     id: number;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
   };
   microsoft365Id?: string;
   createdAt?: string;

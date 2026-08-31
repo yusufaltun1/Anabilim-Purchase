@@ -2,10 +2,12 @@ package com.anabilim.purchase.service;
 
 import com.anabilim.purchase.dto.request.CreateAssignmentDto;
 import com.anabilim.purchase.dto.response.AssignmentDto;
+import com.anabilim.purchase.dto.response.BulkAssignmentOperationResultDto;
 import com.anabilim.purchase.entity.enums.AssignmentStatus;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 public interface AssignmentService {
     
@@ -59,6 +61,14 @@ public interface AssignmentService {
             MultipartFile document,
             String notes,
             Long warehouseId
+    );
+
+    BulkAssignmentOperationResultDto bulkReturnAssignments(
+            List<Long> assignmentIds,
+            Long warehouseId,
+            String notes,
+            MultipartFile document,
+            Map<Long, MultipartFile> photosByAssignmentId
     );
     
     AssignmentDto markAssignmentAsLost(Long assignmentId);

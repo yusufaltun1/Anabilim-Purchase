@@ -6,6 +6,7 @@ import com.anabilim.purchase.dto.response.AssignmentDto;
 import com.anabilim.purchase.dto.response.AssignmentFormPhotoDto;
 import com.anabilim.purchase.dto.response.AssignmentSignedFormDto;
 import com.anabilim.purchase.dto.response.AttachmentDownloadResult;
+import com.anabilim.purchase.dto.response.BulkAssignmentOperationResultDto;
 import com.anabilim.purchase.entity.enums.AssignmentStatus;
 import com.anabilim.purchase.exception.ValidationException;
 import com.anabilim.purchase.service.AssignmentFormService;
@@ -20,8 +21,12 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -390,6 +395,52 @@ public class AssignmentController {
     public ResponseEntity<ApiResponse<AssignmentDto>> deactivateAssignment(@PathVariable Long id) {
         AssignmentDto deactivatedAssignment = assignmentService.deactivateAssignment(id);
         return ResponseEntity.ok(ApiResponse.success("Zimmet pasif hale getirildi", deactivatedAssignment));
+    }
+
+    // ========== Toplu işlemler ==========
+
+    @PostMapping("/bulk/forms/download")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadBulkAssignmentForms(
+            @RequestBody List<Long> assignmentIds) {
+        AttachmentDownloadResult result = assignmentFormService.downloadBulkAssignmentForms(assignmentIds);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.getFileName() + "\"")
+                .body(result.getResource());
+    }
+
+    @PostMapping("/bulk/return/forms/download")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadBulkReturnForms(
+            @RequestBody List<Long> assignmentIds) {
+        AttachmentDownloadResult result = assignmentFormService.downloadBulkReturnForms(assignmentIds);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(result.getContentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.getFileName() + "\"")
+                .body(result.getResource());
+    }
+
+    @PostMapping(value = "/bulk/return", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<BulkAssignmentOperationResultDto>> bulkReturnAssignments(
+            @RequestParam("assignmentIds") List<Long> assignmentIds,
+            @RequestParam("warehouseId") Long warehouseId,
+            @RequestParam(value = "notes", required = false) String notes,
+            @RequestParam("document") MultipartFile document,
+            HttpServletRequest request) {
+        Map<Long, MultipartFile> photos = new HashMap<>();
+        if (request instanceof MultipartHttpServletRequest multipart) {
+            for (Long assignmentId : assignmentIds) {
+                MultipartFile photo = multipart.getFile("photo_" + assignmentId);
+                if (photo != null && !photo.isEmpty()) {
+                    photos.put(assignmentId, photo);
+                }
+            }
+        }
+        BulkAssignmentOperationResultDto result = assignmentService.bulkReturnAssignments(
+                assignmentIds, warehouseId, notes, document, photos);
+        String message = result.getFailureCount() > 0
+                ? result.getSuccessCount() + " zimmet iade edildi, " + result.getFailureCount() + " kayıt başarısız."
+                : result.getSuccessCount() + " zimmet başarıyla iade edildi.";
+        return ResponseEntity.ok(ApiResponse.success(message, result));
     }
     
     // ========== Otomatik İşlemler ==========

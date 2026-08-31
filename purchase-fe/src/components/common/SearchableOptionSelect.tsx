@@ -83,7 +83,11 @@ export function SearchableOptionSelect<T extends string | number>({
             leaveTo="opacity-0"
             afterLeave={() => setQuery('')}
           >
-            <Combobox.Options className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm">
+            <Combobox.Options
+              anchor="bottom start"
+              modal={false}
+              className="z-[100] w-[var(--input-width)] max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm [--anchor-gap:4px]"
+            >
               {filtered.length === 0 ? (
                 <div className="py-2 px-4 text-gray-500 text-sm">Sonuç bulunamadı.</div>
               ) : (

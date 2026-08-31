@@ -34,6 +34,7 @@ type UserOptionWithLocation = UserOption & {
   workLocationName?: string;
   schoolName?: string;
   schoolId?: number | null;
+  userGroupNames?: string[];
 };
 
 function toIsoDate(date: Date | null): string | undefined {
@@ -86,6 +87,7 @@ export function StockItemAssignmentForm({
             workLocationName: u.workLocationName,
             schoolName: u.schoolName,
             schoolId: u.schoolId,
+            userGroupNames: u.userGroupNames,
           }))
         )
       )
@@ -281,6 +283,11 @@ export function StockItemAssignmentForm({
               {selectedUser.schoolName ? (
                 <Text variant="caption" color={colors.textSecondary}>
                   Okul: {selectedUser.schoolName}
+                </Text>
+              ) : null}
+              {selectedUser.userGroupNames && selectedUser.userGroupNames.length > 0 ? (
+                <Text variant="caption" color={colors.textSecondary}>
+                  Birim: {selectedUser.userGroupNames.join(', ')}
                 </Text>
               ) : null}
               <Text variant="caption" color={colors.textSecondary}>

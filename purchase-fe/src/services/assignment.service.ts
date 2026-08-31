@@ -8,6 +8,7 @@ import {
   CreateAssignmentRequest,
   TransferRequest,
   ReturnAssignmentRequest,
+  BulkAssignmentOperationResult,
   AssignmentStatus 
 } from '../types/assignment';
 
@@ -165,6 +166,11 @@ class AssignmentService {
 
   async getActiveAssignmentsByUserId(userId: number): Promise<Assignment[]> {
     const response = await axiosInstance.get(`${this.baseUrl}/user/${userId}/active`);
+    return this.parseAssignmentList(response.data);
+  }
+
+  async getAssignmentsByUserId(userId: number): Promise<Assignment[]> {
+    const response = await axiosInstance.get(`${this.baseUrl}/user/${userId}`);
     return this.parseAssignmentList(response.data);
   }
 
@@ -548,6 +554,71 @@ class AssignmentService {
     }
     const blob = await response.blob();
     return URL.createObjectURL(blob);
+  }
+
+  async downloadBulkAssignmentForms(assignmentIds: number[]): Promise<void> {
+    const response = await axiosInstance.post(`${this.baseUrl}/bulk/forms/download`, assignmentIds, {
+      responseType: 'blob',
+    });
+    this.triggerBlobDownload(response.data as Blob, 'Zimmet_Formlari.zip');
+  }
+
+  async downloadBulkReturnForms(assignmentIds: number[]): Promise<void> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/bulk/return/forms/download`, {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(assignmentIds),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error((data as { message?: string }).message || 'İade formu indirilemedi');
+    }
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let fileName = 'Zimmet_Iade_Formu_Toplu.xlsx';
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (match) fileName = match[1].trim();
+    }
+    this.triggerBlobDownload(blob, fileName);
+  }
+
+  async bulkReturnAssignments(
+    assignmentIds: number[],
+    warehouseId: number,
+    notes: string | undefined,
+    document: File,
+    photos: { assignmentId: number; photo: File }[]
+  ): Promise<BulkAssignmentOperationResult> {
+    const formData = new FormData();
+    formData.append('warehouseId', String(warehouseId));
+    formData.append('document', document);
+    assignmentIds.forEach((id) => formData.append('assignmentIds', String(id)));
+    if (notes?.trim()) {
+      formData.append('notes', notes.trim());
+    }
+    for (const item of photos) {
+      formData.append(`photo_${item.assignmentId}`, item.photo);
+    }
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}${this.baseUrl}/bulk/return`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        (payload as { message?: string }).message || 'Toplu iade tamamlanamadı'
+      );
+    }
+    const result =
+      (payload as { data?: BulkAssignmentOperationResult }).data ??
+      (payload as BulkAssignmentOperationResult);
+    return result;
   }
 }
 

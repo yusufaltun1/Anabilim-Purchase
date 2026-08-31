@@ -5,9 +5,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -54,6 +57,9 @@ public class UserDto {
 
     private String schoolName;
 
+    /** Organizasyon şemasındaki kullanıcı grupları (birim) */
+    private List<String> userGroupNames = new ArrayList<>();
+
     private String phone;
 
     private UserManagerDto manager;
@@ -82,6 +88,7 @@ public class UserDto {
     }
     
     @Data
+    @EqualsAndHashCode(callSuper = true)
     @NoArgsConstructor
     public static class UserManagerDto extends UserBasicDto {
         private String department;

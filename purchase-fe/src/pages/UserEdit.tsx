@@ -13,9 +13,6 @@ import {
   resolveProductLocationLevels,
   resolveUserWorkLocationPayload,
 } from '../utils/locationHierarchy';
-import { assignmentService } from '../services/assignment.service';
-import { Assignment } from '../types/assignment';
-import { AssignmentManageSection } from '../components/product/AssignmentManageSection';
 
 const normalizePlaceholder = (value?: string | null) => {
   if (!value) return '';
@@ -34,8 +31,6 @@ export const UserEdit = () => {
   const [locationRootId, setLocationRootId] = useState<number | null>(null);
   const [locationMiddleId, setLocationMiddleId] = useState<number | null>(null);
   const [locationLeafId, setLocationLeafId] = useState<number | null>(null);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
   const [formData, setFormData] = useState<UpdateUserRequest>({
     id: parseInt(id!),
     email: '',
@@ -48,30 +43,6 @@ export const UserEdit = () => {
     roles: [],
     manager: null,
   });
-
-  useEffect(() => {
-    console.log('Current Form Data:', formData); // Debug için
-  }, [formData]);
-
-  const loadAssignments = async (userId: number) => {
-    try {
-      setAssignmentsLoading(true);
-      const list = await assignmentService.getActiveAssignmentsByUserId(userId);
-      setAssignments(list);
-    } catch (err) {
-      console.error('Error loading user assignments:', err);
-      setAssignments([]);
-    } finally {
-      setAssignmentsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const userId = parseInt(id || '', 10);
-    if (!Number.isNaN(userId) && userId > 0) {
-      loadAssignments(userId);
-    }
-  }, [id]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -189,8 +160,8 @@ export const UserEdit = () => {
         schoolTouched: true,
         workLocationHierarchyTouched: true,
       });
-      navigate('/users', { 
-        state: { message: 'Kullanıcı başarıyla güncellendi!' }
+      navigate(`/users/${formData.id}`, {
+        state: { message: 'Kullanıcı başarıyla güncellendi!' },
       });
     } catch (err) {
       console.error('Error updating user:', err);
@@ -221,6 +192,15 @@ export const UserEdit = () => {
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center">
             <div>
+              <p className="text-sm text-gray-500 mb-1">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/users/${id}`)}
+                  className="hover:text-indigo-600"
+                >
+                  ← Kullanıcı detayı
+                </button>
+              </p>
               <h1 className="text-3xl font-bold text-gray-900">Kullanıcı Düzenle</h1>
               <p className="mt-2 text-gray-600">
                 Kullanıcı bilgilerini güncelleyin
@@ -496,7 +476,7 @@ export const UserEdit = () => {
             <div className="flex justify-end space-x-3">
               <button
                 type="button"
-                onClick={() => navigate('/users')}
+                onClick={() => navigate(`/users/${id}`)}
                 className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 İptal
@@ -512,14 +492,6 @@ export const UserEdit = () => {
               </button>
             </div>
           </form>
-
-          <AssignmentManageSection
-            title="Aktif Zimmetler"
-            assignments={assignments}
-            loading={assignmentsLoading}
-            showProductColumn
-            onRefresh={() => loadAssignments(parseInt(id!, 10))}
-          />
         </div>
       </div>
     </div>
